@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<!-- Local mirror of btcsellput.com; reviewed source for Flask and static crypto-only deployments. -->
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sell Put Monitor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23f7931a'/%3E%3Cpath d='M18 20h28M18 44h28M24 13v38M40 13v38' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0" integrity="sha384-cVMg8E3QFwTvGCDuK+ET4PD341jF3W8nO1auiXfuZNQkzbUUiBGLsIQUE+b1mxws" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js" integrity="sha384-stKllnUqA9AD0gsKCuUtf5XlqAW7PwIgDagoNsTWkjkBmJ/GZ/uHTgEBxdLV2VSK" crossorigin="anonymous"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{color-scheme:dark;--bg:#131722;--panel:#1e222d;--line:#2a2e39;--muted:#787b86;--text:#d1d4dc;--blue:#2962ff;--green:#26a69a;--amber:#ffa726;--red:#ef5350}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+button,select,input{font:inherit}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #7da0ff;outline-offset:2px}
+.bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:4px 12px;border-bottom:1px solid var(--line);height:36px}
+.bar h1{font-size:.95rem;color:var(--text);font-weight:500;text-align:center}
+.bar .right{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0}
+.bar .ts{font-size:.68rem;color:var(--muted);white-space:nowrap}
+.lang{justify-self:start;background:var(--line);color:var(--text);border:1px solid #363a45;padding:3px 10px;border-radius:3px;font-size:.72rem;cursor:pointer}
+.nav{display:flex;align-items:center;border:1px solid #363a45;border-radius:3px;overflow:hidden;background:#171b25}
+.nav a{color:var(--muted);text-decoration:none;font-size:.7rem;padding:3px 8px;border-right:1px solid #363a45;background:transparent;white-space:nowrap}
+.nav a:last-child{border-right:0}
+.nav a:hover{color:var(--text);background:#242936}
+.nav a.on{color:#fff;background:var(--blue)}
+.wrap{padding:14px 16px;max-width:1400px;margin:0 auto}
+.market-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.asset-switch{display:inline-flex;border:1px solid #363a45;border-radius:4px;overflow:hidden;background:#171b25}
+.asset-switch button{min-width:58px;height:30px;padding:0 12px;border:0;border-right:1px solid #363a45;background:transparent;color:var(--muted);font-size:.75rem;font-weight:650;cursor:pointer}
+.asset-switch button:last-child{border-right:0}
+.asset-switch button:hover{color:var(--text);background:#242936}
+.asset-switch button.on{background:var(--blue);color:#fff}
+.stock-search{display:none;align-items:center;gap:6px;flex-wrap:wrap}
+.stock-search.on{display:flex}
+.stock-search input{width:150px;height:30px;padding:0 9px;border:1px solid #363a45;border-radius:3px;background:#171b25;color:var(--text);font-size:.72rem;text-transform:uppercase}
+.stock-search button{height:30px;padding:0 11px;border:1px solid var(--blue);border-radius:3px;background:var(--blue);color:#fff;font-size:.7rem;cursor:pointer}
+.stock-search-error{font-size:.64rem;color:#ff8a80}
+.stock-search-error:empty{display:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.price{font-size:1.45rem;font-weight:720;letter-spacing:-.02em}
+.spot-label{font-size:.72rem;color:var(--muted)}
+.refresh{background:transparent;color:var(--muted);border:1px solid #363a45;padding:4px 10px;border-radius:3px;font-size:.7rem;cursor:pointer}
+.refresh:hover{color:var(--text);border-color:#596070}
+.market-meta{font-size:.66rem;color:var(--muted);margin:0 0 12px 1px;min-height:1em}
+.market-meta.delayed{color:var(--amber)}
+.risk-note{display:none;margin:0 0 14px;padding:9px 11px;border:1px solid #5b3d24;border-left:3px solid var(--amber);background:#211b16;color:#d8c3ab;font-size:.69rem;line-height:1.5}
+.action-banner{border-radius:5px;padding:11px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.action-banner .act-badge{font-size:.8rem;font-weight:720;white-space:nowrap;padding:4px 10px;border-radius:3px}
+.action-banner .act-reason{font-size:.73rem;color:var(--text);line-height:1.45;flex:1}
+.action-banner.sell{background:#0d2818;border:1px solid var(--green)}
+.action-banner.sell .act-badge{background:var(--green);color:#06130e}
+.action-banner.wait{background:#2a2000;border:1px solid var(--amber)}
+.action-banner.wait .act-badge{background:var(--amber);color:#1b1200}
+.action-banner.no{background:#2a1215;border:1px solid var(--red)}
+.action-banner.no .act-badge{background:var(--red);color:#fff}
+.price-chart-panel{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:10px 12px 7px;margin-bottom:14px}
+.price-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:5px}
+.price-chart-head h2{font-size:.82rem;font-weight:650;color:var(--text);line-height:1.4}
+.price-chart-meta{display:block;font-size:.62rem;color:var(--muted);margin-top:1px}
+.timeframe-switch{display:inline-flex;flex-shrink:0;border:1px solid #363a45;border-radius:3px;overflow:hidden;background:#171b25}
+.timeframe-switch button{min-width:43px;height:26px;padding:0 8px;border:0;border-right:1px solid #363a45;background:transparent;color:var(--muted);font-size:.65rem;font-weight:600;cursor:pointer}
+.timeframe-switch button:last-child{border-right:0}
+.timeframe-switch button:hover{color:var(--text);background:#242936}
+.timeframe-switch button.on{background:#2a2e39;color:#fff;box-shadow:inset 0 -2px 0 var(--blue)}
+.price-chart-stage{height:320px;position:relative;min-width:0}
+.price-chart-canvas{width:100%;height:100%}
+.price-chart-state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.72rem;background:var(--panel);z-index:2}
+.price-chart-state.error{color:#ff8a80}
+.price-chart-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:20px;padding-top:2px;font-size:.59rem;color:var(--muted)}
+.price-chart-foot .stale{color:var(--amber)}
+.tv-credit{color:var(--muted);text-decoration:none;white-space:nowrap}
+.tv-credit:hover{color:var(--text)}
+.chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.chart-grid.count-1{grid-template-columns:1fr}
+.chart-grid.count-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.chart-box{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:10px 12px;min-width:0}
+.chart-box h3{font-size:.75rem;color:var(--text);font-weight:600;margin-bottom:6px}
+.chart-box canvas{width:100%!important;height:210px!important}
+.tip{position:relative;cursor:help;border-bottom:1px dashed #4a4e59}
+.tip .tt{display:none}
+.hover-tooltip{visibility:hidden;position:fixed;z-index:1000;left:0;top:0;width:min(250px,calc(100vw - 24px));padding:7px 9px;border:1px solid #4a4e59;border-radius:4px;background:#2a2e39;box-shadow:0 5px 18px rgba(0,0,0,.32);color:var(--text);font-size:.67rem;font-weight:400;line-height:1.45;text-align:left;white-space:normal;overflow-wrap:anywhere;pointer-events:none;opacity:0;transition:opacity .12s}
+.hover-tooltip.on{visibility:visible;opacity:1}
+.snapshot{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:10px 12px;margin-bottom:14px}
+.snapshot h2{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:.8rem;color:var(--text);font-weight:600;margin-bottom:7px}
+.snapshot .meta{font-size:.63rem;color:var(--muted);font-weight:400}
+.snapshot select{background:var(--bg);border:1px solid var(--line);color:var(--text);padding:2px 6px;border-radius:3px;font-size:.78rem;font-weight:600}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th{color:var(--muted);font-size:.66rem;font-weight:500;text-align:right;padding:5px 7px;border-bottom:1px solid var(--line)}
+td{padding:5px 7px;text-align:right;font-size:.73rem;border-bottom:1px solid #202530}
+th:first-child,td:first-child{text-align:left}
+.cell-note{display:block;font-size:.58rem;color:var(--muted);font-weight:400;margin-top:1px}
+.quote-depth{display:inline-block;white-space:nowrap;color:var(--text);font-weight:600}
+button.quote-depth{padding:1px 0;border:0;border-bottom:1px dotted #4a4e59;background:transparent;font:inherit;font-weight:600;line-height:1.25;cursor:pointer}
+button.quote-depth.idle{color:var(--muted);font-weight:500}
+button.quote-depth:hover{color:var(--text);border-color:var(--muted)}
+button.quote-depth:focus-visible{outline:1px solid var(--blue);outline-offset:3px}
+button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
+.quote-depth.stale{color:var(--amber)}
+.quote-detail-toggle{display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:1px 0;border:0;border-bottom:1px dotted #4a4e59;background:transparent;color:var(--muted);font-size:.58rem;cursor:pointer}
+.quote-detail-toggle:hover{color:var(--text);border-color:var(--muted)}
+.quote-detail-toggle.warning{color:var(--amber);border-color:#7a5428;font-weight:650}
+.quote-detail-toggle.danger{color:#ff8a80;border-color:#7a3d3d;font-weight:650}
+.quote-detail-chevron{display:inline-block;transition:transform .15s ease}
+.quote-detail-toggle[aria-expanded="true"] .quote-detail-chevron{transform:rotate(90deg)}
+.quote-detail-row[hidden]{display:none}
+.quote-detail-row td{padding:0;border-bottom:1px solid #303541;background:#171b25;text-align:left}
+.quote-detail-inner{padding:9px 11px;white-space:normal}
+.quote-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:8px 18px}
+.quote-detail-item span{display:block;color:var(--muted);font-size:.58rem;margin-bottom:2px}
+.quote-detail-item strong{display:block;color:var(--text);font-size:.71rem;font-weight:650}
+.quote-detail-item strong.warning{color:var(--amber)}
+.quote-detail-item strong.danger{color:#ff8a80}
+.quote-detail-note{margin-top:7px;color:var(--muted);font-size:.58rem;line-height:1.45;white-space:normal}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filters label{font-size:.7rem;color:var(--muted)}
+.filters select,.filters input{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:4px 7px;border-radius:3px;font-size:.7rem}
+.filters input{width:72px}
+.call-strike-range{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+.call-strike-range[hidden]{display:none}
+.filters .range-field{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.filters .call-strike-range input{width:96px}
+.state{font-size:.75rem;color:var(--muted);padding:14px 0}
+.error{color:#ff8a80}
+@media(max-width:850px){.chart-grid,.chart-grid.count-2{grid-template-columns:1fr}.chart-box canvas{height:190px!important}}
+@media(max-width:600px){
+  .bar{grid-template-columns:auto 1fr;height:auto;min-height:66px;padding:5px 10px;row-gap:5px}
+  .bar h1{font-size:.82rem;text-align:right}.bar .right{grid-column:1/-1;width:100%;justify-content:center}.bar .ts{display:none}
+  .nav{display:grid;grid-template-columns:1fr 1fr;width:100%}.nav a{text-align:center;padding:5px 8px}
+  .wrap{padding:12px 10px}.market-line{gap:9px}.asset-switch{order:0;width:100%}
+  .asset-switch button{flex:1;height:34px}.price{font-size:1.3rem}
+  .stock-search{order:1;width:100%}.stock-search input{flex:1;width:auto;height:34px}.stock-search button{height:34px}
+  .stock-search-error{flex:0 0 100%}.price,.spot-label,.refresh{order:2}
+  .action-banner{align-items:flex-start;gap:8px;padding:10px}.action-banner .act-badge{font-size:.72rem}
+  .price-chart-panel{padding:9px 7px 5px}.price-chart-head{display:block;margin:0 3px 5px}
+  .timeframe-switch{display:flex;width:100%;margin-top:7px}.timeframe-switch button{flex:1;min-width:0;height:29px;padding:0 4px}
+  .price-chart-stage{height:250px}.price-chart-foot{padding:3px 3px 0}
+  .snapshot{padding:9px}.filters{gap:6px}.call-strike-range{gap:6px}.quote-detail-grid{grid-template-columns:repeat(2,minmax(90px,1fr))}.quote-detail-inner{position:sticky;left:0;width:min(560px,calc(100vw - 40px))}.quote-detail-toggle{min-height:28px}.table-scroll:after{content:attr(data-scroll-hint);display:block;padding-top:4px;color:var(--muted);font-size:.58rem;text-align:right}
+  .hover-tooltip{left:12px;right:12px;top:auto;bottom:12px;width:auto;max-width:none}
+}
+</style>
+
+<style id="productionMarketScope">
+  #stockTab, #stockSearch { display: none !important; }
+</style>
+<script>window.MANGO_MARKET_SCOPE="crypto-only";</script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; connect-src 'self' https://yvpgdnbcjgxpjqenhvuo.supabase.co; font-src 'self'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; upgrade-insecure-requests">
+</head>
+<body>
+<header class="bar">
+  <button class="lang" id="langBtn" type="button">EN</button>
+  <h1 id="pageTitle">BTC Sell Put</h1>
+  <div class="right">
+    <nav class="nav" aria-label="Option strategy">
+      <a id="sellPutNav" href="/btc-sell-put-site/options/">Sell Put</a>
+      <a id="buyCallNav" href="/btc-sell-put-site/buy-call/">Buy Call</a>
+    </nav>
+    <span class="ts" id="ts">loading...</span>
+  </div>
+</header>
+<main class="wrap">
+  <div class="market-line">
+    <div class="asset-switch" role="tablist" aria-label="Underlying asset">
+      <button type="button" class="on" data-asset="BTC" role="tab" aria-selected="true">BTC</button>
+      <button type="button" data-asset="ETH" role="tab" aria-selected="false">ETH</button>
+      <button type="button" data-asset="HYPE" role="tab" aria-selected="false">HYPE</button>
+      <button type="button" id="stockTab" data-market="us_stock" role="tab" aria-selected="false">美股</button>
+    </div>
+    <form class="stock-search" id="stockSearch" novalidate>
+      <label class="sr-only" id="stockSymbolLabel" for="stockSymbol">输入美股代码</label>
+      <input id="stockSymbol" name="ticker" value="AAPL" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-labelledby="stockSymbolLabel">
+      <button id="stockSearchBtn" type="submit">查看</button>
+      <span class="stock-search-error" id="stockSearchError" role="alert"></span>
+    </form>
+    <span class="price" id="spotPrice">—</span>
+    <span class="spot-label" id="spotLabel">BTC Spot</span>
+    <button class="refresh" id="refreshBtn" type="button">Refresh</button>
+  </div>
+  <div class="market-meta" id="marketMeta"></div>
+  <section class="risk-note" id="buyCallRisk" aria-live="polite"></section>
+
+  <section class="action-banner" id="actionBanner" style="display:none" aria-live="polite"></section>
+
+  <section class="price-chart-panel" id="priceChartPanel" aria-labelledby="priceChartTitle">
+    <div class="price-chart-head">
+      <div>
+        <h2 id="priceChartTitle">BTC / USDC 永续价格</h2>
+        <span class="price-chart-meta" id="priceChartMeta">Deribit · 1h</span>
+      </div>
+      <div class="timeframe-switch" id="priceTimeframes" role="group" aria-label="K 线周期">
+        <button type="button" data-timeframe="15m" aria-pressed="false">15m</button>
+        <button type="button" class="on" data-timeframe="1h" aria-pressed="true">1h</button>
+        <button type="button" data-timeframe="4h" aria-pressed="false">4h</button>
+        <button type="button" data-timeframe="1d" aria-pressed="false">1d</button>
+        <button type="button" data-timeframe="1w" aria-pressed="false">1w</button>
+      </div>
+    </div>
+    <div class="price-chart-stage">
+      <div class="price-chart-canvas" id="priceChart"></div>
+      <div class="price-chart-state" id="priceChartState" aria-live="polite">正在加载 K 线…</div>
+    </div>
+    <div class="price-chart-foot">
+      <span id="priceChartFreshness"></span>
+      <a class="tv-credit" href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a>
+    </div>
+  </section>
+
+  <section class="chart-grid" id="chartGrid" style="display:none">
+    <div class="chart-box" id="chartBox0" style="display:none"><h3></h3><canvas id="marketChart0"></canvas></div>
+    <div class="chart-box" id="chartBox1" style="display:none"><h3></h3><canvas id="marketChart1"></canvas></div>
+    <div class="chart-box" id="chartBox2" style="display:none"><h3></h3><canvas id="marketChart2"></canvas></div>
+  </section>
+
+  <section class="snapshot" id="snapshot"></section>
+
+  <section class="filters" aria-label="Option filters">
+    <label for="fYield" id="labelYield">Min Yield%</label>
+    <input id="fYield" type="number" value="5" min="0" step="1">
+    <label for="fDays" id="labelDays">Max Days</label>
+    <input id="fDays" type="number" value="0" min="0" placeholder="0=all">
+    <label for="fStrike" id="labelStrike">Strike</label>
+    <select id="fStrike">
+      <option value="all" selected>All OTM</option>
+      <option value="near">Near ATM (±20%)</option>
+    </select>
+    <div class="call-strike-range" id="callStrikeRange" hidden>
+      <label class="range-field" for="fMinStrike">
+        <span id="labelMinStrike">最低 Strike</span>
+        <input id="fMinStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="不限">
+      </label>
+      <label class="range-field" for="fMaxStrike">
+        <span id="labelMaxStrike">最高 Strike</span>
+        <input id="fMaxStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="不限">
+      </label>
+    </div>
+    <label for="fSort" id="labelSort">Sort</label>
+    <select id="fSort">
+      <option value="yield">Yield ↓</option>
+      <option value="strike">Strike ↓</option>
+      <option value="days">Days ↑</option>
+    </select>
+  </section>
+  <section id="content" class="state" aria-live="polite">Loading data...</section>
+</main>
+<div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
+<script>
+const ASSETS={
+  BTC:{priceDecimals:0,strikeDecimals:0,rvDays:30},
+  ETH:{priceDecimals:2,strikeDecimals:2,rvDays:30},
+  HYPE:{priceDecimals:3,strikeDecimals:2,rvDays:14}
+};
+const STRATEGY_MODE=/\/buy-call\/?$/.test(window.location.pathname)?"buy_call":"sell_put";
+const CHART_COLORS={dvol:"#ff6d00",fng:"#26a69a",vrp:"#e040fb",price:"#7da0ff",rv:"#ffd600"};
+const $=id=>document.getElementById(id);
+let DATA=null;
+let currentAsset="BTC";
+let currentMarket="crypto";
+let currentStockSymbol="AAPL";
+let requestVersion=0;
+let requestController=null;
+let histCharts={};
+let LAST_TIMING=null;
+let LAST_HISTORY=null;
+let PRICE_DATA=null;
+let DATA_RECEIVED_AT=0;
+let currentTimeframe="1h";
+let priceRequestVersion=0;
+let priceRequestController=null;
+let priceChart=null;
+let priceSeries=null;
+let priceChartIdentity=null;
+let priceResizeObserver=null;
+const MAX_QUOTE_DEPTH_CONCURRENCY=3;
+let quoteDepthGeneration=0;
+let quoteDepthState=null;
+let liveQuoteRenderTimer=null;
+let activeHoverTip=null;
+let _lang="zh";
+
+const STRINGS={
+  zh:{
+    langBtn:"EN",refresh:"刷新",loading:"正在加载真实期权链…",
+    stockLoading:"正在加载延迟期权链…",fetchError:"数据加载失败",
+    usStocks:"美股",stockPlaceholder:"输入代码，如 AAPL",stockSearch:"查看",
+    stockInvalid:"请输入正确的美股代码",stockPrice:"股价",stockSpot:"股价",
+    stockNotFound:"没有找到 {symbol} 的美股期权数据",
+    stockDelayed:"延迟行情（至少 {minutes} 分钟；休市时为上一交易时段）",
+    stockDelayedUnknown:"延迟行情（休市时为上一交易时段）",
+    stockDataTime:"快照生成于 {time}",retrievedAt:"系统获取于 {time}",
+    stockMarketData:"美股延迟行情",
+    researchOnly:"研究用，不用于下单",physical:"美式行权 · 股票实物交割",
+    perContract:"每张",sharesPerContract:"每张 {count} 股",bidPerShare:"Bid / 股",
+    contractPremium:"每张权利金",
+    minYield:"最低年化%",maxDays:"最长天数",strike:"Strike",sort:"排序",
+    allOtm:"OTM（Strike ≥ 现价 50%）",nearAtm:"近 ATM (±20%)",yieldDesc:"收益 ↓",strikeDesc:"Strike ↓",daysDesc:"天数 ↑",
+    cash:"USDC 现金结算",bestBid:"顶档 Bid",contract:"合约乘数",minimum:"最小交易",obligation:"最小资金义务",
+    snapshot:"各到期日年化收益",baseline:"基准 IV",noStrike:"这个 Strike 暂无报价",
+    noOptions:"没有符合筛选条件的 Put",expiry:"到期日",days:"天数",bid:"Bid / 单位",
+    sellPutNav:"Sell Put",buyCallNav:"Buy Call",
+    buyCallRisk:"买入 Call 的全部权利金都可能损失；标的上涨也不保证盈利，只有到期价高于回本价才会有到期利润。以下回本价未计交易费；Ask 深度金额仅为当前快照，不保证实际成交。",
+    callQuoteBlocked:"报价已超过 120 秒，只能查看；请手动刷新后再判断。",
+    stockCallBlocked:"美股为延迟研究行情，只能查看，不可据此下单。",
+    maxPremium:"最小订单成本上限 $",allStrikes:"全部有 Ask 的 Strike",minStrike:"最低 Strike",maxStrike:"最高 Strike",
+    unlimited:"不限",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",moveAsc:"所需涨幅 ↑",premiumAsc:"订单成本 ↑",
+    callSnapshot:"各到期日成本与回本点",noCalls:"没有符合筛选条件的 Call",
+    ask:"Ask / 单位",askPerShare:"Ask / 股",bestAsk:"顶档 Ask",
+    topAskDepth:"Ask 深度",topBidDepth:"Bid 深度",depthStale:"旧快照",
+    depthValueTip:"顶档报价 × 顶档数量的权利金总值；仅为当前快照，不保证全部成交。",
+    depthView:"查看盘口",depthLoading:"查询中…",depthRetry:"重试",
+    depthViewTip:"点击查询当前顶档盘口深度",depthRefreshTip:"点击更新盘口",
+    depthRetryTip:"查询失败，点击重试",
+    depthPriceChanged:"盘口已变化，请重查",depthUnavailable:"暂无可成交盘口",
+    bidPrice:"Bid",markPrice:"Mark",theoPrice:"Theo",askPrice:"Ask",spread:"Spread",
+    quoteDetails:"报价详情",viewQuote:"查看报价",expandQuoteDetails:"展开报价详情",collapseQuoteDetails:"收起报价详情",
+    noBidWarning:"无有效 Bid",crossedWarning:"Bid 高于 Ask",quoteUnavailableWarning:"Bid 不可用",
+    quoteDetailNote:"Spread = Ask − Bid；百分比相对 Bid/Ask 中间价，达到 {threshold}% 时提醒。Mark / Theo 是参考价，不是可成交价；深度金额仅为当前快照，不保证实际成交。",
+    minCost:"最小订单成本",maxLoss:"权利金风险（未计费）",costRisk:"最小订单成本 / 权利金风险（未计费）",breakeven:"到期回本价",
+    requiredMove:"较现价需上涨",moneyness:"距现价",
+    breakevenTip:"Strike + Ask；仅表示到期回本点，未计交易费。",
+    callDeltaTip:"Call Delta 近似值；数值越高，价格对标的变动通常越敏感。",
+    scrollHint:"左右滑动查看更多",narrowFilters:"仅显示前 {count} 条，请缩小筛选范围查看其余合约。",
+    annualYield:"条件年化",dvol:"DVOL (90d)",fng:"市场 Fear & Greed (90d)",
+    vrp:"VRP：IV - 30d RV",price:"价格历史",rv:"实现波动率",
+    dvolTip:"Deribit 标的波动率指数；越高表示市场预期波动越大。",
+    fngTip:"全市场恐惧贪婪指数，不是单一标的专属信号。",
+    vrpTip:"同一天的隐含波动率减去滚动实现波动率；正值越大，期权溢价相对更高。",
+    priceTip:"Deribit 指数价格历史。",rvTip:"由指数日收益计算的滚动年化实现波动率。",
+    perpetualPrice:"永续价格",chartLoading:"正在加载 K 线…",chartError:"K 线加载失败",
+    chartEmpty:"暂无 K 线数据",chartDelayed:"数据可能延迟",latestCandle:"最新 K 线",
+    candleCount:"根 K 线",timeframeLabel:"K 线周期",
+    quoteExpired:"报价已过期",quoteExpiredReason:"报价超过 120 秒，只能查看，不能据此决策。",
+    dataUnavailable:"数据不可用",dataUnavailableReason:"最新期权链加载失败，旧报价已清空，不能据此决策。"
+  },
+  en:{
+    langBtn:"中",refresh:"Refresh",loading:"Loading live option chain…",
+    stockLoading:"Loading delayed option chain…",fetchError:"Failed to load data",
+    usStocks:"US Stocks",stockPlaceholder:"Ticker, e.g. AAPL",stockSearch:"View",
+    stockInvalid:"Enter a valid U.S. ticker",stockPrice:"stock price",stockSpot:"Stock",
+    stockNotFound:"No U.S. option data found for {symbol}",
+    stockDelayed:"Delayed data (at least {minutes} minutes; prior session when closed)",
+    stockDelayedUnknown:"Delayed data (prior session when closed)",
+    stockDataTime:"Snapshot generated {time}",retrievedAt:"Retrieved at {time}",
+    stockMarketData:"U.S. delayed market data",
+    researchOnly:"Research only, not for trading",physical:"American exercise · physical share settlement",
+    perContract:"per contract",sharesPerContract:"{count} shares per contract",bidPerShare:"Bid / share",
+    contractPremium:"Premium per contract",
+    minYield:"Min Yield%",maxDays:"Max Days",strike:"Strike",sort:"Sort",
+    allOtm:"OTM (strike ≥ 50% spot)",nearAtm:"Near ATM (±20%)",yieldDesc:"Yield ↓",strikeDesc:"Strike ↓",daysDesc:"Days ↑",
+    cash:"USDC cash-settled",bestBid:"Top-of-book bid",contract:"Contract multiplier",minimum:"Minimum",obligation:"Min obligation",
+    snapshot:"Annualized yield by expiry",baseline:"Baseline IV",noStrike:"No quote for this strike",
+    noOptions:"No puts match the filters",expiry:"Expiry",days:"Days",bid:"Bid / unit",
+    sellPutNav:"Sell Put",buyCallNav:"Buy Call",
+    buyCallRisk:"The entire Call premium can be lost. A rise in the underlying does not guarantee a profit; at expiry, price must exceed breakeven. Breakevens below exclude trading fees; ask depth value is a snapshot, not guaranteed execution.",
+    callQuoteBlocked:"The quote is over 120 seconds old. View only; refresh manually before making a decision.",
+    stockCallBlocked:"U.S. stock data is delayed and for research only; do not use it to place an order.",
+    maxPremium:"Max minimum-order cost $",allStrikes:"All strikes with an ask",minStrike:"Min Strike",maxStrike:"Max Strike",
+    unlimited:"No limit",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",moveAsc:"Required move ↑",premiumAsc:"Order cost ↑",
+    callSnapshot:"Cost and breakeven by expiry",noCalls:"No calls match the filters",
+    ask:"Ask / unit",askPerShare:"Ask / share",bestAsk:"Top-of-book ask",
+    topAskDepth:"Ask depth",topBidDepth:"Bid depth",depthStale:"old snapshot",
+    depthValueTip:"Top-of-book price × size, shown as total premium value; snapshot only, not guaranteed execution.",
+    depthView:"View book",depthLoading:"Loading…",depthRetry:"Retry",
+    depthViewTip:"Click to query current top-of-book depth",depthRefreshTip:"Click to update book",
+    depthRetryTip:"Query failed; click to retry",
+    depthPriceChanged:"quote changed; query again",depthUnavailable:"no executable top of book",
+    bidPrice:"Bid",markPrice:"Mark",theoPrice:"Theo",askPrice:"Ask",spread:"Spread",
+    quoteDetails:"Quote details",viewQuote:"View quotes",expandQuoteDetails:"Expand quote details",collapseQuoteDetails:"Collapse quote details",
+    noBidWarning:"No valid bid",crossedWarning:"Bid above Ask",quoteUnavailableWarning:"Bid unavailable",
+    quoteDetailNote:"Spread = Ask − Bid, divided by the Bid/Ask midpoint; warnings begin at {threshold}%. Mark / Theo is a reference, not an executable price; depth value is a snapshot, not guaranteed execution.",
+    minCost:"Minimum order cost",maxLoss:"Premium at risk (ex fees)",costRisk:"Min cost / premium at risk (ex fees)",breakeven:"Expiry breakeven",
+    requiredMove:"Rise required",moneyness:"Vs spot",
+    breakevenTip:"Strike + ask; expiry breakeven only, excluding trading fees.",
+    callDeltaTip:"Approximate Call delta. A higher value usually means greater sensitivity to the underlying.",
+    scrollHint:"Swipe sideways for more",narrowFilters:"Showing the first {count} rows; narrow the filters to view the rest.",
+    annualYield:"Conditional APR",dvol:"DVOL (90d)",fng:"Market Fear & Greed (90d)",
+    vrp:"VRP: IV - 30d RV",price:"Price history",rv:"Realized volatility",
+    dvolTip:"Deribit volatility index for this underlying; higher means larger expected moves.",
+    fngTip:"Broad crypto Fear & Greed, not an asset-specific signal.",
+    vrpTip:"Implied volatility minus rolling realized volatility on the same date.",
+    priceTip:"Deribit index price history.",rvTip:"Rolling annualized volatility from daily index returns.",
+    perpetualPrice:"perpetual price",chartLoading:"Loading candles…",chartError:"Failed to load candles",
+    chartEmpty:"No candle data",chartDelayed:"Data may be delayed",latestCandle:"Latest candle",
+    candleCount:"candles",timeframeLabel:"Candle interval",
+    quoteExpired:"Quote expired",quoteExpiredReason:"Quote is older than 120 seconds; view only, do not act on it.",
+    dataUnavailable:"Data unavailable",dataUnavailableReason:"The latest option chain failed to load. Old quotes were cleared and must not be used for a decision."
+  }
+};
+function t(key){return (STRINGS[_lang]||STRINGS.zh)[key]||key}
+
+function isBuyCall(){return STRATEGY_MODE==="buy_call"}
+function isStockMode(){return currentMarket==="us_stock"}
+function currentSymbol(){return isStockMode()?currentStockSymbol:currentAsset}
+function selectionKey(){return `${currentMarket}:${currentSymbol()}`}
+function loadingCopy(){return isStockMode()?t("stockLoading"):t("loading")}
+
+const SUPABASE_API_BASE="https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";
+const PUBLIC_API_BASE=String(
+  window.MANGO_API_BASE!==undefined
+    ?window.MANGO_API_BASE
+    :(["localhost","127.0.0.1"].includes(location.hostname)||location.protocol==="file:"?"":SUPABASE_API_BASE)
+).replace(/\/+$/,"");
+
+function publicApiPath(path){
+  return `${PUBLIC_API_BASE}${path}`;
+}
+
+function apiUrl(path,asset=currentAsset){
+  return `${publicApiPath(path)}?asset=${encodeURIComponent(asset)}`;
+}
+
+function priceApiUrl(symbol=currentSymbol(),timeframe=currentTimeframe,market=currentMarket){
+  if(market==="us_stock") return `/api/us-stocks/price-chart?ticker=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
+  return `${publicApiPath("/api/price-chart")}?asset=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
+}
+
+function assetSpec(){
+  if(isStockMode()){
+    return {
+      priceDecimals:DATA?.price_decimals??2,
+      strikeDecimals:DATA?.strike_decimals??2,
+      rvDays:30
+    };
+  }
+  return ASSETS[currentAsset]||ASSETS.BTC;
+}
+
+function formatPrice(value,decimals=assetSpec().priceDecimals){
+  if(value===null||value===undefined||Number.isNaN(Number(value))) return "—";
+  return "$"+Number(value).toLocaleString(undefined,{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+
+function formatStrike(value){
+  const decimals=DATA?.strike_decimals??assetSpec().strikeDecimals;
+  return "$"+Number(value).toLocaleString(undefined,{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+
+function formatAxisPrice(value){
+  const number=Number(value);
+  if(Math.abs(number)>=10000) return "$"+(number/1000).toFixed(number>=100000?0:1)+"k";
+  if(Math.abs(number)>=1000) return "$"+number.toLocaleString(undefined,{maximumFractionDigits:0});
+  if(Math.abs(number)>=100) return "$"+number.toFixed(0);
+  return "$"+number.toFixed(number<10?2:1);
+}
+
+function formatAmount(value,decimals=2){
+  return Number(value).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:decimals});
+}
+
+function tip(label,copy){
+  return `<span class="tip" tabindex="0">${label}<span class="tt">${copy}</span></span>`;
+}
+
+function tooltipPlacement(
+  anchorRect,
+  tooltipRect,
+  viewportWidth,
+  viewportHeight,
+  margin=12,
+  gap=8
+){
+  const minLeft=margin+tooltipRect.width/2;
+  const maxLeft=Math.max(
+    minLeft,
+    viewportWidth-margin-tooltipRect.width/2
+  );
+  const left=Math.min(
+    maxLeft,
+    Math.max(minLeft,anchorRect.left+anchorRect.width/2)
+  );
+  const above=anchorRect.top-tooltipRect.height-gap;
+  const below=anchorRect.bottom+gap;
+  const maxTop=Math.max(
+    margin,
+    viewportHeight-margin-tooltipRect.height
+  );
+  const preferredTop=above>=margin?above:below;
+  const top=Math.min(maxTop,Math.max(margin,preferredTop));
+  return {left,top};
+}
+
+function resetFloatingTooltipPosition(tooltip){
+  ["left","right","top","bottom","transform"].forEach(
+    property=>tooltip.style.removeProperty(property)
+  );
+}
+
+function positionHoverTooltip(target){
+  const tooltip=$("hoverTooltip");
+  if(!target?.isConnected||!tooltip.classList.contains("on")){
+    if(target&&!target.isConnected) hideHoverTooltip(target);
+    return;
+  }
+  if(window.matchMedia("(max-width:600px)").matches){
+    resetFloatingTooltipPosition(tooltip);
+    return;
+  }
+  const placement=tooltipPlacement(
+    target.getBoundingClientRect(),
+    tooltip.getBoundingClientRect(),
+    window.innerWidth,
+    window.innerHeight
+  );
+  tooltip.style.left=`${placement.left}px`;
+  tooltip.style.right="auto";
+  tooltip.style.top=`${placement.top}px`;
+  tooltip.style.bottom="auto";
+  tooltip.style.transform="translateX(-50%)";
+}
+
+function showHoverTooltip(target){
+  const source=target?.querySelector(".tt");
+  const tooltip=$("hoverTooltip");
+  if(!source||!tooltip) return;
+  if(activeHoverTip&&activeHoverTip!==target){
+    activeHoverTip.removeAttribute("aria-describedby");
+  }
+  activeHoverTip=target;
+  tooltip.textContent=source.textContent;
+  tooltip.classList.add("on");
+  tooltip.setAttribute("aria-hidden","false");
+  target.setAttribute("aria-describedby","hoverTooltip");
+  positionHoverTooltip(target);
+}
+
+function hideHoverTooltip(target=activeHoverTip){
+  if(target&&activeHoverTip&&target!==activeHoverTip) return;
+  const tooltip=$("hoverTooltip");
+  if(activeHoverTip){
+    activeHoverTip.removeAttribute("aria-describedby");
+  }
+  activeHoverTip=null;
+  tooltip.classList.remove("on");
+  tooltip.setAttribute("aria-hidden","true");
+  resetFloatingTooltipPosition(tooltip);
+}
+
+function hideDetachedHoverTooltip(
+  target=activeHoverTip,
+  hide=hideHoverTooltip
+){
+  if(!target||target.isConnected) return false;
+  hide(target);
+  return true;
+}
+
+function releaseHoverTooltip(target){
+  requestAnimationFrame(()=>{
+    if(
+      target===activeHoverTip
+      &&target.isConnected
+      &&(target.matches(":hover")||document.activeElement===target)
+    ) return;
+    hideHoverTooltip(target);
+  });
+}
+
+function yieldHeader(){
+  const copy=_lang==="en"
+    ?"Premium divided by full strike obligation, annualized. It assumes the put expires out of the money; it is not strategy return."
+    :"权利金 ÷ 完整 Strike 义务后年化；前提是 Put 到期价外，不等于策略真实收益。";
+  return tip(t("annualYield"),copy);
+}
+
+function bidLabel(){
+  return isStockMode()?t("bidPerShare"):t("bid");
+}
+
+function askLabel(){
+  return isStockMode()?t("askPerShare"):t("ask");
+}
+
+function quoteLabel(){
+  return isBuyCall()?askLabel():bidLabel();
+}
+
+function deltaHeader(){
+  if(isBuyCall()) return tip("Delta",t("callDeltaTip"));
+  const copy=_lang==="en"
+    ?"Approximate put delta. Higher absolute value means greater in-the-money risk."
+    :"Put Delta 近似值；绝对值越大，进入价内的风险越高。";
+  return tip("Delta",copy);
+}
+
+function ivHeader(){
+  const copy=_lang==="en"
+    ?(isStockMode()?"Contract implied volatility from the delayed market-data feed.":"Deribit mark implied volatility for this contract.")
+    :(isStockMode()?"延迟行情数据中的合约隐含波动率。":"Deribit 该合约的 Mark 隐含波动率。");
+  return tip("IV",copy);
+}
+
+function setAssetButtons(){
+  document.querySelectorAll("[data-asset]").forEach(button=>{
+    const active=!isStockMode()&&button.dataset.asset===currentAsset;
+    button.classList.toggle("on",active);
+    button.setAttribute("aria-selected",String(active));
+  });
+  const stockActive=isStockMode();
+  $("stockTab").classList.toggle("on",stockActive);
+  $("stockTab").setAttribute("aria-selected",String(stockActive));
+  $("stockSearch").classList.toggle("on",stockActive);
+}
+
+function setTimeframeButtons(){
+  document.querySelectorAll("[data-timeframe]").forEach(button=>{
+    const active=button.dataset.timeframe===currentTimeframe;
+    button.classList.toggle("on",active);
+    button.setAttribute("aria-pressed",String(active));
+  });
+}
+
+function setStrategyChrome(){
+  const sellPutLink=$("sellPutNav");
+  const buyCallLink=$("buyCallNav");
+  const buyCallMode=isBuyCall();
+  sellPutLink.classList.toggle("on",!isBuyCall());
+  buyCallLink.classList.toggle("on",buyCallMode);
+  $("labelStrike").hidden=buyCallMode;
+  $("fStrike").hidden=buyCallMode;
+  $("callStrikeRange").hidden=!buyCallMode;
+  if(buyCallMode){
+    buyCallLink.setAttribute("aria-current","page");
+    sellPutLink.removeAttribute("aria-current");
+  }else{
+    sellPutLink.setAttribute("aria-current","page");
+    buyCallLink.removeAttribute("aria-current");
+  }
+  sellPutLink.textContent=t("sellPutNav");
+  buyCallLink.textContent=t("buyCallNav");
+  renderBuyCallRisk();
+  if(isBuyCall()){
+    $("actionBanner").style.display="none";
+    clearCharts();
+  }
+}
+
+function buyCallQuoteBlocked(){
+  if(!isBuyCall()||!DATA) return false;
+  if(DATA.decision_blocked) return true;
+  const initialAge=finiteNumber(DATA.quote_age_seconds)??0;
+  const elapsed=DATA_RECEIVED_AT?Math.max(0,(Date.now()-DATA_RECEIVED_AT)/1000):0;
+  return initialAge+elapsed>120;
+}
+
+function renderBuyCallRisk(){
+  const note=$("buyCallRisk");
+  if(!isBuyCall()){
+    note.textContent="";
+    note.style.display="none";
+    return;
+  }
+  const warnings=[t("buyCallRisk")];
+  if(DATA&&isStockMode()&&DATA.decision_blocked){
+    warnings.push(t("stockCallBlocked"));
+  }else if(buyCallQuoteBlocked()){
+    warnings.push(t("callQuoteBlocked"));
+  }
+  note.textContent=warnings.join(" ");
+  note.style.display="block";
+}
+
+function setPriceChartState(status){
+  const state=$("priceChartState");
+  const messages={
+    loading:t("chartLoading"),
+    error:t("chartError"),
+    empty:t("chartEmpty")
+  };
+  state.dataset.status=status;
+  state.className="price-chart-state"+(status==="error"?" error":"");
+  state.textContent=messages[status]||"";
+  state.style.display=status==="ready"?"none":"flex";
+}
+
+function destroyPriceChart(){
+  if(priceResizeObserver) priceResizeObserver.disconnect();
+  priceResizeObserver=null;
+  if(priceChart) priceChart.remove();
+  priceChart=null;
+  priceSeries=null;
+  priceChartIdentity=null;
+  $("priceChart").replaceChildren();
+}
+
+function renderPriceChartCopy(payload=PRICE_DATA){
+  const symbol=currentSymbol();
+  const currency=isStockMode()?"USD":"USDC";
+  const kind=isStockMode()?t("stockPrice"):t("perpetualPrice");
+  $("priceChartTitle").textContent=`${symbol} / ${currency} ${kind}`;
+  $("priceTimeframes").setAttribute("aria-label",t("timeframeLabel"));
+  if(!payload){
+    $("priceChartMeta").textContent=`${isStockMode()?t("stockMarketData"):"Deribit"} · ${currentTimeframe}`;
+    $("priceChartFreshness").textContent="";
+    $("priceChartFreshness").className="";
+    return;
+  }
+  $("priceChartMeta").textContent=[
+    payload.venue,
+    payload.instrument,
+    payload.timeframe,
+    `${payload.count} ${t("candleCount")}`
+  ].join(" · ");
+  $("priceChartFreshness").textContent=[
+    payload.delayed||payload.stale?t("chartDelayed"):t("latestCandle"),
+    payload.latest_candle_at
+  ].filter(Boolean).join(" · ");
+  $("priceChartFreshness").className=payload.delayed||payload.stale?"stale":"";
+}
+
+function clearPriceChartView(){
+  PRICE_DATA=null;
+  destroyPriceChart();
+  renderPriceChartCopy();
+  setPriceChartState("loading");
+}
+
+function renderPriceChart(payload){
+  if(!globalThis.LightweightCharts?.createChart){
+    destroyPriceChart();
+    setPriceChartState("error");
+    return;
+  }
+  const payloadMarket=["us_equity","us_etf"].includes(payload.asset_class)?"us_stock":"crypto";
+  const identity=`${payloadMarket}:${payload.symbol||payload.asset}:${payload.timeframe}`;
+  const isNew=priceChartIdentity!==identity||!priceChart||!priceSeries;
+  const container=$("priceChart");
+  if(isNew){
+    destroyPriceChart();
+    const precision=Number(payload.price_decimals??2);
+    priceChart=LightweightCharts.createChart(container,{
+      width:Math.max(1,container.clientWidth),
+      height:Math.max(240,container.clientHeight),
+      layout:{
+        background:{type:LightweightCharts.ColorType.Solid,color:"#1e222d"},
+        textColor:"#787b86",
+        fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+        fontSize:11
+      },
+      grid:{
+        vertLines:{color:"#2a2e3955"},
+        horzLines:{color:"#2a2e3955"}
+      },
+      crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+      rightPriceScale:{borderColor:"#2a2e39",scaleMargins:{top:.08,bottom:.08}},
+      timeScale:{
+        borderColor:"#2a2e39",
+        timeVisible:!["1d","1w"].includes(payload.timeframe),
+        secondsVisible:false,
+        rightOffset:3,
+        barSpacing:7
+      },
+      localization:{locale:_lang==="zh"?"zh-CN":"en-US"},
+      handleScroll:true,
+      handleScale:true
+    });
+    priceSeries=priceChart.addCandlestickSeries({
+      upColor:"#26a69a",
+      downColor:"#ef5350",
+      borderUpColor:"#26a69a",
+      borderDownColor:"#ef5350",
+      wickUpColor:"#26a69a",
+      wickDownColor:"#ef5350",
+      priceFormat:{
+        type:"price",
+        precision,
+        minMove:Math.pow(10,-precision)
+      }
+    });
+    priceChartIdentity=identity;
+    priceResizeObserver=new ResizeObserver(entries=>{
+      const rect=entries[0]?.contentRect;
+      if(rect&&priceChart){
+        priceChart.applyOptions({
+          width:Math.max(1,Math.floor(rect.width)),
+          height:Math.max(1,Math.floor(rect.height))
+        });
+      }
+    });
+    priceResizeObserver.observe(container);
+  }
+  priceSeries.setData(payload.candles);
+  priceChart.applyOptions({
+    localization:{locale:_lang==="zh"?"zh-CN":"en-US"}
+  });
+  if(isNew) priceChart.timeScale().fitContent();
+  renderPriceChartCopy(payload);
+  setPriceChartState("ready");
+}
+
+async function loadPriceChart(){
+  const market=currentMarket;
+  const symbol=currentSymbol();
+  const key=selectionKey();
+  const timeframe=currentTimeframe;
+  const identity=`${market}:${symbol}:${timeframe}`;
+  const version=++priceRequestVersion;
+  if(priceRequestController) priceRequestController.abort();
+  priceRequestController=new AbortController();
+  const {signal}=priceRequestController;
+  if(priceChartIdentity!==identity) setPriceChartState("loading");
+  try{
+    const response=await fetch(priceApiUrl(symbol,timeframe,market),{
+      signal,
+      cache:"no-store",
+      headers:market==="us_stock"?{"X-Mango-Owner-Request":"1"}:undefined
+    });
+    if(version!==priceRequestVersion||key!==selectionKey()||timeframe!==currentTimeframe) return;
+    if(!response.ok){
+      let detail="";
+      try{detail=(await response.json()).error||""}catch(_){}
+      throw new Error(detail||`HTTP ${response.status}`);
+    }
+    const payload=await response.json();
+    if(
+      version!==priceRequestVersion
+      ||key!==selectionKey()
+      ||timeframe!==currentTimeframe
+      ||(payload.symbol||payload.asset)!==symbol
+      ||payload.timeframe!==timeframe
+    ) return;
+    PRICE_DATA=payload;
+    if(!payload.candles?.length){
+      destroyPriceChart();
+      renderPriceChartCopy(payload);
+      setPriceChartState("empty");
+      return;
+    }
+    renderPriceChart(payload);
+  }catch(error){
+    if(
+      error.name==="AbortError"
+      ||version!==priceRequestVersion
+      ||key!==selectionKey()
+      ||timeframe!==currentTimeframe
+    ) return;
+    PRICE_DATA=null;
+    destroyPriceChart();
+    renderPriceChartCopy();
+    setPriceChartState("error");
+  }
+}
+
+function selectTimeframe(timeframe){
+  if(!["15m","1h","4h","1d","1w"].includes(timeframe)||timeframe===currentTimeframe) return;
+  currentTimeframe=timeframe;
+  priceRequestVersion++;
+  if(priceRequestController) priceRequestController.abort();
+  setTimeframeButtons();
+  clearPriceChartView();
+  loadPriceChart();
+}
+
+function clearCharts(){
+  Object.values(histCharts).forEach(chart=>chart.destroy());
+  histCharts={};
+  for(let index=0;index<3;index++) $("chartBox"+index).style.display="none";
+  $("chartGrid").style.display="none";
+}
+
+function clearAssetView(){
+  DATA=null;
+  LAST_TIMING=null;
+  LAST_HISTORY=null;
+  window._snapStrike=null;
+  if(isBuyCall()){
+    $("fMinStrike").value="";
+    $("fMaxStrike").value="";
+  }
+  $("spotPrice").textContent="—";
+  $("spotLabel").textContent=isStockMode()?`${currentStockSymbol} ${t("stockSpot")}`:`${currentAsset} Spot`;
+  $("marketMeta").textContent="";
+  $("marketMeta").className="market-meta";
+  $("actionBanner").style.display="none";
+  $("snapshot").innerHTML="";
+  $("content").className="state";
+  $("content").textContent=loadingCopy();
+  clearPriceChartView();
+  clearCharts();
+}
+
+function selectAsset(asset){
+  if(!ASSETS[asset]||(!isStockMode()&&asset===currentAsset)) return;
+  currentMarket="crypto";
+  currentAsset=asset;
+  $("stockSearchError").textContent="";
+  requestVersion++;
+  if(requestController) requestController.abort();
+  priceRequestVersion++;
+  if(priceRequestController) priceRequestController.abort();
+  setAssetButtons();
+  clearAssetView();
+  applyLang();
+  loadData();
+  loadPriceChart();
+}
+
+function normalizeStockSymbol(value){
+  const symbol=String(value||"").trim().toUpperCase();
+  return symbol.length<=10&&/^[A-Z][A-Z0-9]*(?:[.-][A-Z0-9]+)?$/.test(symbol)
+    ?symbol
+    :null;
+}
+
+function selectStock(symbolValue=currentStockSymbol,force=false){
+  const symbol=normalizeStockSymbol(symbolValue);
+  if(!symbol){
+    $("stockSearchError").textContent=t("stockInvalid");
+    return;
+  }
+  const unchanged=isStockMode()&&symbol===currentStockSymbol;
+  currentMarket="us_stock";
+  currentStockSymbol=symbol;
+  $("stockSymbol").value=symbol;
+  $("stockSearchError").textContent="";
+  setAssetButtons();
+  if(unchanged&&!force){
+    $("stockSymbol").focus();
+    return;
+  }
+  requestVersion++;
+  if(requestController) requestController.abort();
+  priceRequestVersion++;
+  if(priceRequestController) priceRequestController.abort();
+  clearAssetView();
+  applyLang();
+  loadData();
+  loadPriceChart();
+}
+
+function stockDelayCopy(){
+  const seconds=Number(DATA?.quote_delay_seconds);
+  if(!Number.isFinite(seconds)||seconds<=0) return t("stockDelayedUnknown");
+  const minutes=Math.ceil(seconds/60);
+  return t("stockDelayed").replace("{minutes}",String(minutes));
+}
+
+function stockContractCopy(){
+  const count=Number(DATA?.contract_multiplier);
+  if(!Number.isFinite(count)||count<=0) return "";
+  return t("sharesPerContract").replace("{count}",formatAmount(count,0));
+}
+
+function localizedAction(action){
+  if(!action||_lang==="zh") return action;
+  const asset=action.asset||currentAsset;
+  const metrics=action.metrics||{};
+  const vrp=metrics.vrp===null||metrics.vrp===undefined?"—":`${Number(metrics.vrp)>=0?"+":""}${Number(metrics.vrp).toFixed(1)}`;
+  const translations={
+    insufficient_history:{
+      label:"Timing unavailable",
+      reason:`Deribit does not yet publish ${asset} DVOL history, so the option chain is shown without an entry-timing conclusion.`
+    },
+    volatility_unavailable:{
+      label:"Data unavailable",
+      reason:`${asset} volatility data is unavailable; no timing conclusion is allowed.`
+    },
+    iv_rv_unavailable:{
+      label:"Data unavailable",
+      reason:`${asset} IV or realized-volatility data is insufficient; no timing conclusion is allowed.`
+    },
+    timing_inputs_unavailable:{
+      label:"Data unavailable",
+      reason:`${asset} Fear & Greed history is insufficient; no timing conclusion is allowed.`
+    },
+    sell_now:{
+      label:"Sell Put now",
+      reason:`${asset} VRP is ${vrp}; volatility and market fear are rising together.`
+    },
+    sell_ok:{
+      label:"Sell Put window",
+      reason:`${asset} conditions are favorable with VRP at ${vrp}; position sizing still matters.`
+    },
+    wait_better_vrp:{
+      label:"Wait for a better entry",
+      reason:`Some ${asset} conditions are met, but VRP at ${vrp} is not high enough.`
+    },
+    wait_entry:{
+      label:"Wait for entry",
+      reason:`${asset} does not currently show a clear Sell Put window.`
+    },
+    no_entry:{
+      label:"Do not open",
+      reason:`${asset} premium is not attractive enough relative to current risk.`
+    },
+    stale:{
+      label:"Data expired",
+      reason:`${asset} upstream data is stale, so no entry conclusion is allowed.`
+    }
+  };
+  const copy=translations[action.action_code];
+  return copy?{...action,action_label:copy.label,action_reason:copy.reason}:action;
+}
+
+function renderAction(action){
+  const banner=$("actionBanner");
+  if(isBuyCall()||isStockMode()){
+    banner.style.display="none";
+    return;
+  }
+  if(DATA?.decision_blocked){
+    action={action:"wait",action_label:t("quoteExpired"),action_reason:t("quoteExpiredReason")};
+  }
+  action=localizedAction(action);
+  if(!action?.action){
+    banner.style.display="none";
+    return;
+  }
+  const tone=["sell","wait","no"].includes(action.action)
+    ?action.action
+    :"wait";
+  const badge=document.createElement("div");
+  badge.className="act-badge";
+  badge.textContent=String(action.action_label||"");
+  const reason=document.createElement("div");
+  reason.className="act-reason";
+  reason.textContent=String(action.action_reason||"");
+  banner.className="action-banner "+tone;
+  banner.replaceChildren(badge,reason);
+  banner.style.display="flex";
+}
+
+function renderMarketMeta(){
+  if(!DATA) return;
+  if(isStockMode()){
+    const sources=[DATA.provider,DATA.venue].filter(
+      (value,index,items)=>value&&items.indexOf(value)===index
+    );
+    $("marketMeta").className="market-meta delayed";
+    $("marketMeta").textContent=[
+      ...sources,
+      stockDelayCopy(),
+      DATA.provider_document_at
+        ?t("stockDataTime").replace("{time}",DATA.provider_document_at)
+        :"",
+      t("researchOnly"),
+      t("physical"),
+      stockContractCopy(),
+      isBuyCall()?t("bestAsk"):t("bestBid")
+    ].filter(Boolean).join("  ·  ");
+    return;
+  }
+  const multiplier=formatAmount(DATA.contract_multiplier,4);
+  const minimum=formatAmount(DATA.min_trade_amount,4);
+  $("marketMeta").className="market-meta";
+  $("marketMeta").textContent=[
+    DATA.venue,
+    DATA.provider_family,
+    t("cash"),
+    `${isBuyCall()?t("bestAsk"):t("bestBid")} · ${t("contract")} ${multiplier} ${currentAsset} · ${t("minimum")} ${minimum} ${currentAsset}`
+  ].join("  ·  ");
+}
+
+async function optionalJson(url,signal){
+  try{
+    const response=await fetch(url,{signal,cache:"no-store"});
+    return response.ok?await response.json():null;
+  }catch(error){
+    if(error.name==="AbortError") throw error;
+    return null;
+  }
+}
+
+function resetQuoteDepthLoading(){
+  const previous=quoteDepthState;
+  if(previous?.controller) previous.controller.abort();
+  if(liveQuoteRenderTimer!==null){
+    clearTimeout(liveQuoteRenderTimer);
+    liveQuoteRenderTimer=null;
+  }
+  quoteDepthState={
+    generation:++quoteDepthGeneration,
+    controller:new AbortController(),
+    cache:new Map(),
+    pending:new Map(),
+    queued:new Set(),
+    queue:[],
+    active:0
+  };
+}
+
+function quoteDepthKey(instrument){
+  return `${currentAsset}:${instrument}`;
+}
+
+function quoteDepthUrl(instrument){
+  return `${publicApiPath("/api/quote-depth")}?asset=${encodeURIComponent(currentAsset)}&instrument=${encodeURIComponent(instrument)}`;
+}
+
+function reconcileLiveQuote(
+  row,
+  side,
+  payload,
+  spotPrice,
+  wideSpreadThreshold=30
+){
+  if(!row||!payload||payload.stale) return false;
+  const priceKey=side==="ask"?"best_ask_price":"best_bid_price";
+  const sizeKey=side==="ask"?"ask_size":"bid_size";
+  const price=finiteNumber(payload?.[priceKey]);
+  const size=finiteNumber(payload?.[sizeKey]);
+  if(price===null||price<=0||size===null||size<=0){
+    const quoteKey=side==="ask"?"ask_usd":"bid_usd";
+    const unavailableBasis=`live_${side}_unavailable`;
+    const payloadBid=side==="ask"
+      ?finiteNumber(payload.best_bid_price)
+      :null;
+    const alreadyUnavailable=(
+      row.quote_basis===unavailableBasis
+      &&row[quoteKey]===null
+      &&row[`${side}_size`]===null
+      &&row.min_premium_usd===null
+      &&(
+        side==="bid"
+          ?(
+            row.ann_yield===null
+            &&row.net_yield===null
+            &&row.fee_usd===null
+            &&!("panic_yield" in row)
+            &&!("time_yield" in row)
+          )
+          :(
+            row.min_cost_usd===null
+            &&row.max_loss_usd===null
+            &&row.breakeven_usd===null
+            &&row.breakeven_move_pct===null
+            &&row.bid_usd===payloadBid
+            &&row.quote_quality==="unavailable"
+          )
+      )
+    );
+    row.quote_depth_timestamp=payload.quoted_at||null;
+    if(alreadyUnavailable) return false;
+
+    row[quoteKey]=null;
+    row[`${side}_size`]=null;
+    row.min_premium_usd=null;
+    row.quote_basis=unavailableBasis;
+    row.quote_depth_verified=false;
+    if(side==="bid"){
+      row.ann_yield=null;
+      row.net_yield=null;
+      row.fee_usd=null;
+      delete row.panic_yield;
+      delete row.time_yield;
+      return true;
+    }
+    row.min_cost_usd=null;
+    row.max_loss_usd=null;
+    row.breakeven_usd=null;
+    row.breakeven_move_pct=null;
+    row.bid_usd=payloadBid;
+    Object.assign(row,{
+      mid_usd:null,
+      spread_usd:null,
+      spread_pct:null,
+      spread_warning:true,
+      quote_quality:"unavailable"
+    });
+    return true;
+  }
+
+  row[side==="ask"?"ask_usd":"bid_usd"]=price;
+  row[`${side}_size`]=size;
+  row.quote_basis=`live_${side}`;
+  row.quote_depth_verified=true;
+  row.quote_depth_timestamp=payload.quoted_at||null;
+
+  const minimum=finiteNumber(row.min_trade_amount);
+  if(minimum!==null&&minimum>0){
+    row.min_premium_usd=price*minimum;
+  }
+
+  if(side==="bid"){
+    const strike=finiteNumber(row.strike);
+    const days=finiteNumber(row.days);
+    const spot=finiteNumber(spotPrice);
+    if(strike!==null&&strike>0&&days!==null&&days>0){
+      row.ann_yield=price/strike*365/days*100;
+      if(spot!==null&&spot>0){
+        const fee=Math.min(.0003*spot,.125*price);
+        row.fee_usd=fee;
+        row.net_yield=Math.max(0,price-fee)/strike*365/days*100;
+      }
+    }
+    delete row.panic_yield;
+    delete row.time_yield;
+    return true;
+  }
+
+  row.min_cost_usd=row.min_premium_usd;
+  row.max_loss_usd=row.min_premium_usd;
+  const strike=finiteNumber(row.strike);
+  const spot=finiteNumber(spotPrice);
+  if(strike!==null&&strike>0){
+    row.breakeven_usd=strike+price;
+    row.breakeven_move_pct=(
+      spot!==null&&spot>0
+        ?(row.breakeven_usd/spot-1)*100
+        :null
+    );
+  }
+
+  const bid=finiteNumber(payload?.best_bid_price);
+  row.bid_usd=bid;
+  if(bid===null){
+    Object.assign(row,{
+      mid_usd:null,
+      spread_usd:null,
+      spread_pct:null,
+      spread_warning:true,
+      quote_quality:"unavailable"
+    });
+  }else if(bid<=0){
+    Object.assign(row,{
+      mid_usd:null,
+      spread_usd:null,
+      spread_pct:null,
+      spread_warning:true,
+      quote_quality:"no_bid"
+    });
+  }else if(bid>price){
+    Object.assign(row,{
+      mid_usd:null,
+      spread_usd:null,
+      spread_pct:null,
+      spread_warning:true,
+      quote_quality:"crossed"
+    });
+  }else{
+    const midpoint=(bid+price)/2;
+    const spread=price-bid;
+    const spreadPct=spread/midpoint*100;
+    const warning=spreadPct>=Number(wideSpreadThreshold||30);
+    Object.assign(row,{
+      mid_usd:midpoint,
+      spread_usd:spread,
+      spread_pct:spreadPct,
+      spread_warning:warning,
+      quote_quality:warning?"wide":"normal"
+    });
+  }
+  return true;
+}
+
+function optionRowReference(instrument){
+  const expiries=DATA?.expiries||DATA?.exchanges?.Deribit?.expiries||{};
+  const rowKey=isBuyCall()?"calls":"puts";
+  for(const group of Object.values(expiries)){
+    const row=(group?.[rowKey]||[]).find(
+      candidate=>candidate.instrument===instrument
+    );
+    if(row) return row;
+  }
+  return null;
+}
+
+function scheduleLiveQuoteRender(){
+  if(liveQuoteRenderTimer!==null) return;
+  const generation=quoteDepthState?.generation;
+  liveQuoteRenderTimer=setTimeout(()=>{
+    liveQuoteRenderTimer=null;
+    if(generation!==quoteDepthState?.generation||!DATA) return;
+    const focusedButton=document.activeElement?.closest?.("[data-quote-depth]");
+    const focusTarget=focusedButton?{
+      key:focusedButton.dataset.depthKey,
+      side:focusedButton.dataset.depthSide,
+      container:focusedButton.closest("#snapshot")?"snapshot":"content"
+    }:null;
+    renderSnapshot();
+    render();
+    if(focusTarget){
+      const replacement=[...$(focusTarget.container).querySelectorAll(
+        "[data-quote-depth]"
+      )].find(node=>(
+        node.dataset.depthKey===focusTarget.key
+        &&node.dataset.depthSide===focusTarget.side
+      ));
+      replacement?.focus({preventScroll:true});
+    }
+  },0);
+}
+
+function applyLiveQuotePayload(instrument,side,payload){
+  const row=optionRowReference(instrument);
+  const updated=reconcileLiveQuote(
+    row,
+    side,
+    payload,
+    DATA?.spot_price,
+    DATA?.wide_spread_threshold_pct
+  );
+  if(updated) scheduleLiveQuoteRender();
+  return updated;
+}
+
+function updateQuoteDepthNode(node,payload){
+  node.setAttribute("aria-busy","false");
+  node.setAttribute("aria-disabled","false");
+  node.classList.remove("idle","loading");
+  node.title=payload?.quoted_at
+    ?`${t("depthRefreshTip")} · ${payload.quoted_at}`
+    :t("depthRefreshTip");
+  if(!payload){
+    node.textContent=t("depthRetry");
+    node.classList.add("stale");
+    node.title=t("depthRetryTip");
+    return;
+  }
+  const side=node.dataset.depthSide;
+  const size=finiteNumber(payload?.[`${side}_size`]);
+  const livePrice=finiteNumber(
+    payload?.[side==="ask"?"best_ask_price":"best_bid_price"]
+  );
+  const displayedPrice=finiteNumber(node.dataset.depthPrice);
+  const stale=Boolean(payload&&payload.stale);
+  const liveUnavailable=Boolean(payload&&!stale)&&(
+    livePrice===null||livePrice<=0||size===null||size<=0
+  );
+  if(liveUnavailable){
+    const instrument=decodeURIComponent(node.dataset.depthInstrument||"");
+    if(applyLiveQuotePayload(instrument,side,payload)){
+      node.dataset.depthPrice="";
+    }
+    node.textContent=t("depthUnavailable");
+    node.classList.add("stale");
+    return;
+  }
+  const tolerance=displayedPrice===null
+    ?0
+    :Math.max(.00005,Math.abs(displayedPrice)*1e-8);
+  const priceChanged=size!==null&&size>0&&(
+    livePrice===null
+    ||displayedPrice===null
+    ||Math.abs(livePrice-displayedPrice)>tolerance
+  );
+  if(priceChanged){
+    const instrument=decodeURIComponent(node.dataset.depthInstrument||"");
+    if(
+      livePrice!==null
+      &&applyLiveQuotePayload(instrument,side,payload)
+    ){
+      node.dataset.depthPrice=String(livePrice);
+      node.textContent=formatDepthValue(depthValueUsd(livePrice,size));
+      node.classList.toggle("stale",false);
+      return;
+    }
+    node.textContent=t("depthPriceChanged");
+    node.classList.add("stale");
+    return;
+  }
+  const value=depthValueUsd(livePrice,size);
+  node.textContent=formatDepthValue(value);
+  node.classList.toggle("stale",stale);
+  if(stale) node.textContent+=` · ${t("depthStale")}`;
+}
+
+function updateQuoteDepthNodes(state,key,payload){
+  if(state!==quoteDepthState) return;
+  document.querySelectorAll("[data-quote-depth]").forEach(node=>{
+    if(node.dataset.depthKey===key) updateQuoteDepthNode(node,payload);
+  });
+}
+
+function setQuoteDepthNodeLoading(node){
+  node.setAttribute("aria-busy","true");
+  node.setAttribute("aria-disabled","true");
+  node.classList.remove("idle","stale");
+  node.classList.add("loading");
+  node.textContent=t("depthLoading");
+  node.title="";
+}
+
+function setQuoteDepthNodesLoading(state,key){
+  if(state!==quoteDepthState) return;
+  document.querySelectorAll("[data-quote-depth]").forEach(node=>{
+    if(node.dataset.depthKey===key) setQuoteDepthNodeLoading(node);
+  });
+}
+
+function pumpQuoteDepthQueue(state){
+  while(
+    state===quoteDepthState
+    &&state.active<MAX_QUOTE_DEPTH_CONCURRENCY
+    &&state.queue.length
+  ){
+    const task=state.queue.shift();
+    const {key,instrument}=task;
+    state.queued.delete(key);
+    if(state.cache.has(key)||state.pending.has(key)) continue;
+    state.active++;
+    const request=fetch(quoteDepthUrl(instrument),{
+      signal:state.controller.signal,
+      cache:"no-store"
+    }).then(async response=>{
+      if(!response.ok){
+        const error=new Error(`HTTP ${response.status}`);
+        error.status=response.status;
+        throw error;
+      }
+      return response.json();
+    });
+    state.pending.set(key,request);
+    request.then(payload=>{
+      if(state!==quoteDepthState) return;
+      state.cache.set(key,payload);
+      updateQuoteDepthNodes(state,key,payload);
+    }).catch(error=>{
+      if(error.name==="AbortError"||state!==quoteDepthState) return;
+      state.cache.set(key,null);
+      updateQuoteDepthNodes(state,key,null);
+    }).finally(()=>{
+      state.pending.delete(key);
+      state.active=Math.max(0,state.active-1);
+      pumpQuoteDepthQueue(state);
+    });
+  }
+}
+
+function enqueueQuoteDepth(node){
+  const state=quoteDepthState;
+  if(!state||isStockMode()) return;
+  const key=node.dataset.depthKey;
+  const instrument=decodeURIComponent(node.dataset.depthInstrument||"");
+  if(!key||!instrument) return;
+  if(state.cache.has(key)){
+    updateQuoteDepthNode(node,state.cache.get(key));
+    return;
+  }
+  if(state.pending.has(key)||state.queued.has(key)) return;
+  state.queued.add(key);
+  state.queue.push({key,instrument});
+  pumpQuoteDepthQueue(state);
+}
+
+function activateQuoteDepthLoading(){
+  const state=quoteDepthState;
+  if(!state||isStockMode()) return;
+  document.querySelectorAll("[data-quote-depth]").forEach(node=>{
+    const key=node.dataset.depthKey;
+    if(state.pending.has(key)||state.queued.has(key)){
+      setQuoteDepthNodeLoading(node);
+    }else if(state.cache.has(key)){
+      updateQuoteDepthNode(node,state.cache.get(key));
+    }
+  });
+}
+
+async function loadData(){
+  const market=currentMarket;
+  const symbol=currentSymbol();
+  const key=selectionKey();
+  const version=++requestVersion;
+  resetQuoteDepthLoading();
+  if(requestController) requestController.abort();
+  requestController=new AbortController();
+  const controller=requestController;
+  const {signal}=controller;
+  $("content").className="state";
+  $("content").textContent=loadingCopy();
+  try{
+    const optionsUrl=isBuyCall()
+      ?(market==="us_stock"
+        ?`/api/us-stocks/buy-call?ticker=${encodeURIComponent(symbol)}`
+        :apiUrl("/api/buy-call",symbol))
+      :(market==="us_stock"
+        ?`/api/us-stocks/options?ticker=${encodeURIComponent(symbol)}`
+        :apiUrl("/api/options",symbol));
+    const needsSellPutContext=market==="crypto"&&!isBuyCall();
+    const contextPromise=needsSellPutContext
+      ?Promise.all([
+        optionalJson(apiUrl("/api/timing",symbol),signal),
+        optionalJson(apiUrl("/api/timing-history",symbol),signal)
+      ]).catch(()=>[null,null])
+      :Promise.resolve([null,null]);
+    const optionResponse=await fetch(optionsUrl,{
+      signal,
+      cache:"no-store",
+      headers:market==="us_stock"?{"X-Mango-Owner-Request":"1"}:undefined
+    });
+    if(version!==requestVersion||key!==selectionKey()) return;
+    if(!optionResponse.ok){
+      let detail="";
+      try{detail=(await optionResponse.json()).error||""}catch(_){}
+      const error=new Error(detail||`HTTP ${optionResponse.status}`);
+      error.status=optionResponse.status;
+      throw error;
+    }
+    DATA=await optionResponse.json();
+    if(
+      version!==requestVersion
+      ||key!==selectionKey()
+      ||(DATA.symbol||DATA.asset)!==symbol
+    ) return;
+    DATA_RECEIVED_AT=Date.now();
+    LAST_TIMING=null;
+    LAST_HISTORY=null;
+    $("spotPrice").textContent=formatPrice(DATA.spot_price,DATA.price_decimals);
+    $("spotLabel").textContent=market==="us_stock"?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
+    $("ts").textContent=market==="us_stock"
+      ?(DATA.updated?t("retrievedAt").replace("{time}",DATA.updated):"")
+      :DATA.provider_timestamp||DATA.quoted_at||DATA.updated||"";
+    renderBuyCallRisk();
+    renderMarketMeta();
+    renderAction(null);
+    renderSnapshot();
+    render();
+    renderHistory(null);
+    const [timing,history]=await contextPromise;
+    if(
+      version!==requestVersion
+      ||key!==selectionKey()
+      ||signal.aborted
+      ||(DATA?.symbol||DATA?.asset)!==symbol
+    ) return;
+    LAST_TIMING=timing;
+    LAST_HISTORY=history;
+    renderAction(timing);
+    renderHistory(history);
+  }catch(error){
+    if(error.name==="AbortError"||version!==requestVersion||key!==selectionKey()) return;
+    controller.abort();
+    DATA=null;
+    DATA_RECEIVED_AT=0;
+    LAST_TIMING=null;
+    LAST_HISTORY=null;
+    window._snapStrike=null;
+    $("spotPrice").textContent="—";
+    $("spotLabel").textContent=market==="us_stock"?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
+    $("marketMeta").textContent="";
+    $("marketMeta").className="market-meta";
+    $("ts").textContent="—";
+    if(market==="us_stock"){
+      $("stockSearchError").textContent=error.status===404
+        ?t("stockNotFound").replace("{symbol}",symbol)
+        :"";
+    }
+    $("snapshot").innerHTML="";
+    $("content").className="state error";
+    $("content").textContent=`${t("fetchError")}: ${error.message}`;
+    clearCharts();
+    renderAction({
+      action:"wait",
+      action_label:t("dataUnavailable"),
+      action_reason:t("dataUnavailableReason")
+    });
+  }
+}
+
+function optionRows(){
+  if(!DATA) return [];
+  const rows=[];
+  const expiries=DATA.expiries||DATA.exchanges?.Deribit?.expiries||{};
+  Object.entries(expiries).forEach(([expiry,group])=>{
+    const sideRows=isBuyCall()?group.calls:group.puts;
+    (sideRows||[]).forEach(row=>rows.push({...row,expiry:row.expiry||expiry}));
+  });
+  return rows;
+}
+
+function deltaColor(delta){
+  if(delta===null||delta===undefined) return "#787b86";
+  const absolute=Math.abs(delta);
+  if(absolute>=.5) return "#ef5350";
+  if(absolute>=.3) return "#ffd600";
+  if(absolute>=.15) return "#26a69a";
+  return "#7da0ff";
+}
+
+function formatDelta(delta){
+  if(delta===null||delta===undefined) return "—";
+  return `<span style="color:${deltaColor(delta)};font-weight:600">${Number(delta).toFixed(2)}</span>`;
+}
+
+function ivColor(iv){
+  if(iv===null||iv===undefined) return "#787b86";
+  if(iv>=100) return "#ef5350";
+  if(iv>=70) return "#ffd600";
+  if(iv>=40) return "#26a69a";
+  return "#7da0ff";
+}
+
+function formatIv(iv){
+  if(iv===null||iv===undefined) return "—";
+  return `<span style="color:${ivColor(iv)};font-weight:600">${Number(iv).toFixed(1)}%</span>`;
+}
+
+function yieldColor(value){
+  if(value>=50) return "#ff6d00";
+  if(value>=20) return "#ffd600";
+  if(value>=10) return "#26a69a";
+  return "#787b86";
+}
+
+function formatYield(row){
+  const annualYield=finiteNumber(row.ann_yield);
+  if(annualYield===null) return "—";
+  let html=`<span style="color:${yieldColor(annualYield)};font-weight:650">${annualYield.toFixed(1)}%</span>`;
+  if(row.panic_yield!==null&&row.panic_yield!==undefined){
+    html+=` <span class="cell-note"><span style="color:#ffa726">${Number(row.panic_yield).toFixed(1)}</span> + <span style="color:#7da0ff">${Number(row.time_yield).toFixed(1)}</span></span>`;
+  }
+  return html;
+}
+
+function depthValueUsd(price,size,multiplier=1){
+  const normalizedPrice=finiteNumber(price);
+  const normalizedSize=finiteNumber(size);
+  const normalizedMultiplier=finiteNumber(multiplier);
+  if(
+    normalizedPrice===null||normalizedPrice<=0
+    ||normalizedSize===null||normalizedSize<=0
+    ||normalizedMultiplier===null||normalizedMultiplier<=0
+  ) return null;
+  return normalizedPrice*normalizedSize*normalizedMultiplier;
+}
+
+function formatTopDepth(row,side){
+  const sizeKey=side==="ask"?"ask_size":"bid_size";
+  const priceKey=side==="ask"?"ask_usd":"bid_usd";
+  if(isStockMode()){
+    const size=finiteNumber(row?.[sizeKey]);
+    const price=finiteNumber(row?.[priceKey]);
+    const multiplier=row?.contract_multiplier
+      ??DATA?.contract_multiplier
+      ??100;
+    const value=depthValueUsd(price,size,multiplier);
+    return `<span class="quote-depth">${formatDepthValue(value)}</span>`;
+  }
+  const instrument=String(row?.instrument||"");
+  if(!instrument){
+    return `<span class="quote-depth">—</span>`;
+  }
+  const key=encodeURIComponent(quoteDepthKey(instrument));
+  const encodedInstrument=encodeURIComponent(instrument);
+  const displayedPrice=finiteNumber(
+    row?.[priceKey]
+  );
+  return `<button type="button" class="quote-depth idle" data-quote-depth data-depth-key="${key}" data-depth-side="${side}" data-depth-instrument="${encodedInstrument}" data-depth-price="${displayedPrice??""}" aria-busy="false" aria-disabled="false" title="${t("depthViewTip")}">${t("depthView")}</button>`;
+}
+
+function formatDepthValue(value){
+  const number=finiteNumber(value);
+  if(number===null||number<=0) return "—";
+  return formatPrice(number,number>=100?0:2);
+}
+
+function depthHeader(side){
+  const label=side==="ask"?t("topAskDepth"):t("topBidDepth");
+  return tip(label,t("depthValueTip"));
+}
+
+function formatBid(row){
+  const decimals=DATA?.price_decimals===0?2:Math.min(4,(DATA?.price_decimals||2)+1);
+  let html=formatPrice(row.bid_usd,decimals);
+  if(isStockMode()){
+    html+=`<span class="cell-note">${t("contractPremium")} ${formatPrice(row.min_premium_usd,2)} · ${t("obligation")} ${formatPrice(row.min_obligation_usd,2)}</span>`;
+    return html;
+  }
+  if(Number(row.contract_multiplier)>1){
+    html+=`<span class="cell-note">min ${formatPrice(row.min_premium_usd,2)} / ${formatAmount(row.min_trade_amount,4)} ${currentSymbol()} · ${t("obligation")} ${formatPrice(row.min_obligation_usd,2)}</span>`;
+  }
+  return html;
+}
+
+function finiteNumber(value){
+  if(value===null||value===undefined||value==="") return null;
+  const number=Number(value);
+  return Number.isFinite(number)?number:null;
+}
+
+function getBuyCallStrikeBounds(){
+  const min=finiteNumber($("fMinStrike").value);
+  const max=finiteNumber($("fMaxStrike").value);
+  return {
+    min,
+    max,
+    valid:(min===null||min>=0)
+      &&(max===null||max>=0)
+      &&(min===null||max===null||min<=max)
+  };
+}
+
+function filterBuyCallRowsByStrike(rows,bounds=getBuyCallStrikeBounds()){
+  if(!bounds.valid) return [];
+  return rows.filter(row=>{
+    const strike=Number(row.strike);
+    return Number.isFinite(strike)
+      &&(bounds.min===null||strike>=bounds.min)
+      &&(bounds.max===null||strike<=bounds.max);
+  });
+}
+
+function callCost(row){
+  return finiteNumber(row.min_cost_usd??row.min_premium_usd);
+}
+
+function callBreakeven(row){
+  const provided=finiteNumber(row.breakeven_usd);
+  if(provided!==null) return provided;
+  const strike=finiteNumber(row.strike);
+  const ask=finiteNumber(row.ask_usd);
+  return strike!==null&&ask!==null?strike+ask:null;
+}
+
+function callBreakevenMove(row){
+  const provided=finiteNumber(row.breakeven_move_pct);
+  if(provided!==null) return provided;
+  const breakeven=callBreakeven(row);
+  const spot=finiteNumber(DATA?.spot_price);
+  return breakeven!==null&&spot>0?(breakeven/spot-1)*100:null;
+}
+
+function callQuoteDecimals(){
+  return DATA?.price_decimals===0
+    ?2
+    :Math.min(4,(DATA?.price_decimals||2)+1);
+}
+
+function callQuoteAlert(row){
+  const quality=String(row.quote_quality||"unavailable");
+  const spreadPct=finiteNumber(row.spread_pct);
+  if(quality==="wide"){
+    return {
+      tone:"warning",
+      label:`Spread ${spreadPct===null?"—":spreadPct.toFixed(1)+"%"}`
+    };
+  }
+  if(quality==="no_bid"){
+    return {tone:"danger",label:t("noBidWarning")};
+  }
+  if(quality==="crossed"){
+    return {tone:"danger",label:t("crossedWarning")};
+  }
+  if(quality==="unavailable"){
+    return {tone:"danger",label:t("quoteUnavailableWarning")};
+  }
+  return {tone:"",label:t("quoteDetails")};
+}
+
+function callQuoteDetailToggle(row,detailId){
+  const alert=callQuoteAlert(row);
+  const warningCopy=alert.tone
+    ?`<span aria-hidden="true">⚠</span><span>${alert.label} · ${t("viewQuote")}</span>`
+    :`<span>${alert.label}</span>`;
+  return `<button type="button" class="quote-detail-toggle${alert.tone?" "+alert.tone:""}" data-call-detail-toggle aria-expanded="false" aria-controls="${detailId}" aria-label="${t("expandQuoteDetails")}">${warningCopy}<span class="quote-detail-chevron" aria-hidden="true">▸</span></button>`;
+}
+
+function callReferencePrice(row){
+  const mark=finiteNumber(row.mark_usd);
+  if(mark!==null) return {label:t("markPrice"),value:mark};
+  const theo=finiteNumber(row.theo_usd);
+  if(theo!==null) return {label:t("theoPrice"),value:theo};
+  return {
+    label:isStockMode()?t("theoPrice"):t("markPrice"),
+    value:null
+  };
+}
+
+function formatCallQuoteValue(value){
+  const number=finiteNumber(value);
+  return number===null?"—":formatPrice(number,callQuoteDecimals());
+}
+
+function callQuoteDetailRow(row,detailId){
+  const reference=callReferencePrice(row);
+  const spread=finiteNumber(row.spread_usd);
+  const spreadPct=finiteNumber(row.spread_pct);
+  const spreadCopy=spread===null||spreadPct===null
+    ?"—"
+    :`${formatCallQuoteValue(spread)} · ${spreadPct.toFixed(1)}%`;
+  const tone=callQuoteAlert(row).tone;
+  const threshold=finiteNumber(DATA?.wide_spread_threshold_pct)??30;
+  const note=t("quoteDetailNote").replace(
+    "{threshold}",
+    formatAmount(threshold,0)
+  );
+  return `<tr class="quote-detail-row" id="${detailId}" hidden><td colspan="7"><div class="quote-detail-inner"><div class="quote-detail-grid"><div class="quote-detail-item"><span>${t("bidPrice")}</span><strong>${formatCallQuoteValue(row.bid_usd)}</strong></div><div class="quote-detail-item"><span>${reference.label}</span><strong>${formatCallQuoteValue(reference.value)}</strong></div><div class="quote-detail-item"><span>${t("askPrice")}</span><strong>${formatCallQuoteValue(row.ask_usd)}</strong></div><div class="quote-detail-item"><span>${t("spread")}</span><strong class="${tone}">${spreadCopy}</strong></div></div><div class="quote-detail-note">${note}</div></div></td></tr>`;
+}
+
+function formatAsk(row,detailId){
+  const decimals=DATA?.price_decimals===0?2:Math.min(4,(DATA?.price_decimals||2)+1);
+  const ask=finiteNumber(row.ask_usd);
+  let html=formatPrice(ask,decimals);
+  if(detailId) html+=callQuoteDetailToggle(row,detailId);
+  return html;
+}
+
+function formatBreakeven(row){
+  const breakeven=callBreakeven(row);
+  const move=callBreakevenMove(row);
+  let html=formatPrice(breakeven,DATA?.strike_decimals??assetSpec().strikeDecimals);
+  if(move!==null){
+    const sign=move>0?"+":"";
+    html+=`<span class="cell-note">${t("requiredMove")} ${sign}${move.toFixed(1)}%</span>`;
+  }
+  return html;
+}
+
+function breakevenHeader(){
+  return tip(t("breakeven"),t("breakevenTip"));
+}
+
+function callMoneyness(strike,spot=Number(DATA?.spot_price)){
+  const distance=(Number(strike)-spot)/spot*100;
+  if(!Number.isFinite(distance)) return "—";
+  if(Math.abs(distance)<.05) return "ATM";
+  return `${distance>0?"OTM":"ITM"} ${Math.abs(distance).toFixed(1)}%`;
+}
+
+function renderBuyCallSnapshot(){
+  const snapshot=$("snapshot");
+  const bounds=getBuyCallStrikeBounds();
+  if(!bounds.valid){
+    snapshot.innerHTML=`<div class="state error">${t("invalidStrikeRange")}</div>`;
+    return;
+  }
+  const rows=filterBuyCallRowsByStrike(optionRows(),bounds);
+  const spot=Number(DATA.spot_price);
+  const strikes=[...new Set(rows.map(row=>Number(row.strike)))].sort((a,b)=>a-b);
+  if(!strikes.length){
+    snapshot.innerHTML=`<div class="state">${t("noCalls")}</div>`;
+    return;
+  }
+  if(!window._snapStrike||!strikes.includes(Number(window._snapStrike))){
+    window._snapStrike=strikes.reduce((best,value)=>Math.abs(value-spot)<Math.abs(best-spot)?value:best);
+  }
+  const target=Number(window._snapStrike);
+  const selected=rows.filter(row=>Number(row.strike)===target).sort((a,b)=>a.days-b.days);
+  const options=strikes.map(strike=>
+    `<option value="${strike}"${strike===target?" selected":""}>${formatStrike(strike)} (${callMoneyness(strike,spot)})</option>`
+  ).join("");
+  let html=`<h2>Strike <select id="snapshotStrike">${options}</select> ${t("callSnapshot")}</h2>`;
+  if(!selected.length){
+    html+=`<div class="state">${t("noStrike")}</div>`;
+  }else{
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${quoteLabel()}</th><th>${depthHeader("ask")}</th><th>${breakevenHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    selected.forEach((row,index)=>{
+      const detailId=`call-detail-snapshot-${index}`;
+      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatAsk(row,detailId)}</td><td>${formatTopDepth(row,"ask")}</td><td>${formatBreakeven(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=callQuoteDetailRow(row,detailId);
+    });
+    html+="</tbody></table></div>";
+  }
+  snapshot.innerHTML=html;
+  $("snapshotStrike").addEventListener("change",event=>{
+    window._snapStrike=Number(event.target.value);
+    renderSnapshot();
+  });
+  activateQuoteDepthLoading();
+}
+
+function renderSnapshot(){
+  const snapshot=$("snapshot");
+  if(!DATA){snapshot.innerHTML="";return}
+  if(isBuyCall()){
+    renderBuyCallSnapshot();
+    return;
+  }
+  const rows=optionRows();
+  const strikes=[...new Set(rows.map(row=>Number(row.strike)))].sort((a,b)=>b-a);
+  if(!strikes.length){
+    snapshot.innerHTML=`<div class="state">${t("noOptions")}</div>`;
+    return;
+  }
+  const targetPrice=Number(DATA.spot_price)*.8;
+  if(!window._snapStrike||!strikes.includes(Number(window._snapStrike))){
+    window._snapStrike=strikes.reduce((best,value)=>Math.abs(value-targetPrice)<Math.abs(best-targetPrice)?value:best);
+  }
+  const target=Number(window._snapStrike);
+  const selected=rows.filter(row=>Number(row.strike)===target).sort((a,b)=>a.days-b.days);
+  const options=strikes.map(strike=>{
+    const otm=(Number(DATA.spot_price)-strike)/Number(DATA.spot_price)*100;
+    return `<option value="${strike}"${strike===target?" selected":""}>${formatStrike(strike)} (OTM ${otm.toFixed(0)}%)</option>`;
+  }).join("");
+  const baseline=DATA.baseline_iv
+    ?`<span class="meta">${t("baseline")}: ${Number(DATA.baseline_iv).toFixed(1)}% · 365d median</span>`
+    :"";
+  let html=`<h2>Strike <select id="snapshotStrike">${options}</select> ${t("snapshot")} ${baseline}</h2>`;
+  if(!selected.length){
+    html+=`<div class="state">${t("noStrike")}</div>`;
+  }else{
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    selected.forEach(row=>{
+      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+    });
+    html+="</tbody></table></div>";
+  }
+  snapshot.innerHTML=html;
+  $("snapshotStrike").addEventListener("change",event=>{
+    window._snapStrike=Number(event.target.value);
+    renderSnapshot();
+  });
+  activateQuoteDepthLoading();
+}
+
+function renderBuyCall(){
+  const spot=Number(DATA.spot_price);
+  const maxPremium=Number($("fYield").value)||0;
+  const maxDays=Number($("fDays").value)||0;
+  const sort=$("fSort").value;
+  const bounds=getBuyCallStrikeBounds();
+  if(!bounds.valid){
+    $("content").className="state error";
+    $("content").textContent=t("invalidStrikeRange");
+    return;
+  }
+  let rows=filterBuyCallRowsByStrike(optionRows(),bounds);
+  if(maxPremium>0) rows=rows.filter(row=>{
+    const cost=callCost(row);
+    return cost!==null&&cost<=maxPremium;
+  });
+  if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
+  if(sort==="move") rows.sort((a,b)=>(callBreakevenMove(a)??Infinity)-(callBreakevenMove(b)??Infinity));
+  else if(sort==="premium") rows.sort((a,b)=>(callCost(a)??Infinity)-(callCost(b)??Infinity));
+  else rows.sort((a,b)=>a.days-b.days||(callBreakevenMove(a)??Infinity)-(callBreakevenMove(b)??Infinity));
+  if(!rows.length){
+    $("content").className="state";
+    $("content").textContent=t("noCalls");
+    return;
+  }
+  const totalRows=rows.length;
+  const renderLimit=300;
+  rows=rows.slice(0,renderLimit);
+  const grouped={};
+  rows.forEach(row=>(grouped[row.expiry]??=[]).push(row));
+  let html=totalRows>renderLimit
+    ?`<div class="state">${t("narrowFilters").replace("{count}",String(renderLimit))}</div>`
+    :"";
+  Object.keys(grouped).sort().forEach((expiry,expiryIndex)=>{
+    const expiryRows=grouped[expiry];
+    html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>${t("moneyness")}</th><th>${quoteLabel()}</th><th>${depthHeader("ask")}</th><th>${breakevenHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    expiryRows.forEach((row,rowIndex)=>{
+      const detailId=`call-detail-list-${expiryIndex}-${rowIndex}`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${callMoneyness(row.strike,spot)}</td><td>${formatAsk(row,detailId)}</td><td>${formatTopDepth(row,"ask")}</td><td>${formatBreakeven(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=callQuoteDetailRow(row,detailId);
+    });
+    html+="</tbody></table></div></section>";
+  });
+  $("content").className="";
+  $("content").innerHTML=html;
+  activateQuoteDepthLoading();
+}
+
+function render(){
+  if(!DATA){$("content").textContent=loadingCopy();return}
+  if(isBuyCall()){
+    renderBuyCall();
+    return;
+  }
+  const spot=Number(DATA.spot_price);
+  const minYield=Number($("fYield").value)||0;
+  const maxDays=Number($("fDays").value)||0;
+  const strikeFilter=$("fStrike").value;
+  const sort=$("fSort").value;
+  let rows=optionRows().filter(row=>Number(row.ann_yield)>=minYield);
+  if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
+  if(strikeFilter==="near") rows=rows.filter(row=>Math.abs(Number(row.strike)-spot)/spot<=.2);
+  if(sort==="yield") rows.sort((a,b)=>b.ann_yield-a.ann_yield);
+  else if(sort==="strike") rows.sort((a,b)=>b.strike-a.strike);
+  else rows.sort((a,b)=>a.days-b.days||b.ann_yield-a.ann_yield);
+  if(!rows.length){
+    $("content").className="state";
+    $("content").textContent=t("noOptions");
+    return;
+  }
+  const grouped={};
+  rows.forEach(row=>(grouped[row.expiry]??=[]).push(row));
+  let html="";
+  Object.keys(grouped).sort().forEach(expiry=>{
+    const expiryRows=grouped[expiry];
+    html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    expiryRows.forEach(row=>{
+      const otm=(spot-Number(row.strike))/spot*100;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+    });
+    html+="</tbody></table></div></section>";
+  });
+  $("content").className="";
+  $("content").innerHTML=html;
+  activateQuoteDepthLoading();
+}
+
+function alignPrice(priceData,timestamps){
+  if(!priceData?.timestamps?.length) return [];
+  return timestamps.map(timestamp=>{
+    let closest=0;
+    let distance=Infinity;
+    for(let index=0;index<priceData.timestamps.length;index++){
+      const candidate=Math.abs(Number(priceData.timestamps[index])-Number(timestamp));
+      if(candidate<distance){distance=candidate;closest=index}
+    }
+    return priceData.values[closest];
+  });
+}
+
+function chartMeta(id){
+  const rvDays=assetSpec().rvDays;
+  const map={
+    dvol:{label:t("dvol"),tip:t("dvolTip"),color:CHART_COLORS.dvol,overlay:true},
+    fng:{label:t("fng"),tip:t("fngTip"),color:CHART_COLORS.fng,overlay:true},
+    vrp:{label:t("vrp").replace("30d",rvDays+"d"),tip:t("vrpTip"),color:CHART_COLORS.vrp,overlay:true},
+    price:{label:`${currentAsset} ${t("price")}`,tip:t("priceTip"),color:CHART_COLORS.price,overlay:false,isPrice:true},
+    rv:{label:`${rvDays}d ${t("rv")}`,tip:t("rvTip"),color:CHART_COLORS.rv,overlay:true}
+  };
+  return map[id];
+}
+
+function makeMarketChart(canvasId,id,series,priceData){
+  const meta=chartMeta(id);
+  const labels=series.timestamps.map(timestamp=>new Date(Number(timestamp)));
+  const datasets=[{
+    label:meta.label,data:series.values,borderColor:meta.color,backgroundColor:meta.color+"22",
+    borderWidth:1.5,pointRadius:0,tension:.25,yAxisID:"y",fill:false
+  }];
+  if(meta.overlay&&priceData?.timestamps?.length){
+    datasets.push({
+      label:`${currentAsset} Price`,data:alignPrice(priceData,series.timestamps),
+      borderColor:"rgba(255,255,255,.26)",borderWidth:1,borderDash:[4,3],
+      pointRadius:0,tension:.25,yAxisID:"y1",fill:false
+    });
+  }
+  const scales={
+    x:{type:"time",time:{tooltipFormat:"MMM d"},ticks:{color:"#787b86",font:{size:10},maxTicksLimit:6},grid:{color:"#2a2e3944"}},
+    y:{position:"left",ticks:{color:meta.color,font:{size:10},callback:meta.isPrice?formatAxisPrice:undefined},grid:{color:"#2a2e3944"}}
+  };
+  if(meta.overlay){
+    scales.y1={position:"right",ticks:{color:"rgba(255,255,255,.3)",font:{size:10},callback:formatAxisPrice},grid:{drawOnChartArea:false}};
+  }
+  histCharts[canvasId]=new Chart($(canvasId),{
+    type:"line",data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      scales,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:"#1e222d",titleColor:"#d1d4dc",bodyColor:"#d1d4dc",borderColor:"#2a2e39",borderWidth:1}}
+    }
+  });
+}
+
+function renderHistory(history){
+  clearCharts();
+  if(isBuyCall()) return;
+  if(isStockMode()||!history) return;
+  const available=(history.available_charts||[])
+    .filter(id=>id!=="price"&&history[id]?.timestamps?.length)
+    .slice(0,3);
+  if(!available.length) return;
+  $("chartGrid").className=`chart-grid count-${available.length}`;
+  available.forEach((id,index)=>{
+    const box=$("chartBox"+index);
+    const meta=chartMeta(id);
+    box.querySelector("h3").innerHTML=tip(meta.label,meta.tip);
+    box.style.display="block";
+    makeMarketChart("marketChart"+index,id,history[id],history.price_history);
+  });
+  $("chartGrid").style.display="grid";
+}
+
+function applyLang(){
+  const symbol=currentSymbol();
+  const strategyName=isBuyCall()?"Buy Call":"Sell Put";
+  document.documentElement.lang=_lang;
+  $("langBtn").textContent=t("langBtn");
+  $("refreshBtn").textContent=t("refresh");
+  $("pageTitle").textContent=`${symbol} ${strategyName}`;
+  document.title=`${symbol} ${strategyName} Monitor`;
+  setStrategyChrome();
+  $("spotLabel").textContent=isStockMode()?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
+  $("stockTab").textContent=t("usStocks");
+  $("stockSymbol").placeholder=t("stockPlaceholder");
+  $("stockSymbolLabel").textContent=t("stockPlaceholder");
+  $("stockSearchBtn").textContent=t("stockSearch");
+  $("labelYield").textContent=isBuyCall()?t("maxPremium"):t("minYield");
+  $("labelDays").textContent=t("maxDays");
+  $("labelStrike").textContent=t("strike");
+  $("labelMinStrike").textContent=t("minStrike");
+  $("labelMaxStrike").textContent=t("maxStrike");
+  $("fMinStrike").placeholder=t("unlimited");
+  $("fMaxStrike").placeholder=t("unlimited");
+  $("labelSort").textContent=t("sort");
+  $("fStrike").options[0].textContent=isBuyCall()?t("allStrikes"):t("allOtm");
+  $("fStrike").options[1].textContent=t("nearAtm");
+  $("fSort").options[0].textContent=isBuyCall()?t("moveAsc"):t("yieldDesc");
+  $("fSort").options[1].textContent=isBuyCall()?t("premiumAsc"):t("strikeDesc");
+  $("fSort").options[2].textContent=t("daysDesc");
+  setTimeframeButtons();
+  renderPriceChartCopy();
+  if(PRICE_DATA){
+    renderPriceChart(PRICE_DATA);
+  }else{
+    const chartStatus=$("priceChartState").dataset.status;
+    if(chartStatus) setPriceChartState(chartStatus);
+  }
+  if(DATA){
+    renderMarketMeta();
+    renderAction(LAST_TIMING);
+    renderSnapshot();
+    render();
+    renderHistory(LAST_HISTORY);
+  }
+}
+
+function toggleLang(){
+  _lang=_lang==="zh"?"en":"zh";
+  applyLang();
+}
+
+function handleCallQuoteDetailToggle(event){
+  if(!isBuyCall()) return;
+  const button=event.target.closest("[data-call-detail-toggle]");
+  if(!button) return;
+  const detailId=button.getAttribute("aria-controls");
+  const detailRow=detailId?document.getElementById(detailId):null;
+  if(!detailRow) return;
+  const expanded=button.getAttribute("aria-expanded")==="true";
+  button.setAttribute("aria-expanded",String(!expanded));
+  button.setAttribute(
+    "aria-label",
+    expanded?t("expandQuoteDetails"):t("collapseQuoteDetails")
+  );
+  detailRow.hidden=expanded;
+}
+
+function handleQuoteDepthClick(event){
+  const button=event.target.closest?.("[data-quote-depth]");
+  if(!button||isStockMode()) return;
+  const state=quoteDepthState;
+  const key=button.dataset.depthKey;
+  if(
+    !state||!key
+    ||state.pending.has(key)
+    ||state.queued.has(key)
+  ) return;
+  state.cache.delete(key);
+  setQuoteDepthNodesLoading(state,key);
+  enqueueQuoteDepth(button);
+}
+
+document.querySelectorAll("[data-asset]").forEach(button=>{
+  button.addEventListener("click",()=>selectAsset(button.dataset.asset));
+});
+$("stockTab").addEventListener("click",()=>selectStock(currentStockSymbol));
+$("stockSearch").addEventListener("submit",event=>{
+  event.preventDefault();
+  selectStock($("stockSymbol").value,true);
+});
+document.querySelectorAll("[data-timeframe]").forEach(button=>{
+  button.addEventListener("click",()=>selectTimeframe(button.dataset.timeframe));
+});
+$("langBtn").addEventListener("click",toggleLang);
+$("refreshBtn").addEventListener("click",()=>{
+  loadData();
+  loadPriceChart();
+});
+["fYield","fDays","fStrike","fSort"].forEach(id=>{
+  $(id).addEventListener("change",render);
+  $(id).addEventListener("input",()=>{
+    clearTimeout(window._renderTimer);
+    window._renderTimer=setTimeout(render,250);
+  });
+});
+["fMinStrike","fMaxStrike"].forEach(id=>{
+  $(id).addEventListener("change",()=>{
+    renderSnapshot();
+    render();
+  });
+  $(id).addEventListener("input",()=>{
+    clearTimeout(window._renderTimer);
+    window._renderTimer=setTimeout(()=>{
+      renderSnapshot();
+      render();
+    },250);
+  });
+});
+["snapshot","content"].forEach(id=>{
+  $(id).addEventListener("click",handleCallQuoteDetailToggle);
+  $(id).addEventListener("click",handleQuoteDepthClick);
+});
+document.addEventListener("pointerover",event=>{
+  const target=event.target.closest?.(".tip");
+  if(
+    !target
+    ||(event.relatedTarget&&target.contains(event.relatedTarget))
+  ) return;
+  showHoverTooltip(target);
+});
+document.addEventListener("pointerout",event=>{
+  const target=event.target.closest?.(".tip");
+  if(
+    !target
+    ||(event.relatedTarget&&target.contains(event.relatedTarget))
+  ) return;
+  releaseHoverTooltip(target);
+});
+document.addEventListener("focusin",event=>{
+  const target=event.target.closest?.(".tip");
+  if(target) showHoverTooltip(target);
+});
+document.addEventListener("focusout",event=>{
+  const target=event.target.closest?.(".tip");
+  if(target) releaseHoverTooltip(target);
+});
+window.addEventListener("scroll",()=>{
+  if(activeHoverTip) positionHoverTooltip(activeHoverTip);
+},true);
+window.addEventListener("resize",()=>{
+  if(activeHoverTip) positionHoverTooltip(activeHoverTip);
+});
+const hoverTooltipObserver=new MutationObserver(()=>{
+  hideDetachedHoverTooltip();
+});
+["snapshot","content","chartGrid"].forEach(id=>{
+  hoverTooltipObserver.observe($(id),{
+    childList:true,
+    subtree:true
+  });
+});
+
+if(isBuyCall()){
+  $("fYield").value="0";
+  $("fYield").placeholder="0=all";
+  $("fSort").options[0].value="move";
+  $("fSort").options[1].value="premium";
+}
+setAssetButtons();
+setTimeframeButtons();
+applyLang();
+setPriceChartState("loading");
+loadData();
+loadPriceChart();
+if(!isBuyCall()){
+  setInterval(()=>{
+    if(isStockMode()) return;
+    loadData();
+    loadPriceChart();
+  },120000);
+}else{
+  setInterval(renderBuyCallRisk,5000);
+}
+</script>
+</body>
+</html>
