@@ -748,7 +748,11 @@ function renderPriceChart(payload){
         timeVisible:!["1d","1w"].includes(payload.timeframe),
         secondsVisible:false,
         rightOffset:3,
-        barSpacing:7
+        barSpacing:7,
+        minBarSpacing:2,
+        fixLeftEdge:true,
+        fixRightEdge:true,
+        lockVisibleTimeRangeOnResize:true
       },
       localization:{locale:_lang==="zh"?"zh-CN":"en-US"},
       handleScroll:true,
