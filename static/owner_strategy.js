@@ -28,6 +28,7 @@
   };
 
   function finite(value){
+    if(value===null||value===undefined||value==="")return null;
     const number=Number(value);
     return Number.isFinite(number)?number:null;
   }
@@ -281,26 +282,74 @@
 
   function positionMetrics(position,research,nowMs=Date.now()){
     const quote=findQuote(position,research);
-    const currentBid=finite(quote?.bid_usd);
+    const currentBid=nonNegative(quote?.bid_usd,{nullable:true});
+    const currentAsk=nonNegative(quote?.ask_usd,{nullable:true});
+    const currentMark=nonNegative(quote?.mark_usd,{nullable:true});
     const premium=Number(position.open_premium_per_btc);
+    const notional=Number(position.notional_btc);
     const remainingDays=dte(position,nowMs);
     const totalDays=(dateMs(position.expiry)-dateMs(position.open_date))/DAY_MS;
     const elapsedDays=Math.max(0,(dateMs(utcDate(nowMs))-dateMs(position.open_date))/DAY_MS);
     const timeElapsedPct=totalDays<=0?(elapsedDays>0?100:0):elapsedDays/totalDays*100;
-    const capturePct=currentBid===null||premium<=0?null:(premium-currentBid)/premium*100;
-    const remainingApr=currentBid===null?null:annualizedSimple(
-      currentBid*position.notional_btc,
-      position.strike*position.notional_btc,
+    const quoteUsable=Boolean(quote)&&sourceUsable(research,nowMs)&&currentAsk!==null;
+    const capturePct=!quoteUsable||premium<=0?null:(premium-currentAsk)/premium*100;
+    const remainingApr=!quoteUsable?null:annualizedSimple(
+      currentAsk*notional,
+      position.strike*notional,
       remainingDays,
     );
+    const closeCost=quoteUsable?currentAsk*notional:null;
+    const unrealizedPnl=quoteUsable?(premium-currentAsk)*notional:null;
+    const spot=sourceUsable(research,nowMs)?positive(research?.spot):null;
+    const strikeDistancePct=spot===null?null:(spot-position.strike)/spot*100;
+    let spreadPct=finite(quote?.spread_pct);
+    if(spreadPct===null&&currentBid!==null&&currentAsk!==null&&currentAsk>=currentBid){
+      const midpoint=(currentBid+currentAsk)/2;
+      spreadPct=midpoint>0?(currentAsk-currentBid)/midpoint*100:null;
+    }
+    const asof=finite(research?.source_status?.chain_asof_epoch_ms);
+    const quoteAgeSeconds=asof===null?null:Math.max(0,(nowMs-asof)/1000);
     return {
       quote,
       current_bid:currentBid,
+      current_ask:currentAsk,
+      current_mark:currentMark,
+      quote_usable:quoteUsable,
+      quote_age_seconds:quoteAgeSeconds,
+      quote_asof_epoch_ms:asof,
+      spread_pct:spreadPct,
+      iv:finite(quote?.iv),
+      delta:finite(quote?.delta),
       capture_pct:capturePct,
       time_elapsed_pct:timeElapsedPct,
       dte:remainingDays,
       remaining_apr:remainingApr,
+      open_premium_total:premium*notional,
+      close_cost:closeCost,
+      unrealized_pnl:unrealizedPnl,
+      strike_distance_pct: strikeDistancePct,
       net_own_capital:(position.strike-premium)*position.notional_btc,
+    };
+  }
+
+  function portfolioSummary(ownerStateValue,positions,research,nowMs=Date.now()){
+    const ownerState=normalizeOwnerState(ownerStateValue);
+    const account=totals(ownerState,positions);
+    const metrics=positions.map(position=>positionMetrics(position,research,nowMs));
+    const quoteUnavailableCount=metrics.filter(row=>!row.quote_usable).length;
+    const complete=quoteUnavailableCount===0;
+    return {
+      ...account,
+      position_count:positions.length,
+      quote_unavailable_count:quoteUnavailableCount,
+      pnl_complete:complete,
+      open_premium_total:metrics.reduce((sum,row)=>sum+row.open_premium_total,0),
+      close_cost_total:complete
+        ?metrics.reduce((sum,row)=>sum+row.close_cost,0)
+        :null,
+      unrealized_pnl_total:complete
+        ?metrics.reduce((sum,row)=>sum+row.unrealized_pnl,0)
+        :null,
     };
   }
 
@@ -324,10 +373,10 @@
         metrics:positionMetrics(position,research,nowMs),
       });
     }
-    const spot=positive(research?.spot);
     const metrics=positionMetrics(position,research,nowMs);
-    if(spot===null||metrics.current_bid===null){
-      return result("close","unknown","当前 BTC 参考价或合约 Bid 不可用。",{metrics});
+    const spot=positive(research?.spot);
+    if(spot===null||!metrics.quote_usable){
+      return result("close","unknown","当前 BTC 参考价或合约 Ask 不可用，不计算平仓损益。",{metrics});
     }
     if(metrics.capture_pct!==null&&metrics.capture_pct>=CAPTURE_EXIT&&
       metrics.time_elapsed_pct<=TIME_EXIT){
@@ -354,12 +403,36 @@
     );
   }
 
+  function closePriority(state){
+    return state==="risk"?0:state==="review"?1:state==="unknown"?2:3;
+  }
+
+  function positionRows(ownerStateValue,positions,research,nowMs=Date.now(),filter="all"){
+    const rows=positions.map(position=>{
+      const decision=evaluateClose(
+        position,ownerStateValue,positions,research,nowMs,
+      );
+      return {position,decision,metrics:decision.metrics};
+    });
+    const visible=rows.filter(row=>{
+      if(filter==="attention")return row.decision.state!=="not_due";
+      if(filter==="normal")return row.decision.state==="not_due";
+      return true;
+    });
+    return visible.sort((a,b)=>
+      closePriority(a.decision.state)-closePriority(b.decision.state)||
+      String(a.position.expiry).localeCompare(String(b.position.expiry))||
+      Number(b.position.strike)-Number(a.position.strike)
+    );
+  }
+
   return {
     RWA_APY,CAPTURE_EXIT,TIME_EXIT,EXIT_APR_BUFFER_PP,
     MIN_RESEARCH_DTE,MAX_RESEARCH_SPREAD_PCT,LABELS,
     finite,positive,optionalPositive,validDate,utcDate,isExpired,dte,
     normalizeOwnerState,normalizePosition,totals,sourceUsable,
     annualizedSimple,deribitStandardPutMargin,deribitCapitalSummary,
-    positionMetrics,evaluateEntry,evaluateClose,
+    positionMetrics,portfolioSummary,evaluateEntry,evaluateClose,
+    closePriority,positionRows,
   };
 });

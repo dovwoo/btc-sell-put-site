@@ -39,20 +39,53 @@
   let otpResendAt=0;
   let otpResendTimer=null;
   let lastResearchAt=0;
+  let researchLoading=false;
+  let researchError=null;
   let privateLoadVersion=0;
   let stateSaveVersion=0;
   let stateSaveQueue=Promise.resolve();
+  let positionFilter="all";
+  const expandedPositionIds=new Set();
+  let noticeMessage="";
+  let noticeKind="";
+  let noticeTimer=null;
 
   const $=id=>document.getElementById(id);
   const money=(value,decimals=0)=>{
+    if(value===null||value===undefined||value==="")return "—";
     const number=Number(value);
     return Number.isFinite(number)
       ?`$${number.toLocaleString("en-US",{minimumFractionDigits:decimals,maximumFractionDigits:decimals})}`
       :"—";
   };
   const pct=(value,decimals=1)=>{
+    if(value===null||value===undefined||value==="")return "—";
     const number=Number(value);
     return Number.isFinite(number)?`${number.toFixed(decimals)}%`:"—";
+  };
+  const signedPct=(value,decimals=1)=>{
+    if(value===null||value===undefined||value==="")return "不可用";
+    const number=Number(value);
+    if(!Number.isFinite(number))return "不可用";
+    return `${number>0?"+":""}${number.toFixed(decimals)}%`;
+  };
+  const signedMoney=(value,decimals=0)=>{
+    if(value===null||value===undefined||value==="")return "不可用";
+    const number=Number(value);
+    if(!Number.isFinite(number))return "不可用";
+    const sign=number>0?"+":number<0?"-":"±";
+    return `${sign}$${Math.abs(number).toLocaleString("en-US",{
+      minimumFractionDigits:decimals,maximumFractionDigits:decimals,
+    })}`;
+  };
+  const quoteTime=value=>{
+    if(value===null||value===undefined||value==="")return "无成功报价";
+    const timestamp=Number(value);
+    if(!Number.isFinite(timestamp))return "无成功报价";
+    return new Intl.DateTimeFormat("zh-CN",{
+      month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",
+      hour12:false,timeZone:"UTC",
+    }).format(new Date(timestamp))+" UTC";
   };
   const esc=value=>String(value??"").replace(/[&<>"']/g,char=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;",
@@ -167,6 +200,10 @@
     persistSession(null);
     privateReady=false;
     privateError=null;
+    researchError=null;
+    researchLoading=false;
+    expandedPositionIds.clear();
+    positionFilter="all";
     positions=[];
     ownerState={
       owner_id:null,stablecoin_usd:0,buy_band_low:null,buy_band_high:null,
@@ -183,6 +220,11 @@
     if(dialog?.open){
       if(dialog.close)dialog.close();
       else dialog.removeAttribute("open");
+    }
+    const accountDialog=$("ownerAccountDialog");
+    if(accountDialog?.open){
+      if(accountDialog.close)accountDialog.close();
+      else accountDialog.removeAttribute("open");
     }
     $("ownerLoginForm").hidden=false;
     $("ownerOtpForm").hidden=true;
@@ -287,17 +329,24 @@
       document.body.insertAdjacentHTML("beforeend",positionDialogHtml());
       bindPositionDialog();
     }
+    if(!$("ownerAccountDialog")){
+      document.body.insertAdjacentHTML("beforeend",accountDialogHtml());
+      bindAccountDialog();
+    }
     renderAccount();
     renderPositions();
   }
 
   function accountHtml(){
-    const account=Strategy.totals(ownerState,positions);
+    const account=Strategy.portfolioSummary(ownerState,positions,research);
     const capital=Strategy.deribitCapitalSummary(positions,research);
-    const age=research?.source_status?.chain_asof_epoch_ms
-      ?Math.max(0,Math.round((Date.now()-research.source_status.chain_asof_epoch_ms)/1000))
-      :null;
     const stale=!Strategy.sourceUsable(research);
+    const asof=research?.source_status?.chain_asof_epoch_ms;
+    const decisions=Strategy.positionRows(ownerState,positions,research);
+    const attention=decisions.filter(row=>row.decision.state!=="not_due").length;
+    const quoteLabel=researchError?"刷新失败":stale?"报价不可用":"最后成功";
+    const pnlClass=account.pnl_complete&&account.unrealized_pnl_total>0
+      ?"good":account.pnl_complete&&account.unrealized_pnl_total<0?"bad":"muted";
     let capitalBody;
     if(!positions.length){
       capitalBody='<p class="owner-capital-note">录入持仓后显示当前 Deribit Standard Margin 文档估算。</p>';
@@ -313,33 +362,76 @@
         </div>
         <p class="owner-capital-note">这是 BTC_USDC Standard Margin 的文档公式估算，不是账户下单预览。“IM 以上专属准备金”可以放在合格生息抵押品或高流动性短债，但仍专属于这些 Put，不能再次计入开仓容量；可转出金额还要扣除 -70% 压力、参数上调、haircut 与 48 小时入金中断缓冲。</p>`;
     }
-    return `<div class="owner-account-head"><div><span class="owner-kicker">OWNER / BTC SELL PUT</span><strong>完整承诺账本</strong></div><div class="owner-account-actions"><span class="owner-save-state" id="ownerSaveState"></span><button type="button" id="ownerRetry" class="owner-quiet">刷新</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
-      <div class="owner-account-grid">
-        <label><span>稳定币 USD</span><input id="ownerStablecoin" type="number" min="0" step="any" inputmode="decimal" value="${esc(inputValue(ownerState.stablecoin_usd))}"></label>
-        <div class="owner-account-metric"><span>Put 占用 K×Q</span><strong>${money(account.put_reserved)}</strong></div>
-        <div class="owner-account-metric ${account.available<0?"bad":""}"><span>可用容量</span><strong>${money(account.available)}</strong></div>
-        <div class="owner-account-metric ${stale?"warn":""}"><span>报价年龄</span><strong>${age===null?"—":`${age}s`}</strong></div>
-        <label><span>买入带下沿</span><input id="ownerBandLow" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置" value="${esc(inputValue(ownerState.buy_band_low))}"></label>
-        <label><span>买入带上沿</span><input id="ownerBandHigh" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置" value="${esc(inputValue(ownerState.buy_band_high))}"></label>
-        <label><span>现金底线</span><input id="ownerCashFloor" type="number" min="0" step="any" inputmode="decimal" placeholder="未配置" value="${esc(inputValue(ownerState.cash_floor_usd))}"></label>
+    return `<div class="owner-account-head"><div><span class="owner-kicker">OWNER / BTC SELL PUT</span><strong>期权持仓总览</strong></div><div class="owner-account-actions"><button type="button" id="ownerAccountSettings" class="owner-quiet">账户设置</button><button type="button" id="ownerRetry" class="owner-quiet"${researchLoading?" disabled":""}>${researchLoading?"刷新中…":"刷新报价"}</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
+      <div class="owner-account-grid" aria-label="账户与持仓汇总">
+        <div class="owner-account-metric"><span>稳定币 USD</span><strong>${money(ownerState.stablecoin_usd)}</strong></div>
+        <div class="owner-account-metric"><span>完整承诺 K×Q</span><strong>${money(account.put_reserved)}</strong></div>
+        <div class="owner-account-metric ${account.available<0?"bad":""}"><span>可用资本</span><strong>${money(account.available)}</strong></div>
+        <div class="owner-account-metric"><span>开仓权利金</span><strong>${money(account.open_premium_total)}</strong></div>
+        <div class="owner-account-metric ${account.pnl_complete?"":"muted"}"><span>平仓总成本 · Ask</span><strong>${account.pnl_complete?money(account.close_cost_total):"不可用"}</strong></div>
+        <div class="owner-account-metric ${pnlClass}"><span>总未实现 P&amp;L</span><strong>${account.pnl_complete?signedMoney(account.unrealized_pnl_total):"不可用"}</strong>${account.quote_unavailable_count?`<small>${account.quote_unavailable_count} 笔 Ask 缺失/过期</small>`:""}</div>
+        <div class="owner-account-metric ${attention?"warn":""}"><span>需处理仓位</span><strong>${attention} / ${positions.length}</strong></div>
+        <div class="owner-account-metric ${stale||researchError?"warn":""}"><span>${quoteLabel}</span><strong>${quoteTime(asof)}</strong></div>
       </div>
       <details class="owner-capital"><summary><span>保证金与生息准备金</span><span>默认折叠 · 研究估算</span></summary>${capitalBody}</details>
-      <div class="owner-private-error" id="ownerPrivateError"${privateError?"":" hidden"}>${privateError?`${esc(privateError)} <button type="button" data-owner-retry>重试</button>`:""}</div>`;
+      <div class="owner-private-error" id="ownerPrivateError"${privateError||researchError?"":" hidden"}>${privateError?`${esc(privateError)} <button type="button" data-owner-retry>重试私有数据</button>`:researchError?`${esc(researchError)} <button type="button" data-owner-quote-retry>重试报价</button>`:""}</div>`;
   }
 
   function renderAccount(){
     const node=$("ownerAccountBar");
     if(!node)return;
     node.innerHTML=accountHtml();
-    const disabled=!privateReady;
-    node.querySelectorAll("input").forEach(input=>input.disabled=disabled);
     $("ownerLogout").addEventListener("click",logout);
     $("ownerRetry").addEventListener("click",refreshAll);
+    $("ownerAccountSettings").addEventListener("click",openAccountDialog);
     node.querySelector("[data-owner-retry]")?.addEventListener("click",loadPrivateData);
-    ["ownerStablecoin","ownerBandLow","ownerBandHigh","ownerCashFloor"].forEach(id=>{
-      $(id).addEventListener("input",scheduleOwnerStateSave);
-      $(id).addEventListener("change",saveOwnerState);
+    node.querySelector("[data-owner-quote-retry]")?.addEventListener("click",()=>refreshResearch(true));
+  }
+
+  function accountDialogHtml(){
+    return `<dialog id="ownerAccountDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerAccountDialogTitle"><form id="ownerAccountForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">ACCOUNT</span><h2 id="ownerAccountDialogTitle">账户设置</h2></div><button type="button" class="owner-dialog-close" id="ownerAccountClose" aria-label="关闭">×</button></div><div class="owner-form-grid">
+      <label><span>稳定币 USD</span><input id="ownerStablecoin" type="number" min="0" step="any" inputmode="decimal" required></label>
+      <label><span>现金底线</span><input id="ownerCashFloor" type="number" min="0" step="any" inputmode="decimal" placeholder="未配置"></label>
+      <label><span>买入带下沿</span><input id="ownerBandLow" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置"></label>
+      <label><span>买入带上沿</span><input id="ownerBandHigh" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置"></label>
+    </div><p class="owner-form-note">稳定币与 K×Q 完整承诺共同决定可用资本。</p><div class="owner-dialog-error" id="ownerAccountError" role="alert"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerAccountCancel">取消</button><button type="submit" class="owner-primary" id="ownerAccountSave">保存设置</button></div></form></dialog>`;
+  }
+
+  function bindAccountDialog(){
+    $("ownerAccountClose").addEventListener("click",()=>closeAccountDialog({discard:true}));
+    $("ownerAccountCancel").addEventListener("click",()=>closeAccountDialog({discard:true}));
+    $("ownerAccountDialog").addEventListener("cancel",event=>{
+      event.preventDefault();
+      closeAccountDialog({discard:true});
     });
+    $("ownerAccountForm").addEventListener("submit",event=>{
+      event.preventDefault();
+      saveOwnerState();
+    });
+    $("ownerAccountForm").addEventListener("input",()=>{
+      localStorage.setItem(ACCOUNT_DRAFT_KEY,JSON.stringify(accountDraftFromInputs()));
+    });
+  }
+
+  function openAccountDialog(){
+    if(!privateReady){setNotice("私有数据尚未就绪，请稍后重试。","bad");return}
+    const draft=readStoredJson(ACCOUNT_DRAFT_KEY)||ownerState;
+    $("ownerStablecoin").value=inputValue(draft.stablecoin_usd);
+    $("ownerBandLow").value=inputValue(draft.buy_band_low);
+    $("ownerBandHigh").value=inputValue(draft.buy_band_high);
+    $("ownerCashFloor").value=inputValue(draft.cash_floor_usd);
+    $("ownerAccountError").textContent="";
+    const dialog=$("ownerAccountDialog");
+    if(dialog.showModal)dialog.showModal();
+    else dialog.setAttribute("open","");
+    $("ownerStablecoin").focus();
+  }
+
+  function closeAccountDialog({discard=false}={}){
+    if(discard)localStorage.removeItem(ACCOUNT_DRAFT_KEY);
+    const dialog=$("ownerAccountDialog");
+    if(dialog.close)dialog.close();
+    else dialog.removeAttribute("open");
   }
 
   function accountDraftFromInputs(){
@@ -352,22 +444,17 @@
     };
   }
 
-  function scheduleOwnerStateSave(){
-    clearTimeout(saveTimer);
-    localStorage.setItem(ACCOUNT_DRAFT_KEY,JSON.stringify(accountDraftFromInputs()));
-    $("ownerSaveState").textContent="未保存";
-    saveTimer=setTimeout(saveOwnerState,600);
-  }
-
   function saveOwnerState(){
     clearTimeout(saveTimer);
     if(!privateReady)return Promise.resolve();
-    const status=$("ownerSaveState");
+    const button=$("ownerAccountSave");
+    const status=$("ownerAccountError");
     const draft=accountDraftFromInputs();
     const sessionOwnerId=session?.user?.id;
     const version=++stateSaveVersion;
-    status.classList.remove("bad");
-    status.textContent="保存中…";
+    status.textContent="";
+    button.disabled=true;
+    button.textContent="保存中…";
     stateSaveQueue=stateSaveQueue.then(async()=>{
       if(!sessionOwnerId||session?.user?.id!==sessionOwnerId)return;
       const normalized=Strategy.normalizeOwnerState(draft);
@@ -379,17 +466,31 @@
       if(version!==stateSaveVersion||session?.user?.id!==sessionOwnerId)return;
       ownerState=Strategy.normalizeOwnerState(rows?.[0]||normalized);
       localStorage.removeItem(ACCOUNT_DRAFT_KEY);
-      status.classList.remove("bad");
-      status.textContent="已保存";
+      closeAccountDialog({discard:false});
+      renderAccount();
       renderPositions();
       renderEntry();
-      setTimeout(()=>{if(status.isConnected)status.textContent=""},1400);
+      setNotice("账户设置已保存。","ok");
     }).catch(error=>{
       if(version!==stateSaveVersion)return;
       status.textContent=error.message;
-      status.classList.add("bad");
+    }).finally(()=>{
+      if(button.isConnected){button.disabled=false;button.textContent="保存设置"}
     });
     return stateSaveQueue;
+  }
+
+  function setNotice(message,kind="ok"){
+    noticeMessage=message;
+    noticeKind=kind;
+    clearTimeout(noticeTimer);
+    const node=$("ownerNotice");
+    if(node){node.className=`owner-notice ${kind}`;node.textContent=message;node.hidden=false}
+    noticeTimer=setTimeout(()=>{
+      noticeMessage="";
+      const current=$("ownerNotice");
+      if(current)current.hidden=true;
+    },4200);
   }
 
   function statusClass(state){
@@ -439,22 +540,54 @@
       <p class="owner-research-note">条件 APR 只表示到期未赔付时的收入率；经验分布与压力路径用于人工复核。</p>`;
   }
 
-  function positionRow(positionValue,now){
-    const decision=Strategy.evaluateClose(positionValue,ownerState,positions,research,now);
-    const metrics=decision.metrics||Strategy.positionMetrics(positionValue,research,now);
-    const expired=Strategy.isExpired(positionValue,now);
-    const reserved=positionValue.strike*positionValue.notional_btc;
-    return `<tr class="${expired?"owner-expired":""}">
-      <td><strong>${money(positionValue.strike)}</strong>${expired?'<span class="owner-expired-tag">待核对到期</span>':""}</td>
-      <td>${esc(positionValue.expiry)}<span class="cell-note">${metrics.dte.toFixed(0)} DTE</span></td>
-      <td>${positionValue.notional_btc.toLocaleString()} BTC</td>
-      <td>${money(reserved)}<span class="cell-note">净资本 ${money(metrics.net_own_capital)}</span></td>
-      <td>${money(positionValue.open_premium_per_btc,2)}</td>
-      <td>${money(metrics.current_bid,2)}</td>
-      <td>${pct(metrics.capture_pct)}<span class="cell-note">期限 ${pct(metrics.time_elapsed_pct)}</span></td>
-      <td><span class="owner-status ${statusClass(decision.state)}">${esc(decision.verdict)}</span><span class="owner-reason">${esc(decision.reason)}</span></td>
-      <td><button type="button" class="owner-link" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑</button><button type="button" class="owner-link bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除</button></td>
-    </tr>`;
+  function quoteUnavailableReason(metrics){
+    if(!metrics.quote)return "当前期权链没有匹配合约";
+    if(!Strategy.sourceUsable(research))return "报价超过 120 秒或上游不可用";
+    if(metrics.current_ask===null)return "当前 Ask 缺失";
+    return "";
+  }
+
+  function positionDetail(row){
+    const {position:positionValue,decision,metrics}=row;
+    const unavailable=quoteUnavailableReason(metrics);
+    const spread=metrics.spread_pct===null?"—":pct(metrics.spread_pct);
+    const quoteState=metrics.quote_usable?"可用":unavailable||"不可用";
+    return `<div class="owner-position-detail">
+      <div class="owner-review-callout ${statusClass(decision.state)}"><span>平仓复核</span><strong>${esc(decision.verdict)}</strong><p>${esc(decision.reason)}</p></div>
+      <div class="owner-detail-grid">
+        <div><span>开仓日期</span><strong>${esc(positionValue.open_date)}</strong></div>
+        <div><span>开仓权利金</span><strong>${money(positionValue.open_premium_per_btc,2)} / BTC</strong><small>合计 ${money(metrics.open_premium_total,2)}</small></div>
+        <div><span>Bid</span><strong>${money(metrics.current_bid,2)}</strong></div>
+        <div><span>Ask · 平仓依据</span><strong>${money(metrics.current_ask,2)}</strong></div>
+        <div><span>Mark</span><strong>${money(metrics.current_mark,2)}</strong></div>
+        <div><span>Spread</span><strong>${spread}</strong></div>
+        <div><span>IV</span><strong>${pct(metrics.iv)}</strong></div>
+        <div><span>Delta</span><strong>${metrics.delta===null?"—":Number(metrics.delta).toFixed(3)}</strong></div>
+        <div><span>现价距 Strike</span><strong>${signedPct(metrics.strike_distance_pct)}</strong></div>
+        <div><span>剩余 APR · Ask</span><strong>${pct(metrics.remaining_apr)}</strong></div>
+        <div><span>报价时间</span><strong>${quoteTime(metrics.quote_asof_epoch_ms)}</strong></div>
+        <div class="${metrics.quote_usable?"good":"bad"}"><span>报价状态</span><strong>${esc(quoteState)}</strong></div>
+      </div>
+      ${unavailable?`<p class="owner-quote-warning">${esc(unavailable)}：未实现 P&amp;L、捕获率和基于报价的平仓结论已禁用；用户录入的持仓仍保留。</p>`:""}
+      <div class="owner-secondary-actions"><button type="button" class="owner-quiet" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑持仓</button><button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
+      <details class="owner-research-card"><summary><span>高级研究 / CVaR / 压力测试</span><span>默认折叠</span></summary>${researchCard(positionValue)}</details>
+    </div>`;
+  }
+
+  function positionRow(row){
+    const {position:positionValue,decision,metrics}=row;
+    const expired=Strategy.isExpired(positionValue);
+    const expanded=expandedPositionIds.has(positionValue.id);
+    const pnlClass=metrics.quote_usable&&metrics.unrealized_pnl>0
+      ?"good":metrics.quote_usable&&metrics.unrealized_pnl<0?"bad":"muted";
+    return `<tr class="owner-position-row ${expired?"owner-expired":""}" data-position-id="${esc(positionValue.id)}">
+      <td class="owner-contract-cell" data-label="合约 / 数量"><strong>BTC ${money(positionValue.strike)} Put</strong><span class="cell-note">${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} BTC</span>${expired?'<span class="owner-expired-tag">待核对到期</span>':""}</td>
+      <td class="${pnlClass}" data-label="未实现 P&L / 捕获"><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><span class="cell-note">${metrics.quote_usable?`权利金捕获 ${signedPct(metrics.capture_pct)}`:esc(quoteUnavailableReason(metrics))}</span></td>
+      <td data-label="Ask 平仓成本"><strong>${metrics.quote_usable?money(metrics.close_cost,2):"不可用"}</strong><span class="cell-note">Ask ${money(metrics.current_ask,2)} / BTC</span></td>
+      <td data-label="DTE / 距行权价"><strong>${metrics.dte.toFixed(0)} DTE</strong><span class="cell-note">现价距 Strike ${signedPct(metrics.strike_distance_pct)}</span></td>
+      <td data-label="状态"><span class="owner-status ${statusClass(decision.state)}">${esc(decision.verdict)}</span><span class="owner-reason">${esc(decision.reason)}</span></td>
+      <td class="owner-detail-action" data-label="复核"><button type="button" class="owner-row-toggle" data-owner-toggle="${esc(positionValue.id)}" aria-expanded="${expanded}">${expanded?"收起详情":"查看详情"}<span aria-hidden="true">${expanded?"↑":"↓"}</span></button></td>
+    </tr><tr class="owner-position-detail-row"${expanded?"":" hidden"}><td colspan="6">${positionDetail(row)}</td></tr>`;
   }
 
   function renderPositions(){
@@ -463,21 +596,34 @@
     if(!positionsRoute){page.hidden=true;return}
     page.hidden=false;
     const entryCard=$("ownerEntryCard");
-    const now=Date.now();
-    const sorted=[...positions].sort((a,b)=>
-      Number(Strategy.isExpired(b,now))-Number(Strategy.isExpired(a,now))||
-      String(a.expiry).localeCompare(String(b.expiry))
-    );
-    const rows=sorted.length?sorted.map(row=>positionRow(row,now)).join(""):
-      `<tr><td colspan="9" class="owner-empty">还没有持仓。可以从 Sell Put 行情页加入，或手动录入。</td></tr>`;
-    const studies=sorted.map(row=>`<details class="owner-research-card"><summary><span>${money(row.strike)} Put · ${esc(row.expiry)}</span><span>展开高级研究</span></summary>${researchCard(row)}</details>`).join("");
-    page.innerHTML=`<div class="owner-page-head"><div><span class="owner-kicker">POSITIONS</span><h2>BTC Sell Put 持仓</h2><p>每笔只显示一个最高优先级状态；“进入复核”不是交易指令。</p></div><button type="button" class="owner-primary" id="ownerManualAdd"${privateReady?"":" disabled"}>手动录入</button></div>
+    const allRows=Strategy.positionRows(ownerState,positions,research);
+    const attentionCount=allRows.filter(row=>row.decision.state!=="not_due").length;
+    const normalCount=allRows.length-attentionCount;
+    const visibleRows=Strategy.positionRows(ownerState,positions,research,Date.now(),positionFilter);
+    const emptyCopy=!positions.length
+      ?"还没有持仓。可以从 Sell Put 行情页加入，或手动录入。"
+      :positionFilter==="attention"?"当前没有需处理仓位。":"当前没有正常仓位。";
+    const rows=visibleRows.length?visibleRows.map(positionRow).join(""):
+      `<tr><td colspan="6" class="owner-empty">${emptyCopy}</td></tr>`;
+    page.innerHTML=`<div class="owner-page-head"><div><span class="owner-kicker">POSITIONS</span><h2>BTC Sell Put 持仓</h2><p>默认按风险、复核、报价不可用和到期时间排序。</p></div><button type="button" class="owner-primary" id="ownerManualAdd"${privateReady?"":" disabled"}>手动录入</button></div>
+      <div class="owner-notice ${esc(noticeKind)}" id="ownerNotice" role="status"${noticeMessage?"":" hidden"}>${esc(noticeMessage)}</div>
       ${privateReady?"":`<div class="owner-private-error">${esc(privateError||"私有数据正在加载，编辑暂停。")}</div>`}
       <div class="owner-entry-slot"></div>
-      <div class="owner-table-scroll"><table class="owner-position-table"><thead><tr><th>Strike</th><th>到期 / DTE</th><th>名义数量</th><th>K×Q 占用</th><th>开仓权利金</th><th>当前 Bid</th><th>捕获 / 时间</th><th>平仓复核</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <section class="owner-advanced"><div class="owner-section-label">高级研究 · 默认折叠</div>${studies||'<p class="owner-empty">录入持仓后显示。</p>'}</section>`;
+      <div class="owner-position-toolbar" role="group" aria-label="持仓过滤"><button type="button" data-owner-filter="all" aria-pressed="${positionFilter==="all"}">全部 <strong>${allRows.length}</strong></button><button type="button" data-owner-filter="attention" aria-pressed="${positionFilter==="attention"}">需处理 <strong>${attentionCount}</strong></button><button type="button" data-owner-filter="normal" aria-pressed="${positionFilter==="normal"}">正常 <strong>${normalCount}</strong></button></div>
+      <div class="owner-table-scroll"><table class="owner-position-table"><thead><tr><th>合约 / 数量</th><th>未实现 P&amp;L / 捕获</th><th>Ask 平仓成本</th><th>DTE / 距行权价</th><th>状态</th><th>复核</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     if(entryCard)page.querySelector(".owner-entry-slot").appendChild(entryCard);
     $("ownerManualAdd")?.addEventListener("click",()=>openPositionDialog());
+    page.querySelectorAll("[data-owner-filter]").forEach(button=>button.addEventListener("click",()=>{
+      positionFilter=button.dataset.ownerFilter;
+      renderPositions();
+    }));
+    page.querySelectorAll("[data-owner-toggle]").forEach(button=>button.addEventListener("click",()=>{
+      const id=button.dataset.ownerToggle;
+      if(expandedPositionIds.has(id))expandedPositionIds.delete(id);
+      else expandedPositionIds.add(id);
+      renderPositions();
+      page.querySelector(`[data-owner-toggle="${CSS.escape(id)}"]`)?.focus();
+    }));
     page.querySelectorAll("[data-owner-edit]").forEach(button=>button.addEventListener("click",()=>{
       openPositionDialog(positions.find(row=>row.id===button.dataset.ownerEdit));
     }));
@@ -485,7 +631,7 @@
   }
 
   function positionDialogHtml(){
-    return `<dialog id="ownerPositionDialog" class="owner-dialog"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">SELL PUT LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
+    return `<dialog id="ownerPositionDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">SELL PUT LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
       <label><span>Strike</span><input id="ownerPositionStrike" type="number" min="0" step="any" required></label>
       <label><span>到期日</span><input id="ownerPositionExpiry" type="date" required></label>
       <label><span>BTC 名义数量</span><input id="ownerPositionNotional" type="number" min="0.00000001" step="any" value="1" required></label>
@@ -566,6 +712,7 @@
       localStorage.removeItem(DRAFT_KEY);
       closePositionDialog();
       await loadPrivateData();
+      setNotice(id?"持仓已更新。":"持仓已加入。","ok");
     }catch(error){
       errorNode.textContent=error.message;
     }finally{
@@ -581,7 +728,9 @@
       await rest(`positions?id=eq.${encodeURIComponent(id)}&owner_id=eq.${session.user.id}`,{
         method:"DELETE",prefer:"return=minimal",
       });
+      expandedPositionIds.delete(id);
       await loadPrivateData();
+      setNotice("持仓已删除。","ok");
     }catch(error){privateError=error.message;renderAccount()}
   }
 
@@ -639,8 +788,11 @@
 
   async function refreshResearch(force=false){
     if(!force&&Date.now()-lastResearchAt<5000)return;
+    if(researchLoading)return;
+    researchLoading=true;
+    researchError=null;
+    renderAccount();
     const version=++refreshVersion;
-    if(refreshController)refreshController.abort();
     refreshController=new AbortController();
     try{
       const response=await fetch(researchUrl(),{
@@ -651,20 +803,27 @@
       if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
       research=payload;
       lastResearchAt=Date.now();
+    }catch(error){
+      if(error.name==="AbortError"||version!==refreshVersion)return;
+      researchError="报价刷新失败；旧报价已停止用于损益和平仓结论。";
+      if(research){
+        research={...research,source_status:{
+          ...(research.source_status||{}),chain_stale:true,
+        }};
+      }
+      setNotice("报价刷新失败，可重试。","bad");
+    }finally{
+      if(version!==refreshVersion)return;
+      researchLoading=false;
       renderAccount();
       renderPositions();
       renderEntry();
       window.MangoDashboard?.rerender?.();
-    }catch(error){
-      if(error.name==="AbortError"||version!==refreshVersion)return;
-      research=null;
-      renderAccount();
-      renderPositions();
-      renderEntry();
     }
   }
 
   function refreshAll(){
+    if(researchLoading)return;
     window.MangoDashboard?.refresh?.();
     loadPrivateData();
     refreshResearch(true);
