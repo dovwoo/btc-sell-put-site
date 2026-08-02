@@ -169,12 +169,36 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .owner-account-head{align-items:flex-start;flex-wrap:wrap}.owner-account-head>div:first-child{display:block;min-width:0}.owner-account-actions{flex-wrap:wrap;justify-content:flex-end;max-width:100%}.owner-account-grid{grid-template-columns:1fr 1fr}.owner-account-grid label:first-child{grid-column:1/-1}.owner-account-metric{padding:7px 8px;border:1px solid #303642}.owner-capital summary{align-items:flex-start}.owner-capital-grid{grid-template-columns:1fr 1fr}.owner-entry-card{grid-template-columns:1fr;gap:4px;min-width:0}.owner-page-head{align-items:flex-start;flex-wrap:wrap}.owner-page-head p{max-width:240px}.owner-research-card summary{min-width:0}.owner-research-card summary span{overflow-wrap:anywhere}.owner-research-grid{grid-template-columns:repeat(2,1fr)}.owner-form-grid{grid-template-columns:1fr}.owner-dialog form{padding:14px}
 }
 </style>
+<!-- OWNER_ONLY_START -->
+<script>
+if(/\/owner(?:\/|$)/.test(window.location.pathname)){
+  document.documentElement.classList.add("owner-pending");
+}
+</script>
+<!-- OWNER_ONLY_END -->
+
 <style id="productionMarketScope">
   #stockTab, #stockSearch { display: none !important; }
 </style>
 <script>window.MANGO_MARKET_SCOPE="crypto-only";</script>
+<script>window.MANGO_OWNER_CONFIG=Object.freeze({"url":"https://yvpgdnbcjgxpjqenhvuo.supabase.co","anonKey":"sb_publishable_67udoEkphKcZcO9xos_kBw_YdKRV1ZI"});</script>
 </head>
 <body>
+<!-- OWNER_ONLY_START -->
+<section class="owner-login" id="ownerLogin" aria-label="Owner 登录">
+  <div class="owner-login-panel">
+    <div class="owner-login-mark">PRIVATE LEDGER</div>
+    <h1>BTC Sell Put Owner</h1>
+    <p>登录后查看私有持仓、完整承诺容量和逐仓复核状态。</p>
+    <form id="ownerLoginForm" novalidate>
+      <label><span>邮箱</span><input id="ownerLoginEmail" type="email" autocomplete="username" required></label>
+      <label><span>密码</span><input id="ownerLoginPassword" type="password" autocomplete="current-password" required></label>
+      <div class="owner-login-error" id="ownerLoginError" role="alert"></div>
+      <button type="submit" class="owner-primary" id="ownerLoginSubmit">登录</button>
+    </form>
+  </div>
+</section>
+<!-- OWNER_ONLY_END -->
 <header class="bar">
   <button class="lang" id="langBtn" type="button">EN</button>
   <h1 id="pageTitle">BTC Sell Put</h1>
@@ -2328,5 +2352,7 @@ window.MangoDashboard={
 
 if(!IS_OWNER_ROUTE)startDashboard();
 </script>
+<script src="/static/owner_strategy.js"></script>
+<script src="/static/owner_app.js"></script>
 </body>
 </html>

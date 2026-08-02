@@ -14,6 +14,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{color-scheme:dark;--bg:#131722;--panel:#1e222d;--line:#2a2e39;--muted:#787b86;--text:#d1d4dc;--blue:#2962ff;--green:#26a69a;--amber:#ffa726;--red:#ef5350}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+html.owner-pending body{visibility:hidden}
 button,select,input{font:inherit}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #7da0ff;outline-offset:2px}
 .bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:4px 12px;border-bottom:1px solid var(--line);height:36px}
@@ -125,6 +126,30 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .filters .call-strike-range input{width:96px}
 .state{font-size:.75rem;color:var(--muted);padding:14px 0}
 .error{color:#ff8a80}
+.owner-login{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 20%,#20283a 0,#131722 44%)}
+.owner-route .owner-login{display:flex}.owner-authenticated .owner-login{display:none}
+.owner-route:not(.owner-authenticated) .bar,.owner-route:not(.owner-authenticated) main,.owner-route:not(.owner-authenticated) .hover-tooltip{display:none!important}
+.owner-login-panel{width:min(360px,100%);border-top:3px solid var(--amber);border-bottom:1px solid #363a45;padding:30px 2px 22px}
+.owner-login-mark{display:flex;align-items:center;gap:9px;margin-bottom:28px;color:var(--amber);font-size:.67rem;font-weight:750;letter-spacing:.14em}
+.owner-login-mark:before{content:"";width:28px;height:1px;background:var(--amber)}
+.owner-login-panel h1{font-size:1.45rem;letter-spacing:-.03em;margin-bottom:6px}.owner-login-panel>p{color:var(--muted);font-size:.72rem;line-height:1.55;margin-bottom:24px}
+.owner-login-panel label,.owner-form-grid label,.owner-account-grid label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:.63rem}
+.owner-login-panel input,.owner-form-grid input,.owner-account-grid input{width:100%;height:38px;border:1px solid #363a45;border-radius:3px;background:#171b25;color:var(--text);padding:0 10px;font-size:.78rem}
+.owner-login-panel form{display:grid;gap:13px}.owner-login-error,.owner-dialog-error{min-height:1.1em;color:#ff8a80;font-size:.65rem}
+.owner-primary{border:1px solid var(--amber);border-radius:3px;background:var(--amber);color:#17120a;min-height:34px;padding:0 13px;font-size:.7rem;font-weight:750;cursor:pointer}
+.owner-primary:disabled{opacity:.5;cursor:not-allowed}.owner-quiet{border:1px solid #404653;border-radius:3px;background:transparent;color:var(--muted);min-height:30px;padding:0 10px;font-size:.65rem;cursor:pointer}.owner-quiet:hover,.owner-link:hover{color:var(--text);border-color:#697080}
+.owner-account-bar{margin-bottom:14px;border:1px solid #353b47;border-left:3px solid var(--amber);background:#181d28;padding:11px 12px}
+.owner-account-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:11px}.owner-account-head>div:first-child{display:flex;align-items:baseline;gap:10px}.owner-account-head strong{font-size:.8rem}.owner-account-actions{display:flex;align-items:center;gap:7px}.owner-save-state{font-size:.6rem;color:var(--muted)}
+.owner-account-grid{display:grid;grid-template-columns:minmax(150px,1.2fr) repeat(3,minmax(100px,1fr)) repeat(3,minmax(120px,1fr));gap:8px;align-items:end}.owner-account-grid input{height:32px}.owner-account-metric{min-height:32px;border-left:1px solid #363a45;padding-left:9px;display:flex;flex-direction:column;justify-content:center;gap:2px}.owner-account-metric span{font-size:.56rem;color:var(--muted)}.owner-account-metric strong{font-size:.76rem}.owner-account-metric.bad strong,.bad{color:#ff8a80!important}.owner-account-metric.warn strong,.warn{color:var(--amber)!important}.muted{color:var(--muted)!important}
+.owner-capital{margin-top:10px;border-top:1px solid #303642}.owner-capital summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0 2px;cursor:pointer;color:var(--text);font-size:.64rem}.owner-capital summary span:last-child{color:var(--muted);font-size:.56rem;font-weight:400}.owner-capital-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin-top:8px;background:#303642}.owner-capital-grid>div{min-width:0;background:#171b25;padding:8px}.owner-capital-grid span{display:block;color:var(--muted);font-size:.54rem;line-height:1.35}.owner-capital-grid strong{display:block;margin-top:3px;font-size:.72rem}.owner-capital-note{padding-top:8px;color:var(--muted);font-size:.58rem;line-height:1.5}
+.owner-private-error{margin-top:9px;padding-top:8px;border-top:1px solid #323845;color:#ff8a80;font-size:.64rem}.owner-private-error button{border:0;background:transparent;color:var(--amber);cursor:pointer;text-decoration:underline}
+.owner-entry-card{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;border:1px solid #353b47;border-left:3px solid var(--muted);background:#181d28}.owner-entry-card>span{color:var(--muted);font-size:.6rem;text-transform:uppercase;letter-spacing:.08em}.owner-entry-card strong{font-size:.74rem;white-space:nowrap}.owner-entry-card p{font-size:.67rem;color:var(--text);line-height:1.4}.owner-entry-card.warn{border-left-color:var(--amber)}.owner-entry-card.bad{border-left-color:var(--red)}
+.owner-positions-page{margin-bottom:20px;min-width:0}.owner-page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:6px 0 16px;padding-bottom:12px;border-bottom:1px solid #353b47;min-width:0}.owner-page-head h2{font-size:1.18rem;letter-spacing:-.02em;margin:4px 0}.owner-page-head p{font-size:.66rem;color:var(--muted)}.owner-kicker{color:var(--amber);font-size:.56rem;font-weight:750;letter-spacing:.12em}
+.owner-table-scroll{width:100%;overflow-x:auto;border-top:1px solid #353b47;border-bottom:1px solid #353b47}.owner-position-table{min-width:1120px}.owner-position-table th{padding-top:9px}.owner-position-table td{padding:9px 7px;vertical-align:top}.owner-expired{background:#25191b}.owner-expired-tag{display:block;width:max-content;margin-top:3px;padding:1px 4px;background:#6f2a2d;color:#ffd4d4;font-size:.53rem}.owner-status{display:inline-block;font-weight:700;font-size:.64rem}.owner-reason{display:block;max-width:270px;margin-top:3px;color:var(--muted);font-size:.58rem;line-height:1.35;white-space:normal}.owner-link{border:0;border-bottom:1px dotted #525866;background:transparent;color:var(--muted);font-size:.61rem;cursor:pointer;margin-left:8px}.owner-link:first-child{margin-left:0}
+.owner-advanced{margin-top:18px}.owner-section-label{margin-bottom:7px;color:var(--muted);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase}.owner-research-card{border-top:1px solid #303642;background:#181d28}.owner-research-card:last-child{border-bottom:1px solid #303642}.owner-research-card summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;cursor:pointer;font-size:.67rem}.owner-research-card summary span:last-child{color:var(--muted);font-size:.58rem}.owner-research-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:#303642;border-top:1px solid #303642}.owner-research-grid>div{background:#171b25;padding:9px}.owner-research-grid span{display:block;color:var(--muted);font-size:.55rem;margin-bottom:3px}.owner-research-grid strong{font-size:.71rem}.owner-research-table{overflow-x:auto;padding:10px 11px 0}.owner-research-table table{min-width:520px}.owner-research-note,.owner-form-note{padding:8px 11px 11px;color:var(--muted);font-size:.58rem;line-height:1.5}.owner-empty{padding:18px!important;color:var(--muted);font-size:.67rem;text-align:left!important;white-space:normal}
+.owner-chain-action{text-align:right!important}.owner-holding-badge{display:inline-block;margin-right:7px;padding:2px 5px;background:#15342f;color:#62d7ca;font-size:.55rem;font-weight:700}.owner-link:disabled{opacity:.45;cursor:not-allowed;border-color:transparent}
+.owner-dialog{width:min(580px,calc(100vw - 24px));border:1px solid #4a505d;border-radius:4px;background:#1b202b;color:var(--text);padding:0;box-shadow:0 22px 70px rgba(0,0,0,.6)}.owner-dialog::backdrop{background:rgba(5,8,14,.76)}.owner-dialog form{padding:17px}.owner-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:17px}.owner-dialog-head h2{font-size:1rem;margin-top:3px}.owner-dialog-close{border:0;background:transparent;color:var(--muted);font-size:1.4rem;cursor:pointer}.owner-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.owner-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.owner-positions-route main.wrap>:not(.owner-account-bar):not(.owner-positions-page){display:none!important}.owner-positions-route .owner-positions-page{display:block!important}.owner-positions-route .owner-entry-card{display:grid!important}
 @media(max-width:850px){.chart-grid,.chart-grid.count-2{grid-template-columns:1fr}.chart-box canvas{height:190px!important}}
 @media(max-width:600px){
   .bar{grid-template-columns:auto 1fr;height:auto;min-height:66px;padding:5px 10px;row-gap:5px}
@@ -140,9 +165,10 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .price-chart-stage{height:250px}.price-chart-foot{padding:3px 3px 0}
   .snapshot{padding:9px}.filters{gap:6px}.call-strike-range{gap:6px}.quote-detail-grid{grid-template-columns:repeat(2,minmax(90px,1fr))}.quote-detail-inner{position:sticky;left:0;width:min(560px,calc(100vw - 40px))}.quote-detail-toggle{min-height:28px}.table-scroll:after{content:attr(data-scroll-hint);display:block;padding-top:4px;color:var(--muted);font-size:.58rem;text-align:right}
   .hover-tooltip{left:12px;right:12px;top:auto;bottom:12px;width:auto;max-width:none}
+  .owner-route .bar{grid-template-columns:auto 1fr}.owner-route .nav{grid-template-columns:repeat(3,1fr)}
+  .owner-account-head{align-items:flex-start;flex-wrap:wrap}.owner-account-head>div:first-child{display:block;min-width:0}.owner-account-actions{flex-wrap:wrap;justify-content:flex-end;max-width:100%}.owner-account-grid{grid-template-columns:1fr 1fr}.owner-account-grid label:first-child{grid-column:1/-1}.owner-account-metric{padding:7px 8px;border:1px solid #303642}.owner-capital summary{align-items:flex-start}.owner-capital-grid{grid-template-columns:1fr 1fr}.owner-entry-card{grid-template-columns:1fr;gap:4px;min-width:0}.owner-page-head{align-items:flex-start;flex-wrap:wrap}.owner-page-head p{max-width:240px}.owner-research-card summary{min-width:0}.owner-research-card summary span{overflow-wrap:anywhere}.owner-research-grid{grid-template-columns:repeat(2,1fr)}.owner-form-grid{grid-template-columns:1fr}.owner-dialog form{padding:14px}
 }
 </style>
-
 <style id="productionMarketScope">
   #stockTab, #stockSearch { display: none !important; }
 </style>
@@ -246,6 +272,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 </main>
 <div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
 <script>
+const IS_OWNER_ROUTE=/\/owner(?:\/|$)/.test(window.location.pathname);
 const ASSETS={
   BTC:{priceDecimals:0,strikeDecimals:0,rvDays:30},
   ETH:{priceDecimals:2,strikeDecimals:2,rvDays:30},
@@ -1450,6 +1477,13 @@ function activateQuoteDepthLoading(){
   });
 }
 
+function emitMarketData(stage,error=null){
+  document.dispatchEvent(new CustomEvent("mango:market-data",{detail:{
+    stage,error,data:DATA,timing:LAST_TIMING,history:LAST_HISTORY,
+    asset:currentAsset,market:currentMarket,strategy:STRATEGY_MODE,
+  }}));
+}
+
 async function loadData(){
   const market=currentMarket;
   const symbol=currentSymbol();
@@ -1510,6 +1544,7 @@ async function loadData(){
     renderSnapshot();
     render();
     renderHistory(null);
+    emitMarketData("chain");
     const [timing,history]=await contextPromise;
     if(
       version!==requestVersion
@@ -1521,6 +1556,7 @@ async function loadData(){
     LAST_HISTORY=history;
     renderAction(timing);
     renderHistory(history);
+    emitMarketData("context");
   }catch(error){
     if(error.name==="AbortError"||version!==requestVersion||key!==selectionKey()) return;
     controller.abort();
@@ -1548,6 +1584,7 @@ async function loadData(){
       action_label:t("dataUnavailable"),
       action_reason:t("dataUnavailableReason")
     });
+    emitMarketData("error",error.message);
   }
 }
 
@@ -1883,9 +1920,9 @@ function renderSnapshot(){
   if(!selected.length){
     html+=`<div class="state">${t("noStrike")}</div>`;
   }else{
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     selected.forEach(row=>{
-      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div>";
   }
@@ -1974,16 +2011,26 @@ function render(){
   Object.keys(grouped).sort().forEach(expiry=>{
     const expiryRows=grouped[expiry];
     html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     expiryRows.forEach(row=>{
       const otm=(spot-Number(row.strike))/spot*100;
-      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div></section>";
   });
   $("content").className="";
   $("content").innerHTML=html;
   activateQuoteDepthLoading();
+}
+
+function ownerChainHeader(){
+  if(isBuyCall()||isStockMode()||currentAsset!=="BTC")return "";
+  return window.MangoOwner?.chainHeader?.()||"";
+}
+
+function ownerChainCell(row){
+  if(isBuyCall()||isStockMode()||currentAsset!=="BTC")return "";
+  return window.MangoOwner?.chainCell?.(row)||"";
 }
 
 function alignPrice(priceData,timestamps){
@@ -2153,10 +2200,7 @@ document.querySelectorAll("[data-timeframe]").forEach(button=>{
   button.addEventListener("click",()=>selectTimeframe(button.dataset.timeframe));
 });
 $("langBtn").addEventListener("click",toggleLang);
-$("refreshBtn").addEventListener("click",()=>{
-  loadData();
-  loadPriceChart();
-});
+$("refreshBtn").addEventListener("click",refreshDashboard);
 ["fYield","fDays","fStrike","fSort"].forEach(id=>{
   $(id).addEventListener("change",render);
   $(id).addEventListener("input",()=>{
@@ -2231,17 +2275,58 @@ setAssetButtons();
 setTimeframeButtons();
 applyLang();
 setPriceChartState("loading");
-loadData();
-loadPriceChart();
-if(!isBuyCall()){
-  setInterval(()=>{
-    if(isStockMode()) return;
-    loadData();
-    loadPriceChart();
-  },120000);
-}else{
-  setInterval(renderBuyCallRisk,5000);
+let dashboardStarted=false;
+let dashboardRefreshTimer=null;
+let buyCallRiskTimer=null;
+
+function refreshDashboard(){
+  if(!dashboardStarted)return;
+  loadData();
+  loadPriceChart();
 }
+
+function scheduleDashboardTimers(){
+  clearInterval(dashboardRefreshTimer);
+  clearInterval(buyCallRiskTimer);
+  dashboardRefreshTimer=null;
+  buyCallRiskTimer=null;
+  if(!dashboardStarted||document.hidden)return;
+  if(!isBuyCall()){
+    dashboardRefreshTimer=setInterval(()=>{
+      if(isStockMode())return;
+      refreshDashboard();
+    },120000);
+  }else{
+    buyCallRiskTimer=setInterval(renderBuyCallRisk,5000);
+  }
+}
+
+function startDashboard(){
+  if(dashboardStarted)return;
+  dashboardStarted=true;
+  refreshDashboard();
+  scheduleDashboardTimers();
+}
+
+document.addEventListener("visibilitychange",()=>{
+  if(!dashboardStarted)return;
+  if(document.hidden){scheduleDashboardTimers();return}
+  refreshDashboard();
+  scheduleDashboardTimers();
+});
+
+window.MangoDashboard={
+  start:startDashboard,
+  refresh:refreshDashboard,
+  rerender:()=>{renderSnapshot();render()},
+  apiUrl:(path,asset)=>apiUrl(path,asset),
+  getState:()=>({
+    data:DATA,timing:LAST_TIMING,history:LAST_HISTORY,
+    asset:currentAsset,market:currentMarket,strategy:STRATEGY_MODE,
+  }),
+};
+
+if(!IS_OWNER_ROUTE)startDashboard();
 </script>
 </body>
 </html>
