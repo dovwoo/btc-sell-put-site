@@ -35,6 +35,7 @@
   let saveTimer=null;
   let refreshTimer=null;
   let authTimer=null;
+  let passwordReturnToOwner=false;
   let lastResearchAt=0;
   let privateLoadVersion=0;
   let stateSaveVersion=0;
@@ -170,6 +171,7 @@
       cash_floor_usd:null,updated_at:null,
     };
     window.MangoOwner.isActive=false;
+    passwordReturnToOwner=false;
     document.documentElement.classList.remove("owner-authenticated");
     document.documentElement.classList.remove("owner-pending");
     const dialog=$("ownerPositionDialog");
@@ -187,12 +189,19 @@
   }
 
   function showPasswordForm(mode="recovery"){
+    clearInterval(refreshTimer);
+    refreshTimer=null;
+    refreshController?.abort();
+    window.MangoOwner.isActive=false;
+    document.documentElement.classList.remove("owner-authenticated");
     document.documentElement.classList.remove("owner-pending");
     $("ownerLoginForm").hidden=true;
     $("ownerPasswordForm").hidden=false;
     $("ownerPasswordHelp").textContent=mode==="invite"
       ?"邀请已确认。请设置一个至少 12 位的新密码。"
-      :"身份已确认。请设置一个至少 12 位的新密码。";
+      :mode==="change"
+        ?"请输入一个至少 12 位的新密码。保存后会返回持仓页。"
+        :"身份已确认。请设置一个至少 12 位的新密码。";
     $("ownerPasswordError").textContent="";
     $("ownerNewPassword").focus();
   }
@@ -298,7 +307,7 @@
         </div>
         <p class="owner-capital-note">这是 BTC_USDC Standard Margin 的文档公式估算，不是账户下单预览。“IM 以上专属准备金”可以放在合格生息抵押品或高流动性短债，但仍专属于这些 Put，不能再次计入开仓容量；可转出金额还要扣除 -70% 压力、参数上调、haircut 与 48 小时入金中断缓冲。</p>`;
     }
-    return `<div class="owner-account-head"><div><span class="owner-kicker">OWNER / BTC SELL PUT</span><strong>完整承诺账本</strong></div><div class="owner-account-actions"><span class="owner-save-state" id="ownerSaveState"></span><button type="button" id="ownerRetry" class="owner-quiet">刷新</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
+    return `<div class="owner-account-head"><div><span class="owner-kicker">OWNER / BTC SELL PUT</span><strong>完整承诺账本</strong></div><div class="owner-account-actions"><span class="owner-save-state" id="ownerSaveState"></span><button type="button" id="ownerRetry" class="owner-quiet">刷新</button><button type="button" id="ownerChangePassword" class="owner-quiet">修改密码</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
       <div class="owner-account-grid">
         <label><span>稳定币 USD</span><input id="ownerStablecoin" type="number" min="0" step="any" inputmode="decimal" value="${esc(inputValue(ownerState.stablecoin_usd))}"></label>
         <div class="owner-account-metric"><span>Put 占用 K×Q</span><strong>${money(account.put_reserved)}</strong></div>
@@ -319,6 +328,10 @@
     const disabled=!privateReady;
     node.querySelectorAll("input").forEach(input=>input.disabled=disabled);
     $("ownerLogout").addEventListener("click",logout);
+    $("ownerChangePassword").addEventListener("click",()=>{
+      passwordReturnToOwner=true;
+      showPasswordForm("change");
+    });
     $("ownerRetry").addEventListener("click",refreshAll);
     node.querySelector("[data-owner-retry]")?.addEventListener("click",loadPrivateData);
     ["ownerStablecoin","ownerBandLow","ownerBandHigh","ownerCashFloor"].forEach(id=>{
@@ -749,6 +762,7 @@
       await authRequest("user",{password},{method:"PUT",token:session.access_token});
       $("ownerNewPassword").value="";
       $("ownerNewPasswordConfirm").value="";
+      passwordReturnToOwner=false;
       await bootAuthenticated();
     }catch(error){errorNode.textContent=error.message}
     finally{button.disabled=false;button.textContent="保存新密码"}
@@ -787,7 +801,12 @@
     $("ownerLoginForm").addEventListener("submit",login);
     $("ownerPasswordResetRequest").addEventListener("click",requestPasswordReset);
     $("ownerPasswordForm").addEventListener("submit",saveNewPassword);
-    $("ownerPasswordCancel").addEventListener("click",()=>showLogin());
+    $("ownerPasswordCancel").addEventListener("click",()=>{
+      if(passwordReturnToOwner&&session){
+        passwordReturnToOwner=false;
+        bootAuthenticated();
+      }else showLogin();
+    });
     if(!anonKey){showLogin("Owner 登录配置尚未完成。");return}
     try{
       const redirect=await consumeAuthRedirect();
