@@ -135,7 +135,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .owner-login-panel h1{font-size:1.45rem;letter-spacing:-.03em;margin-bottom:6px}.owner-login-panel>p{color:var(--muted);font-size:.72rem;line-height:1.55;margin-bottom:24px}
 .owner-login-panel label,.owner-form-grid label,.owner-account-grid label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:.63rem}
 .owner-login-panel input,.owner-form-grid input,.owner-account-grid input{width:100%;height:38px;border:1px solid #363a45;border-radius:3px;background:#171b25;color:var(--text);padding:0 10px;font-size:.78rem}
-.owner-login-panel form{display:grid;gap:13px}.owner-login-panel form[hidden]{display:none}.owner-login-error,.owner-dialog-error{min-height:1.1em;color:#ff8a80;font-size:.65rem}.owner-login-error.ok{color:var(--teal)}
+.owner-login-panel form{display:grid;gap:13px}.owner-login-panel form[hidden]{display:none}.owner-login-panel form>p{color:var(--muted);font-size:.68rem;line-height:1.5}.owner-login-panel form>p strong{color:var(--text);font-weight:600;overflow-wrap:anywhere}.owner-login-error,.owner-dialog-error{min-height:1.1em;color:#ff8a80;font-size:.65rem}.owner-login-error.ok{color:var(--teal)}
 .owner-primary{border:1px solid var(--amber);border-radius:3px;background:var(--amber);color:#17120a;min-height:34px;padding:0 13px;font-size:.7rem;font-weight:750;cursor:pointer}
 .owner-primary:disabled{opacity:.5;cursor:not-allowed}.owner-quiet{border:1px solid #404653;border-radius:3px;background:transparent;color:var(--muted);min-height:30px;padding:0 10px;font-size:.65rem;cursor:pointer}.owner-quiet:hover,.owner-link:hover{color:var(--text);border-color:#697080}
 .owner-account-bar{margin-bottom:14px;border:1px solid #353b47;border-left:3px solid var(--amber);background:#181d28;padding:11px 12px}
@@ -191,19 +191,17 @@ if(/\/owner(?:\/|$)/.test(window.location.pathname)){
     <h1>BTC Sell Put Owner</h1>
     <p>登录后查看私有持仓、完整承诺容量和逐仓复核状态。</p>
     <form id="ownerLoginForm" novalidate>
-      <label><span>邮箱</span><input id="ownerLoginEmail" type="email" autocomplete="username" required></label>
-      <label><span>密码</span><input id="ownerLoginPassword" type="password" autocomplete="current-password" required></label>
+      <label><span>邮箱</span><input id="ownerLoginEmail" type="email" autocomplete="email" required></label>
       <div class="owner-login-error" id="ownerLoginError" role="alert"></div>
-      <button type="submit" class="owner-primary" id="ownerLoginSubmit">登录</button>
-      <button type="button" class="owner-quiet" id="ownerPasswordResetRequest">设置 / 重置密码</button>
+      <button type="submit" class="owner-primary" id="ownerLoginSubmit">发送验证码</button>
     </form>
-    <form id="ownerPasswordForm" hidden novalidate>
-      <p id="ownerPasswordHelp">请设置一个至少 12 位的新密码。</p>
-      <label><span>新密码</span><input id="ownerNewPassword" type="password" minlength="12" autocomplete="new-password" required></label>
-      <label><span>确认新密码</span><input id="ownerNewPasswordConfirm" type="password" minlength="12" autocomplete="new-password" required></label>
-      <div class="owner-login-error" id="ownerPasswordError" role="alert"></div>
-      <button type="submit" class="owner-primary" id="ownerPasswordSubmit">保存新密码</button>
-      <button type="button" class="owner-quiet" id="ownerPasswordCancel">返回登录</button>
+    <form id="ownerOtpForm" hidden novalidate>
+      <p>验证码已发送到 <strong id="ownerOtpEmail"></strong></p>
+      <label><span>6 位验证码</span><input id="ownerOtpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>
+      <div class="owner-login-error" id="ownerOtpError" role="alert"></div>
+      <button type="submit" class="owner-primary" id="ownerOtpSubmit">验证并登录</button>
+      <button type="button" class="owner-quiet" id="ownerOtpResend">重新发送</button>
+      <button type="button" class="owner-quiet" id="ownerOtpBack">更换邮箱</button>
     </form>
   </div>
 </section>

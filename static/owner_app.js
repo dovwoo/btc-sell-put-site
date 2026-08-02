@@ -35,7 +35,9 @@
   let saveTimer=null;
   let refreshTimer=null;
   let authTimer=null;
-  let passwordReturnToOwner=false;
+  let otpEmail="";
+  let otpResendAt=0;
+  let otpResendTimer=null;
   let lastResearchAt=0;
   let privateLoadVersion=0;
   let stateSaveVersion=0;
@@ -171,7 +173,10 @@
       cash_floor_usd:null,updated_at:null,
     };
     window.MangoOwner.isActive=false;
-    passwordReturnToOwner=false;
+    otpEmail="";
+    otpResendAt=0;
+    clearInterval(otpResendTimer);
+    otpResendTimer=null;
     document.documentElement.classList.remove("owner-authenticated");
     document.documentElement.classList.remove("owner-pending");
     const dialog=$("ownerPositionDialog");
@@ -180,15 +185,35 @@
       else dialog.removeAttribute("open");
     }
     $("ownerLoginForm").hidden=false;
-    $("ownerPasswordForm").hidden=true;
-    $("ownerNewPassword").value="";
-    $("ownerNewPasswordConfirm").value="";
+    $("ownerOtpForm").hidden=true;
+    $("ownerOtpCode").value="";
+    $("ownerOtpEmail").textContent="";
+    $("ownerOtpError").classList.remove("ok");
+    $("ownerOtpError").textContent="";
     $("ownerLoginError").classList.remove("ok");
     $("ownerLoginError").textContent=message;
     $("ownerLoginEmail").focus();
   }
 
-  function showPasswordForm(mode="recovery"){
+  function updateOtpCooldown(){
+    const button=$("ownerOtpResend");
+    const seconds=Math.max(0,Math.ceil((otpResendAt-Date.now())/1000));
+    button.disabled=seconds>0;
+    button.textContent=seconds>0?`${seconds} 秒后可重发`:"重新发送";
+    if(!seconds){
+      clearInterval(otpResendTimer);
+      otpResendTimer=null;
+    }
+  }
+
+  function startOtpCooldown(){
+    clearInterval(otpResendTimer);
+    otpResendAt=Date.now()+60000;
+    updateOtpCooldown();
+    otpResendTimer=setInterval(updateOtpCooldown,1000);
+  }
+
+  function showOtpForm(email){
     clearInterval(refreshTimer);
     refreshTimer=null;
     refreshController?.abort();
@@ -196,33 +221,14 @@
     document.documentElement.classList.remove("owner-authenticated");
     document.documentElement.classList.remove("owner-pending");
     $("ownerLoginForm").hidden=true;
-    $("ownerPasswordForm").hidden=false;
-    $("ownerPasswordHelp").textContent=mode==="invite"
-      ?"邀请已确认。请设置一个至少 12 位的新密码。"
-      :mode==="change"
-        ?"请输入一个至少 12 位的新密码。保存后会返回持仓页。"
-        :"身份已确认。请设置一个至少 12 位的新密码。";
-    $("ownerPasswordError").textContent="";
-    $("ownerNewPassword").focus();
-  }
-
-  async function consumeAuthRedirect(){
-    const params=new URLSearchParams(window.location.hash.replace(/^#/,""));
-    const type=params.get("type")||"";
-    if(!["invite","recovery"].includes(type))return null;
-    const accessToken=params.get("access_token")||"";
-    const refreshToken=params.get("refresh_token")||"";
-    if(!accessToken||!refreshToken)throw new Error("密码链接无效或已过期，请重新发送。");
-    const user=await authRequest("user",undefined,{method:"GET",token:accessToken});
-    const payload=normalizeAuthPayload({
-      access_token:accessToken,
-      refresh_token:refreshToken,
-      expires_in:Number(params.get("expires_in")||3600),
-      token_type:params.get("token_type")||"bearer",
-      user,
-    });
-    window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}`);
-    return {type,payload};
+    $("ownerOtpForm").hidden=false;
+    otpEmail=email;
+    $("ownerOtpEmail").textContent=email;
+    $("ownerOtpCode").value="";
+    $("ownerOtpError").classList.remove("ok");
+    $("ownerOtpError").textContent="";
+    startOtpCooldown();
+    $("ownerOtpCode").focus();
   }
 
   function showOwner(){
@@ -307,7 +313,7 @@
         </div>
         <p class="owner-capital-note">这是 BTC_USDC Standard Margin 的文档公式估算，不是账户下单预览。“IM 以上专属准备金”可以放在合格生息抵押品或高流动性短债，但仍专属于这些 Put，不能再次计入开仓容量；可转出金额还要扣除 -70% 压力、参数上调、haircut 与 48 小时入金中断缓冲。</p>`;
     }
-    return `<div class="owner-account-head"><div><span class="owner-kicker">OWNER / BTC SELL PUT</span><strong>完整承诺账本</strong></div><div class="owner-account-actions"><span class="owner-save-state" id="ownerSaveState"></span><button type="button" id="ownerRetry" class="owner-quiet">刷新</button><button type="button" id="ownerChangePassword" class="owner-quiet">修改密码</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
+    return `<div class="owner-account-head"><div><span class="owner-kicker">OWNER / BTC SELL PUT</span><strong>完整承诺账本</strong></div><div class="owner-account-actions"><span class="owner-save-state" id="ownerSaveState"></span><button type="button" id="ownerRetry" class="owner-quiet">刷新</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
       <div class="owner-account-grid">
         <label><span>稳定币 USD</span><input id="ownerStablecoin" type="number" min="0" step="any" inputmode="decimal" value="${esc(inputValue(ownerState.stablecoin_usd))}"></label>
         <div class="owner-account-metric"><span>Put 占用 K×Q</span><strong>${money(account.put_reserved)}</strong></div>
@@ -328,10 +334,6 @@
     const disabled=!privateReady;
     node.querySelectorAll("input").forEach(input=>input.disabled=disabled);
     $("ownerLogout").addEventListener("click",logout);
-    $("ownerChangePassword").addEventListener("click",()=>{
-      passwordReturnToOwner=true;
-      showPasswordForm("change");
-    });
     $("ownerRetry").addEventListener("click",refreshAll);
     node.querySelector("[data-owner-retry]")?.addEventListener("click",loadPrivateData);
     ["ownerStablecoin","ownerBandLow","ownerBandHigh","ownerCashFloor"].forEach(id=>{
@@ -707,65 +709,58 @@
     });
   }
 
-  async function login(event){
+  async function sendOtp(event){
     event.preventDefault();
+    const emailInput=$("ownerLoginEmail");
+    if(!emailInput.reportValidity())return;
     const button=$("ownerLoginSubmit");
     const errorNode=$("ownerLoginError");
+    errorNode.classList.remove("ok");
     errorNode.textContent="";
     button.disabled=true;
-    button.textContent="登录中…";
+    button.textContent="发送中…";
     try{
-      const payload=await authRequest("token?grant_type=password",{
-        email:$("ownerLoginEmail").value.trim(),
-        password:$("ownerLoginPassword").value,
-      });
-      persistSession(normalizeAuthPayload(payload));
-      $("ownerLoginPassword").value="";
-      await bootAuthenticated();
+      const email=emailInput.value.trim();
+      await authRequest("otp",{email,create_user:false});
+      showOtpForm(email);
     }catch(error){errorNode.textContent=error.message}
-    finally{button.disabled=false;button.textContent="登录"}
+    finally{button.disabled=false;button.textContent="发送验证码"}
   }
 
-  async function requestPasswordReset(){
-    const emailInput=$("ownerLoginEmail");
-    const button=$("ownerPasswordResetRequest");
-    const message=$("ownerLoginError");
-    if(!emailInput.reportValidity())return;
+  async function resendOtp(){
+    if(!otpEmail||Date.now()<otpResendAt)return;
+    const button=$("ownerOtpResend");
+    const message=$("ownerOtpError");
     message.classList.remove("ok");
     message.textContent="";
     button.disabled=true;
     button.textContent="发送中…";
     try{
-      const redirectTo=encodeURIComponent(`${window.location.origin}${ownerBase}`);
-      await authRequest(`recover?redirect_to=${redirectTo}`,{
-        email:emailInput.value.trim(),
-      });
+      await authRequest("otp",{email:otpEmail,create_user:false});
       message.classList.add("ok");
-      message.textContent="密码邮件已发送，请在邮箱中打开链接。";
+      message.textContent="新验证码已发送。";
+      startOtpCooldown();
     }catch(error){message.textContent=error.message}
-    finally{button.disabled=false;button.textContent="设置 / 重置密码"}
+    finally{if(Date.now()>=otpResendAt){button.disabled=false;button.textContent="重新发送"}}
   }
 
-  async function saveNewPassword(event){
+  async function verifyOtp(event){
     event.preventDefault();
-    const password=$("ownerNewPassword").value;
-    const confirmation=$("ownerNewPasswordConfirm").value;
-    const button=$("ownerPasswordSubmit");
-    const errorNode=$("ownerPasswordError");
+    const token=$("ownerOtpCode").value.trim();
+    const button=$("ownerOtpSubmit");
+    const errorNode=$("ownerOtpError");
+    errorNode.classList.remove("ok");
     errorNode.textContent="";
-    if(password.length<12){errorNode.textContent="密码至少需要 12 位。";return}
-    if(password!==confirmation){errorNode.textContent="两次输入的密码不一致。";return}
+    if(!/^\d{6}$/.test(token)){errorNode.textContent="请输入邮件中的 6 位验证码。";return}
     button.disabled=true;
-    button.textContent="保存中…";
+    button.textContent="验证中…";
     try{
-      await ensureSession();
-      await authRequest("user",{password},{method:"PUT",token:session.access_token});
-      $("ownerNewPassword").value="";
-      $("ownerNewPasswordConfirm").value="";
-      passwordReturnToOwner=false;
+      const payload=await authRequest("verify",{email:otpEmail,token,type:"email"});
+      persistSession(normalizeAuthPayload(payload));
+      $("ownerOtpCode").value="";
       await bootAuthenticated();
     }catch(error){errorNode.textContent=error.message}
-    finally{button.disabled=false;button.textContent="保存新密码"}
+    finally{button.disabled=false;button.textContent="验证并登录"}
   }
 
   async function logout(){
@@ -798,24 +793,11 @@
 
   async function boot(){
     window.MangoOwner={isActive:false,chainHeader,chainCell};
-    $("ownerLoginForm").addEventListener("submit",login);
-    $("ownerPasswordResetRequest").addEventListener("click",requestPasswordReset);
-    $("ownerPasswordForm").addEventListener("submit",saveNewPassword);
-    $("ownerPasswordCancel").addEventListener("click",()=>{
-      if(passwordReturnToOwner&&session){
-        passwordReturnToOwner=false;
-        bootAuthenticated();
-      }else showLogin();
-    });
+    $("ownerLoginForm").addEventListener("submit",sendOtp);
+    $("ownerOtpForm").addEventListener("submit",verifyOtp);
+    $("ownerOtpResend").addEventListener("click",resendOtp);
+    $("ownerOtpBack").addEventListener("click",()=>showLogin());
     if(!anonKey){showLogin("Owner 登录配置尚未完成。");return}
-    try{
-      const redirect=await consumeAuthRedirect();
-      if(redirect){
-        persistSession(redirect.payload);
-        showPasswordForm(redirect.type);
-        return;
-      }
-    }catch(error){showLogin(error.message);return}
     session=readStoredSession();
     if(!session){showLogin();return}
     try{
