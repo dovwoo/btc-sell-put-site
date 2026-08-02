@@ -83,13 +83,16 @@
     return {...payload,expires_at:expiresAt};
   }
 
-  async function authRequest(path,body){
+  async function authRequest(path,body,{method="POST",token=""}={}){
     if(!anonKey)throw new Error("Owner 登录配置尚未完成");
+    const headers={apikey:anonKey};
+    if(body!==undefined)headers["content-type"]="application/json";
+    if(token)headers.Authorization=`Bearer ${token}`;
     const response=await fetch(`${supabaseUrl}/auth/v1/${path}`,{
-      method:"POST",
+      method,
       cache:"no-store",
-      headers:{apikey:anonKey,"content-type":"application/json"},
-      body:JSON.stringify(body),
+      headers,
+      body:body===undefined?undefined:JSON.stringify(body),
     });
     let payload={};
     try{payload=await response.json()}catch(_){}
@@ -174,8 +177,43 @@
       if(dialog.close)dialog.close();
       else dialog.removeAttribute("open");
     }
+    $("ownerLoginForm").hidden=false;
+    $("ownerPasswordForm").hidden=true;
+    $("ownerNewPassword").value="";
+    $("ownerNewPasswordConfirm").value="";
+    $("ownerLoginError").classList.remove("ok");
     $("ownerLoginError").textContent=message;
     $("ownerLoginEmail").focus();
+  }
+
+  function showPasswordForm(mode="recovery"){
+    document.documentElement.classList.remove("owner-pending");
+    $("ownerLoginForm").hidden=true;
+    $("ownerPasswordForm").hidden=false;
+    $("ownerPasswordHelp").textContent=mode==="invite"
+      ?"邀请已确认。请设置一个至少 12 位的新密码。"
+      :"身份已确认。请设置一个至少 12 位的新密码。";
+    $("ownerPasswordError").textContent="";
+    $("ownerNewPassword").focus();
+  }
+
+  async function consumeAuthRedirect(){
+    const params=new URLSearchParams(window.location.hash.replace(/^#/,""));
+    const type=params.get("type")||"";
+    if(!["invite","recovery"].includes(type))return null;
+    const accessToken=params.get("access_token")||"";
+    const refreshToken=params.get("refresh_token")||"";
+    if(!accessToken||!refreshToken)throw new Error("密码链接无效或已过期，请重新发送。");
+    const user=await authRequest("user",undefined,{method:"GET",token:accessToken});
+    const payload=normalizeAuthPayload({
+      access_token:accessToken,
+      refresh_token:refreshToken,
+      expires_in:Number(params.get("expires_in")||3600),
+      token_type:params.get("token_type")||"bearer",
+      user,
+    });
+    window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}`);
+    return {type,payload};
   }
 
   function showOwner(){
@@ -675,6 +713,47 @@
     finally{button.disabled=false;button.textContent="登录"}
   }
 
+  async function requestPasswordReset(){
+    const emailInput=$("ownerLoginEmail");
+    const button=$("ownerPasswordResetRequest");
+    const message=$("ownerLoginError");
+    if(!emailInput.reportValidity())return;
+    message.classList.remove("ok");
+    message.textContent="";
+    button.disabled=true;
+    button.textContent="发送中…";
+    try{
+      const redirectTo=encodeURIComponent(`${window.location.origin}${ownerBase}`);
+      await authRequest(`recover?redirect_to=${redirectTo}`,{
+        email:emailInput.value.trim(),
+      });
+      message.classList.add("ok");
+      message.textContent="密码邮件已发送，请在邮箱中打开链接。";
+    }catch(error){message.textContent=error.message}
+    finally{button.disabled=false;button.textContent="设置 / 重置密码"}
+  }
+
+  async function saveNewPassword(event){
+    event.preventDefault();
+    const password=$("ownerNewPassword").value;
+    const confirmation=$("ownerNewPasswordConfirm").value;
+    const button=$("ownerPasswordSubmit");
+    const errorNode=$("ownerPasswordError");
+    errorNode.textContent="";
+    if(password.length<12){errorNode.textContent="密码至少需要 12 位。";return}
+    if(password!==confirmation){errorNode.textContent="两次输入的密码不一致。";return}
+    button.disabled=true;
+    button.textContent="保存中…";
+    try{
+      await ensureSession();
+      await authRequest("user",{password},{method:"PUT",token:session.access_token});
+      $("ownerNewPassword").value="";
+      $("ownerNewPasswordConfirm").value="";
+      await bootAuthenticated();
+    }catch(error){errorNode.textContent=error.message}
+    finally{button.disabled=false;button.textContent="保存新密码"}
+  }
+
   async function logout(){
     try{
       if(session?.access_token){
@@ -706,7 +785,18 @@
   async function boot(){
     window.MangoOwner={isActive:false,chainHeader,chainCell};
     $("ownerLoginForm").addEventListener("submit",login);
+    $("ownerPasswordResetRequest").addEventListener("click",requestPasswordReset);
+    $("ownerPasswordForm").addEventListener("submit",saveNewPassword);
+    $("ownerPasswordCancel").addEventListener("click",()=>showLogin());
     if(!anonKey){showLogin("Owner 登录配置尚未完成。");return}
+    try{
+      const redirect=await consumeAuthRedirect();
+      if(redirect){
+        persistSession(redirect.payload);
+        showPasswordForm(redirect.type);
+        return;
+      }
+    }catch(error){showLogin(error.message);return}
     session=readStoredSession();
     if(!session){showLogin();return}
     try{
