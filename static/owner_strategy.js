@@ -290,7 +290,10 @@
     const remainingDays=dte(position,nowMs);
     const totalDays=(dateMs(position.expiry)-dateMs(position.open_date))/DAY_MS;
     const elapsedDays=Math.max(0,(dateMs(utcDate(nowMs))-dateMs(position.open_date))/DAY_MS);
-    const timeElapsedPct=totalDays<=0?(elapsedDays>0?100:0):elapsedDays/totalDays*100;
+    const rawTimeElapsedPct=totalDays<=0?(elapsedDays>0?100:0):elapsedDays/totalDays*100;
+    const timeElapsedPct=Math.min(100,Math.max(0,rawTimeElapsedPct));
+    const rawTimeRemainingPct=totalDays<=0?(remainingDays>0?100:0):remainingDays/totalDays*100;
+    const timeRemainingPct=Math.min(100,Math.max(0,rawTimeRemainingPct));
     const quoteUsable=Boolean(quote)&&sourceUsable(research,nowMs)&&currentAsk!==null;
     const capturePct=!quoteUsable||premium<=0?null:(premium-currentAsk)/premium*100;
     const remainingApr=!quoteUsable?null:annualizedSimple(
@@ -321,7 +324,9 @@
       iv:finite(quote?.iv),
       delta:finite(quote?.delta),
       capture_pct:capturePct,
+      open_dte:Math.max(0,totalDays),
       time_elapsed_pct:timeElapsedPct,
+      time_remaining_pct:timeRemainingPct,
       dte:remainingDays,
       remaining_apr:remainingApr,
       open_premium_total:premium*notional,
