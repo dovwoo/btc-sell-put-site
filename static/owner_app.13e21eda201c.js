@@ -20,6 +20,10 @@
   const config=window.MANGO_OWNER_CONFIG||{};
   const supabaseUrl=String(config.url||PROJECT_URL).replace(/\/$/,"");
   const anonKey=String(config.anonKey||config.publishableKey||"").trim();
+  const OWNER_ASSETS=["BTC","ETH","HYPE"];
+  const ASSET_DEFAULTS={
+    BTC:{notional:1,min:.01},ETH:{notional:1,min:.1},HYPE:{notional:10,min:10},
+  };
 
   let session=null;
   let ownerState={
@@ -27,7 +31,7 @@
     cash_floor_usd:null,updated_at:null,
   };
   let positions=[];
-  let research=null;
+  let researchByAsset={};
   let privateReady=false;
   let privateError=null;
   let refreshController=null;
@@ -103,6 +107,14 @@
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;",
   })[char]);
   const inputValue=value=>value==null?"":String(value);
+  const currentMarketAsset=()=>{
+    try{return Strategy.normalizeAsset(window.MangoDashboard?.getState?.()?.asset||"BTC")}
+    catch(_){return "BTC"}
+  };
+  const researchFor=asset=>Strategy.researchForAsset(asset,researchByAsset);
+  const heldAssets=()=>positions.length
+    ?[...new Set(positions.map(position=>position.asset))]
+    :OWNER_ASSETS;
 
   function readStoredJson(key){
     try{return JSON.parse(localStorage.getItem(key)||"null")}
@@ -212,6 +224,7 @@
     persistSession(null);
     privateReady=false;
     privateError=null;
+    researchByAsset={};
     researchError=null;
     researchLoading=false;
     expandedPositionIds.clear();
@@ -308,8 +321,8 @@
       $("buyCallNav").classList.remove("on");
       $("ownerPositionsNav").classList.add("on");
       $("ownerPositionsNav").setAttribute("aria-current","page");
-      $("pageTitle").textContent="BTC Sell Put · 持仓";
-      document.title="BTC Sell Put Owner";
+      $("pageTitle").textContent="Sell Put · 持仓";
+      document.title="Sell Put Owner";
     }
   }
 
@@ -350,11 +363,16 @@
   }
 
   function accountHtml(){
-    const account=Strategy.portfolioSummary(ownerState,positions,research);
-    const capital=Strategy.deribitCapitalSummary(positions,research);
-    const stale=!Strategy.sourceUsable(research);
-    const asof=research?.source_status?.chain_asof_epoch_ms;
-    const decisions=Strategy.positionRows(ownerState,positions,research);
+    const account=Strategy.portfolioSummary(ownerState,positions,researchByAsset);
+    const capital=Strategy.deribitCapitalSummary(positions,researchByAsset);
+    const requiredAssets=heldAssets();
+    const requiredResearch=requiredAssets.map(researchFor);
+    const stale=requiredResearch.some(payload=>!Strategy.sourceUsable(payload));
+    const asofs=requiredResearch.map(payload=>
+      Number(payload?.source_status?.chain_asof_epoch_ms)
+    ).filter(Number.isFinite);
+    const asof=asofs.length?Math.min(...asofs):null;
+    const decisions=Strategy.positionRows(ownerState,positions,researchByAsset);
     const attention=decisions.filter(row=>row.decision.state!=="not_due").length;
     const quoteLabel=researchError?"刷新失败":stale?"报价不可用":"最后成功";
     const pnlClass=account.pnl_complete&&account.unrealized_pnl_total>0
@@ -363,7 +381,7 @@
     if(!positions.length){
       capitalBody='<p class="owner-capital-note">录入持仓后显示当前 Deribit Standard Margin 文档估算。</p>';
     }else if(!capital.complete){
-      capitalBody='<p class="owner-capital-note">需要新鲜的 BTC 现价与每笔合约 Mark，当前暂不估算保证金。</p>';
+      capitalBody='<p class="owner-capital-note">需要各持仓资产的新鲜现价与每笔合约 Mark，当前暂不估算保证金。</p>';
     }else{
       capitalBody=`<div class="owner-capital-grid">
           <div><span>完整经济资本 K×Q</span><strong>${money(capital.capacity_capital)}</strong></div>
@@ -372,9 +390,9 @@
           <div><span>Deribit 文档 MM</span><strong>${money(capital.maintenance_margin)}</strong></div>
           <div><span>IM 以上专属准备金</span><strong>${money(capital.above_im_dedicated_reserve)}</strong></div>
         </div>
-        <p class="owner-capital-note">这是 BTC_USDC Standard Margin 的文档公式估算，不是账户下单预览。“IM 以上专属准备金”可以放在合格生息抵押品或高流动性短债，但仍专属于这些 Put，不能再次计入开仓容量；可转出金额还要扣除 -70% 压力、参数上调、haircut 与 48 小时入金中断缓冲。</p>`;
+        <p class="owner-capital-note">这是各 USDC 线性期权 Standard Margin 的文档公式估算，不是账户下单预览。“IM 以上专属准备金”可以放在合格生息抵押品或高流动性短债，但仍专属于这些 Put，不能再次计入开仓容量；可转出金额还要扣除 -70% 压力、参数上调、haircut 与 48 小时入金中断缓冲。</p>`;
     }
-    return `<div class="owner-account-head"><div><span class="owner-kicker">PRIVATE PORTFOLIO</span><strong>BTC 期权账户</strong><small>完整经济资本口径</small></div><div class="owner-account-actions"><button type="button" id="ownerAccountSettings" class="owner-quiet">账户设置</button><button type="button" id="ownerRetry" class="owner-quiet"${researchLoading?" disabled":""}>${researchLoading?"刷新中…":"刷新报价"}</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
+    return `<div class="owner-account-head"><div><span class="owner-kicker">PRIVATE PORTFOLIO</span><strong>加密期权账户</strong><small>BTC · ETH · HYPE</small></div><div class="owner-account-actions"><button type="button" id="ownerAccountSettings" class="owner-quiet">账户设置</button><button type="button" id="ownerRetry" class="owner-quiet"${researchLoading?" disabled":""}>${researchLoading?"刷新中…":"刷新报价"}</button><button type="button" id="ownerLogout" class="owner-quiet">退出</button></div></div>
       <div class="owner-account-grid" aria-label="账户与持仓汇总">
         <div class="owner-account-metric owner-account-hero ${account.available<0?"bad":""}"><span>可用资本</span><strong>${money(account.available)}</strong><small>稳定币扣除 K×Q 承诺</small></div>
         <div class="owner-account-metric owner-account-hero ${pnlClass}"><span>总未实现 P&amp;L</span><strong>${account.pnl_complete?signedMoney(account.unrealized_pnl_total):"不可用"}</strong>${account.quote_unavailable_count?`<small>${account.quote_unavailable_count} 笔 Ask 缺失或过期</small>`:"<small>按当前 Ask 平仓估算</small>"}</div>
@@ -402,8 +420,8 @@
     return `<dialog id="ownerAccountDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerAccountDialogTitle"><form id="ownerAccountForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">ACCOUNT</span><h2 id="ownerAccountDialogTitle">账户设置</h2></div><button type="button" class="owner-dialog-close" id="ownerAccountClose" aria-label="关闭">×</button></div><div class="owner-form-grid">
       <label><span>稳定币 USD</span><input id="ownerStablecoin" type="number" min="0" step="any" inputmode="decimal" required></label>
       <label><span>现金底线</span><input id="ownerCashFloor" type="number" min="0" step="any" inputmode="decimal" placeholder="未配置"></label>
-      <label><span>买入带下沿</span><input id="ownerBandLow" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置"></label>
-      <label><span>买入带上沿</span><input id="ownerBandHigh" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置"></label>
+      <label><span>BTC 买入带下沿</span><input id="ownerBandLow" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置"></label>
+      <label><span>BTC 买入带上沿</span><input id="ownerBandHigh" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="未配置"></label>
     </div><p class="owner-form-note">稳定币与 K×Q 完整承诺共同决定可用资本。</p><div class="owner-dialog-error" id="ownerAccountError" role="alert"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerAccountCancel">取消</button><button type="submit" class="owner-primary" id="ownerAccountSave">保存设置</button></div></form></dialog>`;
   }
 
@@ -519,8 +537,9 @@
     if(!privateReady){
       decision={state:"unknown",verdict:"暂无法判断",reason:privateError||"私有账户数据正在加载。"};
     }else try{
+      const asset=currentMarketAsset();
       decision=Strategy.evaluateEntry(
-        ownerState,positions,research,window.MangoDashboard?.getState()?.timing,
+        ownerState,positions,researchFor(asset),window.MangoDashboard?.getState()?.timing,
       );
     }catch(_){
       decision={state:"unknown",verdict:"暂无法判断",reason:"私有账户数据暂不可用。"};
@@ -530,7 +549,7 @@
   }
 
   function researchItem(positionValue){
-    return (research?.puts||[]).find(candidate=>
+    return (researchFor(positionValue.asset)?.puts||[]).find(candidate=>
       String(candidate.expiry)===String(positionValue.expiry)&&
       Math.abs(Number(candidate.strike)-Number(positionValue.strike))<1e-8
     );
@@ -549,6 +568,7 @@
   }
 
   function researchCard(positionValue){
+    const assetResearch=researchFor(positionValue.asset);
     const item=researchItem(positionValue);
     if(!item?.card)return `<p class="owner-empty">当前链上没有匹配合约，暂无法生成高级研究。</p>`;
     const card=item.card;
@@ -556,7 +576,7 @@
     const positionId=String(positionValue.id);
     const range=stressRangeByPositionId.get(positionId)||30;
     const rangeText=stressRangeText(range);
-    const stress=stressRowsHtml(Strategy.stressScenarioRows(positionValue,item,research?.spot,range));
+    const stress=stressRowsHtml(Strategy.stressScenarioRows(positionValue,item,assetResearch?.spot,range));
     return `<div class="owner-research-grid">
         <div><span>条件净 APR</span><strong>${pct(card.net_conditional_apr_pct)}</strong></div>
         <div><span>8% 门槛条件超额</span><strong>${pct(card.conditional_excess_rwa_apr_pct)}</strong></div>
@@ -565,14 +585,14 @@
         <div><span>CVaR95 持有期</span><strong class="bad">${pct(expected.cvar95_horizon_return_pct)}</strong></div>
         <div><span>单周期几何年化</span><strong>${pct(expected.single_cycle_geometric_annualized_pct)}</strong></div>
       </div>
-      <div class="owner-stress-controls"><div><span>BTC 到期涨跌区间</span><label class="owner-stress-value"><span>±</span><input type="number" min="1" max="100" step="0.1" value="${rangeText}" inputmode="decimal" data-owner-stress-number="${esc(positionId)}" aria-label="手动输入 BTC 到期涨跌区间"><span>%</span></label></div><input type="range" min="1" max="100" step="0.1" value="${rangeText}" data-owner-stress-range="${esc(positionId)}" aria-label="拖动 BTC 到期涨跌区间" aria-valuetext="上下 ${rangeText}%"></div>
-      <div class="owner-research-table"><table><thead><tr><th>BTC 路径</th><th>到期价</th><th>持有期回报</th><th>损益</th></tr></thead><tbody data-owner-stress-table="${esc(positionId)}">${stress}</tbody></table></div>
+      <div class="owner-stress-controls"><div><span>${positionValue.asset} 到期涨跌区间</span><label class="owner-stress-value"><span>±</span><input type="number" min="1" max="100" step="0.1" value="${rangeText}" inputmode="decimal" data-owner-stress-number="${esc(positionId)}" aria-label="手动输入 ${positionValue.asset} 到期涨跌区间"><span>%</span></label></div><input type="range" min="1" max="100" step="0.1" value="${rangeText}" data-owner-stress-range="${esc(positionId)}" aria-label="拖动 ${positionValue.asset} 到期涨跌区间" aria-valuetext="上下 ${rangeText}%"></div>
+      <div class="owner-research-table"><table><thead><tr><th>${positionValue.asset} 路径</th><th>到期价</th><th>持有期回报</th><th>损益</th></tr></thead><tbody data-owner-stress-table="${esc(positionId)}">${stress}</tbody></table></div>
       <p class="owner-research-note">条件 APR 只表示到期未赔付时的收入率；经验分布与压力路径用于人工复核。</p>`;
   }
 
-  function quoteUnavailableReason(metrics){
+  function quoteUnavailableReason(positionValue,metrics){
     if(!metrics.quote)return "当前期权链没有匹配合约";
-    if(!Strategy.sourceUsable(research))return "报价超过 120 秒或上游不可用";
+    if(!Strategy.sourceUsable(researchFor(positionValue.asset)))return "报价超过 120 秒或上游不可用";
     if(metrics.current_ask===null)return "当前 Ask 缺失";
     return "";
   }
@@ -597,23 +617,23 @@
 
   function positionDetail(row){
     const {position:positionValue,decision,metrics}=row;
-    const unavailable=quoteUnavailableReason(metrics);
+    const unavailable=quoteUnavailableReason(positionValue,metrics);
     const spread=metrics.spread_pct===null?"—":pct(metrics.spread_pct);
     const holdingAprUsable=metrics.quote_usable&&metrics.remaining_apr!==null;
     const aprClass=!holdingAprUsable?"muted":metrics.remaining_apr<metrics.exit_apr_threshold?"bad":"good";
     const pnlClass=metrics.quote_usable&&metrics.unrealized_pnl>0
       ?"good":metrics.quote_usable&&metrics.unrealized_pnl<0?"bad":"muted";
     return `<div class="owner-position-detail">
-      <div class="owner-inspector-head"><div><span class="owner-kicker">SELECTED POSITION</span><h3>BTC ${money(positionValue.strike)} Put</h3><p>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} BTC</p></div><span class="owner-status ${statusClass(decision.state)}">${esc(decision.verdict)}</span></div>
+      <div class="owner-inspector-head"><div><span class="owner-kicker">SELECTED POSITION</span><h3>${positionValue.asset} ${money(positionValue.strike)} Put</h3><p>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} ${positionValue.asset}</p></div><span class="owner-status ${statusClass(decision.state)}">${esc(decision.verdict)}</span></div>
       <div class="owner-inspector-hero">
         <div class="owner-apr-hero ${aprClass}"><span>${metricTip("剩余 APR（毛）","以当前 Ask 代表的剩余权利金、完整 K×Q 与剩余 DTE 简单年化；这是到期归零时的条件上界，不是预期 APY。")}</span><strong>${holdingAprUsable?pct(metrics.remaining_apr):"不可用"}</strong><small>10% 退出线 · 余量 ${holdingAprUsable?signedPp(metrics.remaining_apr_buffer_pp):"不可用"}</small></div>
         <div class="${pnlClass}"><span>未实现 P&amp;L</span><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`已捕获 ${signedPct(metrics.capture_pct)}`:esc(unavailable)}</small></div>
-        <div><span>${metricTip("Ask 平仓 / 剩余价值","按当前顶档 Ask 买回的估算成本；若期权最终归零，它也是从今天起最多还能赚到的毛权利金。")}</span><strong>${metrics.quote_usable?money(metrics.close_cost,2):"不可用"}</strong><small>Ask ${money(metrics.current_ask,2)} / BTC</small></div>
+        <div><span>${metricTip("Ask 平仓 / 剩余价值","按当前顶档 Ask 买回的估算成本；若期权最终归零，它也是从今天起最多还能赚到的毛权利金。")}</span><strong>${metrics.quote_usable?money(metrics.close_cost,2):"不可用"}</strong><small>Ask ${money(metrics.current_ask,2)} / ${positionValue.asset}</small></div>
       </div>
       ${progressAxis(metrics)}
       <div class="owner-detail-grid owner-position-facts" role="group" aria-label="持仓期限与权利金">
         <div><span>开仓时间</span><strong>${esc(positionValue.open_date)}</strong></div>
-        <div><span>开仓权利金</span><strong>${money(positionValue.open_premium_per_btc,2)} / BTC</strong><small>合计 ${money(metrics.open_premium_total,2)}</small></div>
+        <div><span>开仓权利金</span><strong>${money(positionValue.open_premium_per_btc,2)} / ${positionValue.asset}</strong><small>合计 ${money(metrics.open_premium_total,2)}</small></div>
         <div><span>到期日</span><strong>${esc(positionValue.expiry)}</strong></div>
         <div><span>剩余天数</span><strong>${days(metrics.dte)}</strong><small>开仓时 ${days(metrics.open_dte)}</small></div>
       </div>
@@ -641,8 +661,8 @@
     const pnlClass=metrics.quote_usable&&metrics.unrealized_pnl>0
       ?"good":metrics.quote_usable&&metrics.unrealized_pnl<0?"bad":"muted";
     return `<button type="button" class="owner-position-item ${expanded?"selected":""} ${expired?"owner-expired":""}" data-owner-toggle="${esc(positionValue.id)}" aria-pressed="${expanded}">
-      <span class="owner-position-contract"><strong>BTC ${money(positionValue.strike)} Put</strong><small>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} BTC</small></span>
-      <span class="owner-position-pnl ${pnlClass}"><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`捕获 ${signedPct(metrics.capture_pct)}`:esc(quoteUnavailableReason(metrics))}</small></span>
+      <span class="owner-position-contract"><strong>${positionValue.asset} ${money(positionValue.strike)} Put</strong><small>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} ${positionValue.asset}</small></span>
+      <span class="owner-position-pnl ${pnlClass}"><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`捕获 ${signedPct(metrics.capture_pct)}`:esc(quoteUnavailableReason(positionValue,metrics))}</small></span>
       <span class="owner-position-dte"><strong>${metrics.dte.toFixed(0)} DTE</strong><small>距 Strike ${signedPct(metrics.strike_distance_pct)}</small></span>
       <span class="owner-position-state ${statusClass(decision.state)}"><i></i><strong>${esc(decision.verdict)}</strong></span>
     </button>`;
@@ -654,10 +674,10 @@
     if(!positionsRoute){page.hidden=true;return}
     page.hidden=false;
     const entryCard=$("ownerEntryCard");
-    const allRows=Strategy.positionRows(ownerState,positions,research);
+    const allRows=Strategy.positionRows(ownerState,positions,researchByAsset);
     const attentionCount=allRows.filter(row=>row.decision.state!=="not_due").length;
     const normalCount=allRows.length-attentionCount;
-    const visibleRows=Strategy.positionRows(ownerState,positions,research,Date.now(),positionFilter);
+    const visibleRows=Strategy.positionRows(ownerState,positions,researchByAsset,Date.now(),positionFilter);
     const emptyCopy=!positions.length
       ?"还没有持仓。可以从 Sell Put 行情页加入，或手动录入。"
       :positionFilter==="attention"?"当前没有需处理仓位。":"当前没有正常仓位。";
@@ -699,7 +719,7 @@
       const table=page.querySelector(`[data-owner-stress-table="${CSS.escape(id)}"]`);
       const positionValue=positions.find(row=>String(row.id)===id);
       const item=positionValue?researchItem(positionValue):null;
-      if(table&&item)table.innerHTML=stressRowsHtml(Strategy.stressScenarioRows(positionValue,item,research?.spot,range));
+      if(table&&item)table.innerHTML=stressRowsHtml(Strategy.stressScenarioRows(positionValue,item,researchFor(positionValue.asset)?.spot,range));
     };
     page.querySelectorAll("[data-owner-stress-range]").forEach(input=>input.addEventListener("input",()=>{
       applyStressRange(input.dataset.ownerStressRange,input.value);
@@ -716,17 +736,32 @@
 
   function positionDialogHtml(){
     return `<dialog id="ownerPositionDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">SELL PUT LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
+      <label><span>资产</span><select id="ownerPositionAsset" required><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="HYPE">HYPE</option></select></label>
       <label><span>Strike</span><input id="ownerPositionStrike" type="number" min="0" step="any" required></label>
       <label><span>到期日</span><input id="ownerPositionExpiry" type="date" required></label>
-      <label><span>BTC 名义数量</span><input id="ownerPositionNotional" type="number" min="0.00000001" step="any" value="1" required></label>
-      <label><span>开仓权利金 / 1 BTC</span><input id="ownerPositionPremium" type="number" min="0" step="any" required></label>
+      <label><span id="ownerPositionNotionalLabel">BTC 名义数量</span><input id="ownerPositionNotional" type="number" min="0.01" step="any" value="1" required></label>
+      <label><span id="ownerPositionPremiumLabel">开仓权利金 / 1 BTC</span><input id="ownerPositionPremium" type="number" min="0" step="any" required></label>
       <label><span>开仓日期</span><input id="ownerPositionOpenDate" type="date" required></label>
-    </div><p class="owner-form-note">Deribit BTC_USDC · USDC 现金结算。权利金可修改；容量始终按 K×Q。</p><div class="owner-dialog-error" id="ownerDialogError"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerDialogCancel">取消</button><button type="submit" class="owner-primary" id="ownerDialogSave">保存</button></div></form></dialog>`;
+    </div><p class="owner-form-note" id="ownerPositionNote">Deribit BTC_USDC · USDC 现金结算。权利金可修改；容量始终按 K×Q。</p><div class="owner-dialog-error" id="ownerDialogError"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerDialogCancel">取消</button><button type="submit" class="owner-primary" id="ownerDialogSave">保存</button></div></form></dialog>`;
+  }
+
+  function updatePositionAssetUi({resetNotional=false}={}){
+    const asset=Strategy.normalizeAsset($("ownerPositionAsset").value);
+    const defaults=ASSET_DEFAULTS[asset];
+    $("ownerPositionNotionalLabel").textContent=`${asset} 名义数量`;
+    $("ownerPositionPremiumLabel").textContent=`开仓权利金 / 1 ${asset}`;
+    $("ownerPositionNotional").min=String(defaults.min);
+    if(resetNotional)$("ownerPositionNotional").value=String(defaults.notional);
+    $("ownerPositionNote").textContent=`Deribit ${asset}_USDC · USDC 现金结算。权利金可修改；容量始终按 K×Q。`;
   }
 
   function bindPositionDialog(){
     $("ownerDialogClose").addEventListener("click",closePositionDialog);
     $("ownerDialogCancel").addEventListener("click",closePositionDialog);
+    $("ownerPositionAsset").addEventListener("change",()=>{
+      updatePositionAssetUi({resetNotional:true});
+      localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
+    });
     $("ownerPositionForm").addEventListener("submit",event=>{
       event.preventDefault();
       savePosition();
@@ -741,7 +776,7 @@
   function positionDraft(){
     return {
       id:$("ownerPositionId").value||"draft",
-      asset:"BTC",kind:"sell_put",
+      asset:$("ownerPositionAsset").value,kind:"sell_put",
       strike:$("ownerPositionStrike").value,
       expiry:$("ownerPositionExpiry").value,
       notional_btc:$("ownerPositionNotional").value,
@@ -753,13 +788,19 @@
   function openPositionDialog(existing=null,prefill=null){
     const draft=!existing&&!prefill?readStoredJson(DRAFT_KEY):null;
     const row=existing||prefill||draft||{};
+    const asset=Strategy.normalizeAsset(row.asset||currentMarketAsset());
     $("ownerDialogTitle").textContent=existing?"编辑持仓":"加入持仓";
     $("ownerPositionId").value=existing?.id||"";
+    $("ownerPositionAsset").value=asset;
+    $("ownerPositionAsset").disabled=Boolean(existing);
     $("ownerPositionStrike").value=inputValue(row.strike);
     $("ownerPositionExpiry").value=row.expiry||"";
-    $("ownerPositionNotional").value=inputValue(row.notional_btc??1);
+    $("ownerPositionNotional").value=inputValue(
+      row.notional_btc??row.min_trade_amount??ASSET_DEFAULTS[asset].notional,
+    );
     $("ownerPositionPremium").value=inputValue(row.open_premium_per_btc??row.bid_usd??0);
     $("ownerPositionOpenDate").value=row.open_date||today();
+    updatePositionAssetUi();
     $("ownerDialogError").textContent="";
     const dialog=$("ownerPositionDialog");
     if(dialog.showModal)dialog.showModal();
@@ -779,7 +820,7 @@
       const draft=positionDraft();
       const normalized=Strategy.normalizePosition(draft);
       const body={
-        owner_id:session.user.id,asset:"BTC",kind:"sell_put",
+        owner_id:session.user.id,asset:normalized.asset,kind:"sell_put",
         strike:normalized.strike,expiry:normalized.expiry,
         notional_btc:normalized.notional_btc,
         open_premium_per_btc:normalized.open_premium_per_btc,
@@ -807,7 +848,7 @@
 
   async function deletePosition(id){
     const row=positions.find(position=>position.id===id);
-    if(!row||!confirm(`删除 ${money(row.strike)} Put · ${row.expiry}？请先确认现金结算或记账状态。`))return;
+    if(!row||!confirm(`删除 ${row.asset} ${money(row.strike)} Put · ${row.expiry}？请先确认现金结算或记账状态。`))return;
     try{
       await rest(`positions?id=eq.${encodeURIComponent(id)}&owner_id=eq.${session.user.id}`,{
         method:"DELETE",prefer:"return=minimal",
@@ -865,9 +906,9 @@
     window.MangoDashboard?.rerender?.();
   }
 
-  function researchUrl(){
-    return window.MangoDashboard?.apiUrl?.("/api/owner-research","BTC")||
-      `${projectBase}/api/owner-research?asset=BTC`;
+  function researchUrl(asset){
+    return window.MangoDashboard?.apiUrl?.("/api/owner-research",asset)||
+      `${projectBase}/api/owner-research?asset=${encodeURIComponent(asset)}`;
   }
 
   async function refreshResearch(force=false){
@@ -879,21 +920,44 @@
     const version=++refreshVersion;
     refreshController=new AbortController();
     try{
-      const response=await fetch(researchUrl(),{
-        signal:refreshController.signal,cache:"no-store",
-      });
-      const payload=await response.json();
-      if(version!==refreshVersion)return;
-      if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
-      research=payload;
+      const results=await Promise.allSettled(OWNER_ASSETS.map(async asset=>{
+        const response=await fetch(researchUrl(asset),{
+          signal:refreshController.signal,cache:"no-store",
+        });
+        const payload=await response.json();
+        if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
+        if(payload?.asset!==asset)throw new Error(`${asset} 报价资产不匹配`);
+        return {asset,payload};
+      }));
+      if(refreshController.signal.aborted||version!==refreshVersion)return;
+      const next={...researchByAsset};
+      const failed=[];
+      for(let index=0;index<results.length;index++){
+        const asset=OWNER_ASSETS[index];
+        const result=results[index];
+        if(result.status==="fulfilled")next[asset]=result.value.payload;
+        else{
+          failed.push(asset);
+          if(next[asset])next[asset]={...next[asset],source_status:{
+            ...(next[asset].source_status||{}),chain_stale:true,
+          }};
+        }
+      }
+      researchByAsset=next;
       lastResearchAt=Date.now();
+      if(failed.length){
+        researchError=`${failed.join(" / ")} 报价刷新失败；已停止用于损益和平仓结论。`;
+        setNotice(`${failed.join(" / ")} 报价刷新失败，可重试。`,"bad");
+      }
     }catch(error){
       if(error.name==="AbortError"||version!==refreshVersion)return;
       researchError="报价刷新失败；旧报价已停止用于损益和平仓结论。";
-      if(research){
-        research={...research,source_status:{
-          ...(research.source_status||{}),chain_stale:true,
-        }};
+      for(const asset of OWNER_ASSETS){
+        if(researchByAsset[asset])researchByAsset[asset]={
+          ...researchByAsset[asset],source_status:{
+            ...(researchByAsset[asset].source_status||{}),chain_stale:true,
+          },
+        };
       }
       setNotice("报价刷新失败，可重试。","bad");
     }finally{
@@ -925,13 +989,17 @@
 
   function chainCell(row){
     if(!window.MangoOwner.isActive||!privateReady)return "";
+    const asset=currentMarketAsset();
     const matches=positions.filter(position=>
+      position.asset===asset&&
       String(position.expiry)===String(row.expiry)&&
       Math.abs(Number(position.strike)-Number(row.strike))<1e-8
     );
     const payload=encodeURIComponent(JSON.stringify({
+      asset,
       strike:Number(row.strike),expiry:String(row.expiry),
       bid_usd:Number(row.bid_usd)||0,
+      min_trade_amount:Number(row.min_trade_amount)||ASSET_DEFAULTS[asset].notional,
     }));
     return `<td class="owner-chain-action">${matches.length?`<span class="owner-holding-badge">持仓 ${matches.length}</span>`:""}<button type="button" class="owner-link" data-owner-add="${payload}">加入持仓</button></td>`;
   }
@@ -944,7 +1012,9 @@
     });
     document.addEventListener("mango:market-data",()=>{
       renderEntry();
-      if(Date.now()-lastResearchAt>30000)refreshResearch();
+      if(!researchFor(currentMarketAsset())||Date.now()-lastResearchAt>30000){
+        refreshResearch();
+      }
     });
     document.addEventListener("visibilitychange",()=>{
       if(!document.hidden){loadPrivateData();refreshResearch(true);scheduleRefresh()}

@@ -12,6 +12,8 @@
   const MIN_RESEARCH_DTE=7;
   const MAX_RESEARCH_SPREAD_PCT=15;
   const DAY_MS=86400000;
+  const SUPPORTED_ASSETS=["BTC","ETH","HYPE"];
+  const ASSET_MIN_NOTIONAL={BTC:.01,ETH:.1,HYPE:10};
 
   const LABELS={
     entry:{
@@ -47,6 +49,23 @@
   function optionalPositive(value){
     if(value==null||value==="")return null;
     return positive(value);
+  }
+
+  function normalizeAsset(value="BTC"){
+    const asset=String(value||"BTC").trim().toUpperCase();
+    if(!SUPPORTED_ASSETS.includes(asset)){
+      throw new Error("持仓资产只支持 BTC / ETH / HYPE");
+    }
+    return asset;
+  }
+
+  function researchForAsset(assetValue,researchValue){
+    const asset=normalizeAsset(assetValue);
+    if(researchValue?.puts&&normalizeAsset(researchValue.asset||"BTC")===asset){
+      return researchValue;
+    }
+    const candidate=researchValue?.[asset];
+    return candidate?.asset===asset?candidate:null;
   }
 
   function validDate(value){
@@ -107,16 +126,17 @@
     const premium=nonNegative(raw?.open_premium_per_btc);
     const expiry=String(raw?.expiry||"");
     const openDate=String(raw?.open_date||"");
+    const asset=normalizeAsset(raw?.asset);
     if(!raw?.id||strike===null||notional===null||premium===null||
+      notional<ASSET_MIN_NOTIONAL[asset]||
       !validDate(expiry)||!validDate(openDate)||openDate>expiry){
       throw new Error("持仓字段无效");
     }
-    if(raw.asset&&raw.asset!=="BTC")throw new Error("Owner v1 只支持 BTC");
-    if(raw.kind&&raw.kind!=="sell_put")throw new Error("Owner v1 只支持 Sell Put");
+    if(raw.kind&&raw.kind!=="sell_put")throw new Error("Owner 只支持 Sell Put");
     return {
       id:String(raw.id),
       owner_id:raw.owner_id||null,
-      asset:"BTC",
+      asset,
       kind:"sell_put",
       strike,
       expiry,
@@ -165,21 +185,22 @@
     return {state,verdict:LABELS[kind][state],reason,...extra};
   }
 
-  function candidatePasses(candidate,ownerState,available){
+  function candidatePasses(candidate,ownerState,available,asset="BTC"){
     const strike=positive(candidate?.strike);
+    const researchNotional=positive(candidate?.research_notional)??1;
     const days=finite(candidate?.days);
     const spread=finite(candidate?.spread_pct);
     const expected=finite(candidate?.card?.expected?.expected_excess_rwa_apr_pct);
     if(strike===null||days===null||days<MIN_RESEARCH_DTE||spread===null||
       spread>MAX_RESEARCH_SPREAD_PCT||expected===null||expected<=0||
-      candidate?.status?.state!=="research"||strike>available){
+      candidate?.status?.state!=="research"||strike*researchNotional>available){
       return false;
     }
     const low=ownerState.buy_band_low;
     const high=ownerState.buy_band_high;
-    if(low!==null&&high!==null&&(strike<low||strike>high))return false;
+    if(asset==="BTC"&&low!==null&&high!==null&&(strike<low||strike>high))return false;
     const floor=ownerState.cash_floor_usd;
-    if(floor!==null&&available-strike<floor)return false;
+    if(floor!==null&&available-strike*researchNotional<floor)return false;
     return true;
   }
 
@@ -201,13 +222,14 @@
       return result("entry","unknown","当前行情或经验数据不足以支持开仓复核。");
     }
     const timingAllowsEntry=timing.action==="sell";
+    const asset=normalizeAsset(research?.asset||"BTC");
     const candidates=timingAllowsEntry?(research.puts||[]).filter(candidate=>
-      candidatePasses(candidate,ownerState,account.available)
+      candidatePasses(candidate,ownerState,account.available,asset)
     ):[];
     if(candidates.length){
       return result(
         "entry","review",
-        `当前有 ${candidates.length} 个 1 BTC Sell Put 通过容量与策略筛选。`,
+        `当前有 ${candidates.length} 个 ${asset} Sell Put 通过容量与策略筛选。`,
         {candidate_count:candidates.length},
       );
     }
@@ -220,19 +242,21 @@
   }
 
   function findQuote(position,research){
-    return (research?.puts||[]).find(candidate=>
+    const assetResearch=researchForAsset(position.asset,research);
+    return (assetResearch?.puts||[]).find(candidate=>
       String(candidate.expiry)===String(position.expiry)&&
       Math.abs(Number(candidate.strike)-Number(position.strike))<1e-8
     )||null;
   }
 
   function deribitStandardPutMargin(position,research,nowMs=Date.now()){
-    if(!sourceUsable(research,nowMs))return null;
-    const spot=positive(research?.spot);
+    const assetResearch=researchForAsset(position.asset,research);
+    if(!sourceUsable(assetResearch,nowMs))return null;
+    const spot=positive(assetResearch?.spot);
     const strike=positive(position?.strike);
     const notional=positive(position?.notional_btc);
     const premium=nonNegative(position?.open_premium_per_btc);
-    const quote=findQuote(position,research);
+    const quote=findQuote(position,assetResearch);
     const mark=nonNegative(quote?.mark_usd,{nullable:true});
     if(spot===null||strike===null||notional===null||premium===null||mark===null){
       return null;
@@ -322,7 +346,8 @@
   }
 
   function positionMetrics(position,research,nowMs=Date.now()){
-    const quote=findQuote(position,research);
+    const assetResearch=researchForAsset(position.asset,research);
+    const quote=findQuote(position,assetResearch);
     const currentBid=nonNegative(quote?.bid_usd,{nullable:true});
     const currentAsk=nonNegative(quote?.ask_usd,{nullable:true});
     const currentMark=nonNegative(quote?.mark_usd,{nullable:true});
@@ -335,7 +360,7 @@
     const timeElapsedPct=Math.min(100,Math.max(0,rawTimeElapsedPct));
     const rawTimeRemainingPct=totalDays<=0?(remainingDays>0?100:0):remainingDays/totalDays*100;
     const timeRemainingPct=Math.min(100,Math.max(0,rawTimeRemainingPct));
-    const quoteUsable=Boolean(quote)&&sourceUsable(research,nowMs)&&currentAsk!==null;
+    const quoteUsable=Boolean(quote)&&sourceUsable(assetResearch,nowMs)&&currentAsk!==null;
     const capturePct=!quoteUsable||premium<=0?null:(premium-currentAsk)/premium*100;
     const capacityCapital=position.strike*notional;
     const remainingValue=quoteUsable?currentAsk*notional:null;
@@ -353,14 +378,14 @@
       remainingApr-exitAprThreshold;
     const closeCost=quoteUsable?currentAsk*notional:null;
     const unrealizedPnl=quoteUsable?(premium-currentAsk)*notional:null;
-    const spot=sourceUsable(research,nowMs)?positive(research?.spot):null;
+    const spot=sourceUsable(assetResearch,nowMs)?positive(assetResearch?.spot):null;
     const strikeDistancePct=spot===null?null:(spot-position.strike)/spot*100;
     let spreadPct=finite(quote?.spread_pct);
     if(spreadPct===null&&currentBid!==null&&currentAsk!==null&&currentAsk>=currentBid){
       const midpoint=(currentBid+currentAsk)/2;
       spreadPct=midpoint>0?(currentAsk-currentBid)/midpoint*100:null;
     }
-    const asof=finite(research?.source_status?.chain_asof_epoch_ms);
+    const asof=finite(assetResearch?.source_status?.chain_asof_epoch_ms);
     const quoteAgeSeconds=asof===null?null:Math.max(0,(nowMs-asof)/1000);
     return {
       quote,
@@ -418,9 +443,11 @@
   }
 
   function evaluateClose(position,ownerStateValue,positions,research,nowMs=Date.now()){
+    const assetResearch=researchForAsset(position.asset,research);
+    const asset=normalizeAsset(position.asset);
     if(isExpired(position,nowMs)){
       return result("close","risk","仓位已到期，请先核对现金结算。",{
-        metrics:positionMetrics(position,research,nowMs),
+        metrics:positionMetrics(position,assetResearch,nowMs),
         verdict:"到期结算待确认",
       });
     }
@@ -434,20 +461,20 @@
         "close","risk",
         `按完整现金覆盖口径：账户已录入稳定币 ${format(ownerState.stablecoin_usd)} USD，Put 完整承诺 ${format(account.put_reserved)} USD，差额 ${format(Math.abs(account.available))} USD。若余额尚未录入，请先更新账户设置。`,
         {
-          metrics:positionMetrics(position,research,nowMs),
+          metrics:positionMetrics(position,assetResearch,nowMs),
           verdict:"资金覆盖待确认",
         },
       );
     }
-    if(!sourceUsable(research,nowMs)){
-      return result("close","unknown","当前 BTC 参考价已过期或不可用。",{
-        metrics:positionMetrics(position,research,nowMs),
+    if(!sourceUsable(assetResearch,nowMs)){
+      return result("close","unknown",`当前 ${asset} 参考价已过期或不可用。`,{
+        metrics:positionMetrics(position,assetResearch,nowMs),
       });
     }
-    const metrics=positionMetrics(position,research,nowMs);
-    const spot=positive(research?.spot);
+    const metrics=positionMetrics(position,assetResearch,nowMs);
+    const spot=positive(assetResearch?.spot);
     if(spot===null||!metrics.quote_usable){
-      return result("close","unknown","当前 BTC 参考价或合约 Ask 不可用，不计算平仓损益。",{metrics});
+      return result("close","unknown",`当前 ${asset} 参考价或合约 Ask 不可用，不计算平仓损益。`,{metrics});
     }
     if(metrics.capture_pct!==null&&metrics.capture_pct>=CAPTURE_EXIT&&
       metrics.time_elapsed_pct<=TIME_EXIT){
@@ -465,11 +492,11 @@
       );
     }
     if(spot<=position.strike){
-      return result("close","review","BTC 参考价已触及或穿过这笔仓位的行权价。",{metrics});
+      return result("close","review",`${asset} 参考价已触及或穿过这笔仓位的行权价。`,{metrics});
     }
     return result(
       "close","not_due",
-      "BTC 参考价尚未触及行权价，资本效率仍在门槛之上。",
+      `${asset} 参考价尚未触及行权价，资本效率仍在门槛之上。`,
       {metrics},
     );
   }
@@ -498,9 +525,10 @@
   }
 
   return {
-    RWA_APY,CAPTURE_EXIT,TIME_EXIT,EXIT_APR_BUFFER_PP,
+    RWA_APY,CAPTURE_EXIT,TIME_EXIT,EXIT_APR_BUFFER_PP,SUPPORTED_ASSETS,
     MIN_RESEARCH_DTE,MAX_RESEARCH_SPREAD_PCT,LABELS,
     finite,positive,optionalPositive,validDate,utcDate,isExpired,dte,
+    normalizeAsset,researchForAsset,
     normalizeOwnerState,normalizePosition,totals,sourceUsable,
     annualizedSimple,horizonIncome,normalizeStressRange,stressScenarioRows,
     deribitStandardPutMargin,deribitCapitalSummary,
