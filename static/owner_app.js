@@ -594,31 +594,36 @@
     const {position:positionValue,decision,metrics}=row;
     const unavailable=quoteUnavailableReason(metrics);
     const spread=metrics.spread_pct===null?"—":pct(metrics.spread_pct);
-    const quoteState=metrics.quote_usable?"可用":unavailable||"不可用";
+    const holdingAprUsable=metrics.quote_usable&&metrics.remaining_apr!==null;
+    const aprClass=!holdingAprUsable?"muted":metrics.remaining_apr<metrics.exit_apr_threshold?"bad":"good";
     const pnlClass=metrics.quote_usable&&metrics.unrealized_pnl>0
       ?"good":metrics.quote_usable&&metrics.unrealized_pnl<0?"bad":"muted";
     return `<div class="owner-position-detail">
       <div class="owner-inspector-head"><div><span class="owner-kicker">SELECTED POSITION</span><h3>BTC ${money(positionValue.strike)} Put</h3><p>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} BTC</p></div><span class="owner-status ${statusClass(decision.state)}">${esc(decision.verdict)}</span></div>
       <div class="owner-inspector-hero">
         <div class="${pnlClass}"><span>未实现 P&amp;L</span><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`已捕获 ${signedPct(metrics.capture_pct)}`:esc(unavailable)}</small></div>
-        <div><span>${metricTip("Ask 平仓 / 剩余价值","按当前顶档 Ask 买回的估算成本；若期权最终归零，它也是从今天起最多还能赚到的毛权利金。")}</span><strong>${metrics.quote_usable?money(metrics.close_cost,2):"不可用"}</strong><small>Ask ${money(metrics.current_ask,2)} / BTC · 剩余条件年化 ${pct(metrics.remaining_apr)}</small></div>
-        <div><span>剩余期限</span><strong>${metrics.dte.toFixed(0)} DTE</strong><small>距 Strike ${signedPct(metrics.strike_distance_pct)}</small></div>
+        <div class="owner-apr-hero ${aprClass}"><span>${metricTip("剩余 APR（毛）","以当前 Ask 代表的剩余权利金、完整 K×Q 与剩余 DTE 简单年化；这是到期归零时的条件上界，不是预期 APY。")}</span><strong>${holdingAprUsable?pct(metrics.remaining_apr):"不可用"}</strong><small>10% 退出线 · 余量 ${holdingAprUsable?signedPp(metrics.remaining_apr_buffer_pp):"不可用"}</small></div>
+        <div><span>${metricTip("Ask 平仓 / 剩余价值","按当前顶档 Ask 买回的估算成本；若期权最终归零，它也是从今天起最多还能赚到的毛权利金。")}</span><strong>${metrics.quote_usable?money(metrics.close_cost,2):"不可用"}</strong><small>Ask ${money(metrics.current_ask,2)} / BTC</small></div>
       </div>
       ${progressAxis(metrics)}
       ${economicsLedger(metrics)}
       <div class="owner-inspector-reason ${statusClass(decision.state)}"><span>复核结论</span><strong>${esc(decision.verdict)}</strong><p>${esc(decision.reason)}</p></div>
-      <div class="owner-detail-grid">
-        <div><span>开仓日期</span><strong>${esc(positionValue.open_date)}</strong></div>
+      <div class="owner-detail-grid owner-position-facts" role="group" aria-label="持仓期限与权利金">
+        <div><span>开仓时间</span><strong>${esc(positionValue.open_date)}</strong></div>
         <div><span>开仓权利金</span><strong>${money(positionValue.open_premium_per_btc,2)} / BTC</strong><small>合计 ${money(metrics.open_premium_total,2)}</small></div>
+        <div><span>到期日</span><strong>${esc(positionValue.expiry)}</strong></div>
+        <div><span>剩余天数</span><strong>${days(metrics.dte)}</strong><small>开仓时 ${days(metrics.open_dte)}</small></div>
+      </div>
+      <div class="owner-detail-grid owner-quote-strip" role="group" aria-label="当前报价">
         <div><span>Bid</span><strong>${money(metrics.current_bid,2)}</strong></div>
         <div><span>Ask · 平仓依据</span><strong>${money(metrics.current_ask,2)}</strong></div>
         <div><span>Mark</span><strong>${money(metrics.current_mark,2)}</strong></div>
+      </div>
+      <div class="owner-detail-grid owner-risk-facts" role="group" aria-label="波动率与风险指标">
         <div><span>Spread</span><strong>${spread}</strong></div>
         <div><span>IV</span><strong>${pct(metrics.iv)}</strong></div>
         <div><span>Delta</span><strong>${metrics.delta===null?"—":Number(metrics.delta).toFixed(3)}</strong></div>
         <div><span>现价距 Strike</span><strong>${signedPct(metrics.strike_distance_pct)}</strong></div>
-        <div><span>报价时间</span><strong>${quoteTime(metrics.quote_asof_epoch_ms)}</strong></div>
-        <div class="${metrics.quote_usable?"good":"bad"}"><span>报价状态</span><strong>${esc(quoteState)}</strong></div>
       </div>
       ${unavailable?`<p class="owner-quote-warning">${esc(unavailable)}：未实现 P&amp;L、捕获率和基于报价的平仓结论已禁用；用户录入的持仓仍保留。</p>`:""}
       <div class="owner-secondary-actions"><button type="button" class="owner-quiet" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑持仓</button><button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
