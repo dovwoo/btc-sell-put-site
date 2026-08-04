@@ -134,7 +134,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .owner-login-mark:before{content:"";width:28px;height:1px;background:var(--amber)}
 .owner-login-panel h1{font-size:1.45rem;letter-spacing:-.03em;margin-bottom:6px}.owner-login-panel>p{color:var(--muted);font-size:.72rem;line-height:1.55;margin-bottom:24px}
 .owner-login-panel label,.owner-form-grid label,.owner-account-grid label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:.63rem}
-.owner-login-panel input,.owner-form-grid input,.owner-account-grid input{width:100%;height:38px;border:1px solid #363a45;border-radius:3px;background:#171b25;color:var(--text);padding:0 10px;font-size:.78rem}
+.owner-login-panel input,.owner-form-grid input,.owner-form-grid select,.owner-account-grid input{width:100%;height:38px;border:1px solid #363a45;border-radius:3px;background:#171b25;color:var(--text);padding:0 10px;font-size:.78rem}
 .owner-login-panel form{display:grid;gap:13px}.owner-login-panel form[hidden]{display:none}.owner-login-panel form>p{color:var(--muted);font-size:.68rem;line-height:1.5}.owner-login-panel form>p strong{color:var(--text);font-weight:600;overflow-wrap:anywhere}.owner-login-error,.owner-dialog-error{min-height:1.1em;color:#ff8a80;font-size:.65rem}.owner-login-error.ok{color:var(--teal)}
 .owner-primary{border:1px solid var(--amber);border-radius:3px;background:var(--amber);color:#17120a;min-height:34px;padding:0 13px;font-size:.7rem;font-weight:750;cursor:pointer}
 .owner-primary:disabled{opacity:.5;cursor:not-allowed}.owner-quiet{border:1px solid #404653;border-radius:3px;background:transparent;color:var(--muted);min-height:30px;padding:0 10px;font-size:.65rem;cursor:pointer}.owner-quiet:hover,.owner-link:hover{color:var(--text);border-color:#697080}
@@ -2057,12 +2057,12 @@ function render(){
 }
 
 function ownerChainHeader(){
-  if(isBuyCall()||isStockMode()||currentAsset!=="BTC")return "";
+  if(isBuyCall()||isStockMode())return "";
   return window.MangoOwner?.chainHeader?.()||"";
 }
 
 function ownerChainCell(row){
-  if(isBuyCall()||isStockMode()||currentAsset!=="BTC")return "";
+  if(isBuyCall()||isStockMode())return "";
   return window.MangoOwner?.chainCell?.(row)||"";
 }
 
