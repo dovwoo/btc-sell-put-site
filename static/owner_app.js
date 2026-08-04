@@ -46,6 +46,7 @@
   let stateSaveQueue=Promise.resolve();
   let positionFilter="all";
   const expandedPositionIds=new Set();
+  const stressRangeByPositionId=new Map();
   let noticeMessage="";
   let noticeKind="";
   let noticeTimer=null;
@@ -528,15 +529,34 @@
     node.innerHTML=`<span>开仓复核</span><strong>${esc(decision.verdict)}</strong><p>${esc(decision.reason)}</p>`;
   }
 
-  function researchCard(positionValue){
-    const item=(research?.puts||[]).find(candidate=>
+  function researchItem(positionValue){
+    return (research?.puts||[]).find(candidate=>
       String(candidate.expiry)===String(positionValue.expiry)&&
       Math.abs(Number(candidate.strike)-Number(positionValue.strike))<1e-8
     );
+  }
+
+  function stressRangeText(value){
+    return Number.isInteger(value)?value.toFixed(0):value.toFixed(1);
+  }
+
+  function stressRowsHtml(rows){
+    return rows.map(row=>{
+      const shock=Number(row.shock_pct);
+      const shockLabel=shock.toLocaleString("en-US",{maximumFractionDigits:2});
+      return `<tr><td>${shock>0?"+":""}${shockLabel}%</td><td>${money(row.terminal_price)}</td><td class="${Number(row.horizon_return_pct)<0?"bad":""}">${pct(row.horizon_return_pct)}</td><td>${money(row.pnl)}</td></tr>`;
+    }).join("");
+  }
+
+  function researchCard(positionValue){
+    const item=researchItem(positionValue);
     if(!item?.card)return `<p class="owner-empty">当前链上没有匹配合约，暂无法生成高级研究。</p>`;
     const card=item.card;
     const expected=card.expected||{};
-    const stress=(card.stress||[]).map(row=>`<tr><td>${row.shock_pct>0?"+":""}${row.shock_pct}%</td><td>${money(row.terminal_price)}</td><td class="${Number(row.horizon_return_pct)<0?"bad":""}">${pct(row.horizon_return_pct)}</td><td>${money(row.pnl)}</td></tr>`).join("");
+    const positionId=String(positionValue.id);
+    const range=stressRangeByPositionId.get(positionId)||30;
+    const rangeText=stressRangeText(range);
+    const stress=stressRowsHtml(Strategy.stressScenarioRows(positionValue,item,research?.spot,range));
     return `<div class="owner-research-grid">
         <div><span>条件净 APR</span><strong>${pct(card.net_conditional_apr_pct)}</strong></div>
         <div><span>8% 门槛条件超额</span><strong>${pct(card.conditional_excess_rwa_apr_pct)}</strong></div>
@@ -545,7 +565,8 @@
         <div><span>CVaR95 持有期</span><strong class="bad">${pct(expected.cvar95_horizon_return_pct)}</strong></div>
         <div><span>单周期几何年化</span><strong>${pct(expected.single_cycle_geometric_annualized_pct)}</strong></div>
       </div>
-      <div class="owner-research-table"><table><thead><tr><th>BTC 路径</th><th>到期价</th><th>持有期回报</th><th>损益</th></tr></thead><tbody>${stress}</tbody></table></div>
+      <div class="owner-stress-controls"><div><span>BTC 到期涨跌区间</span><label class="owner-stress-value"><span>±</span><input type="number" min="1" max="100" step="0.1" value="${rangeText}" inputmode="decimal" data-owner-stress-number="${esc(positionId)}" aria-label="手动输入 BTC 到期涨跌区间"><span>%</span></label></div><input type="range" min="1" max="100" step="0.1" value="${rangeText}" data-owner-stress-range="${esc(positionId)}" aria-label="拖动 BTC 到期涨跌区间" aria-valuetext="上下 ${rangeText}%"></div>
+      <div class="owner-research-table"><table><thead><tr><th>BTC 路径</th><th>到期价</th><th>持有期回报</th><th>损益</th></tr></thead><tbody data-owner-stress-table="${esc(positionId)}">${stress}</tbody></table></div>
       <p class="owner-research-note">条件 APR 只表示到期未赔付时的收入率；经验分布与压力路径用于人工复核。</p>`;
   }
 
@@ -574,22 +595,6 @@
     return `<span class="tip" tabindex="0">${label}<span class="tt">${copy}</span></span>`;
   }
 
-  function economicsLedger(metrics){
-    const usable=metrics.quote_usable&&metrics.remaining_apr!==null;
-    const netClass=!usable?"muted":metrics.remaining_max_net_value<0?"bad":"good";
-    const bufferClass=!usable?"muted":metrics.remaining_apr_buffer_pp<0?"bad":"good";
-    return `<section class="owner-economics-ledger" aria-label="持仓经济性">
-      <div class="owner-economics-head"><span class="owner-kicker">HOLD ECONOMICS</span><strong>从今天继续持有</strong><small>条件上界，不是收益预测</small></div>
-      <div class="owner-economics-grid">
-        <div class="${netClass}"><span>${metricTip("扣 8% 门槛后上界","当前 Ask 代表剩余权利金价值，再扣完整 K×Q 资本在剩余 DTE 对应的 8% 策略门槛复利金额。未扣未来滑点与场所风险。")}</span><strong>${usable?signedMoney(metrics.remaining_max_net_value,2):"不可用"}</strong><small>条件年化 ${usable?signedPct(metrics.remaining_max_net_apr):"不可用"}</small></div>
-        <div class="${bufferClass}"><span>${metricTip("10% 退出线余量","当前规则用 8% 策略门槛加 2 个百分点缓冲。余量小于 0 时触发资本效率复核。")}</span><strong>${usable?signedPp(metrics.remaining_apr_buffer_pp):"不可用"}</strong><small>剩余条件年化 − ${pct(metrics.exit_apr_threshold,0)}</small></div>
-        <div><span>${metricTip("等效损益平衡价","Strike 减开仓权利金。Deribit 为 USDC 现金结算，这只是损益记账参考，不代表自动接收 BTC。")}</span><strong>${money(metrics.effective_breakeven_price,2)}</strong><small>每 1 BTC 名义</small></div>
-        <div><span>${metricTip("完整资本 / 最大净损失","容量分母始终按 K×Q。最大净损失是假设 BTC 归零并扣除开仓权利金，未计额外费用。")}</span><strong>${money(metrics.capacity_capital,2)}</strong><small>归零路径 ${money(metrics.maximum_net_loss,2)}</small></div>
-      </div>
-      <p>剩余条件年化以当前顶档 Ask、完整 K×Q 与剩余 DTE 简单年化；它是到期归零时的上界，不是预期 APY。资本效率只回答是否值得继续占用资本；承诺缺口、触及 Strike 与报价失效仍按风险优先。</p>
-    </section>`;
-  }
-
   function positionDetail(row){
     const {position:positionValue,decision,metrics}=row;
     const unavailable=quoteUnavailableReason(metrics);
@@ -601,13 +606,11 @@
     return `<div class="owner-position-detail">
       <div class="owner-inspector-head"><div><span class="owner-kicker">SELECTED POSITION</span><h3>BTC ${money(positionValue.strike)} Put</h3><p>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} BTC</p></div><span class="owner-status ${statusClass(decision.state)}">${esc(decision.verdict)}</span></div>
       <div class="owner-inspector-hero">
-        <div class="${pnlClass}"><span>未实现 P&amp;L</span><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`已捕获 ${signedPct(metrics.capture_pct)}`:esc(unavailable)}</small></div>
         <div class="owner-apr-hero ${aprClass}"><span>${metricTip("剩余 APR（毛）","以当前 Ask 代表的剩余权利金、完整 K×Q 与剩余 DTE 简单年化；这是到期归零时的条件上界，不是预期 APY。")}</span><strong>${holdingAprUsable?pct(metrics.remaining_apr):"不可用"}</strong><small>10% 退出线 · 余量 ${holdingAprUsable?signedPp(metrics.remaining_apr_buffer_pp):"不可用"}</small></div>
+        <div class="${pnlClass}"><span>未实现 P&amp;L</span><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`已捕获 ${signedPct(metrics.capture_pct)}`:esc(unavailable)}</small></div>
         <div><span>${metricTip("Ask 平仓 / 剩余价值","按当前顶档 Ask 买回的估算成本；若期权最终归零，它也是从今天起最多还能赚到的毛权利金。")}</span><strong>${metrics.quote_usable?money(metrics.close_cost,2):"不可用"}</strong><small>Ask ${money(metrics.current_ask,2)} / BTC</small></div>
       </div>
       ${progressAxis(metrics)}
-      ${economicsLedger(metrics)}
-      <div class="owner-inspector-reason ${statusClass(decision.state)}"><span>复核结论</span><strong>${esc(decision.verdict)}</strong><p>${esc(decision.reason)}</p></div>
       <div class="owner-detail-grid owner-position-facts" role="group" aria-label="持仓期限与权利金">
         <div><span>开仓时间</span><strong>${esc(positionValue.open_date)}</strong></div>
         <div><span>开仓权利金</span><strong>${money(positionValue.open_premium_per_btc,2)} / BTC</strong><small>合计 ${money(metrics.open_premium_total,2)}</small></div>
@@ -627,7 +630,7 @@
       </div>
       ${unavailable?`<p class="owner-quote-warning">${esc(unavailable)}：未实现 P&amp;L、捕获率和基于报价的平仓结论已禁用；用户录入的持仓仍保留。</p>`:""}
       <div class="owner-secondary-actions"><button type="button" class="owner-quiet" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑持仓</button><button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
-      <details class="owner-research-card"><summary><span>高级研究 / CVaR / 压力测试</span><span>默认折叠</span></summary>${researchCard(positionValue)}</details>
+      <details class="owner-research-card" open><summary><span>高级研究 / CVaR / 压力测试</span><span>可调压力区间</span></summary>${researchCard(positionValue)}</details>
     </div>`;
   }
 
@@ -684,6 +687,31 @@
       openPositionDialog(positions.find(row=>row.id===button.dataset.ownerEdit));
     }));
     page.querySelectorAll("[data-owner-delete]").forEach(button=>button.addEventListener("click",()=>deletePosition(button.dataset.ownerDelete)));
+    const applyStressRange=(id,rawValue)=>{
+      const range=Strategy.normalizeStressRange(rawValue);
+      if(range===null)return;
+      stressRangeByPositionId.set(id,range);
+      const rangeText=stressRangeText(range);
+      const slider=page.querySelector(`[data-owner-stress-range="${CSS.escape(id)}"]`);
+      const number=page.querySelector(`[data-owner-stress-number="${CSS.escape(id)}"]`);
+      if(slider){slider.value=rangeText;slider.setAttribute("aria-valuetext",`上下 ${rangeText}%`)}
+      if(number)number.value=rangeText;
+      const table=page.querySelector(`[data-owner-stress-table="${CSS.escape(id)}"]`);
+      const positionValue=positions.find(row=>String(row.id)===id);
+      const item=positionValue?researchItem(positionValue):null;
+      if(table&&item)table.innerHTML=stressRowsHtml(Strategy.stressScenarioRows(positionValue,item,research?.spot,range));
+    };
+    page.querySelectorAll("[data-owner-stress-range]").forEach(input=>input.addEventListener("input",()=>{
+      applyStressRange(input.dataset.ownerStressRange,input.value);
+    }));
+    page.querySelectorAll("[data-owner-stress-number]").forEach(input=>{
+      input.addEventListener("input",()=>{
+        if(input.value!=="")applyStressRange(input.dataset.ownerStressNumber,input.value);
+      });
+      input.addEventListener("change",()=>{
+        applyStressRange(input.dataset.ownerStressNumber,input.value||30);
+      });
+    });
   }
 
   function positionDialogHtml(){

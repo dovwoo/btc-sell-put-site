@@ -280,6 +280,42 @@
     return amount/capital*365/days*100;
   }
 
+  function normalizeStressRange(value){
+    const number=finite(value);
+    if(number===null)return null;
+    return Math.round(Math.min(100,Math.max(1,number))*10)/10;
+  }
+
+  function stressScenarioRows(positionValue,item,spotValue,rangeValue){
+    const card=item?.card||{};
+    const spot=positive(spotValue);
+    const strike=positive(positionValue?.strike);
+    const capital=positive(card.economic_capital_usd);
+    const netCredit=finite(card.net_credit_usd);
+    const range=normalizeStressRange(rangeValue)??30;
+    if(spot===null||strike===null||capital===null||netCredit===null){
+      return card.stress||[];
+    }
+    const contractSize=capital/strike;
+    const deliveryFeeExempt=(card.stress||[]).some(row=>
+      Number(row.payout)>0&&Number(row.delivery_fee)===0
+    );
+    return [-range,-range/2,0,range/2,range].map(shockPct=>{
+      const terminalPrice=Math.max(0,spot*(1+shockPct/100));
+      const intrinsicPerUnit=Math.max(strike-terminalPrice,0);
+      const payout=intrinsicPerUnit*contractSize;
+      const deliveryFee=deliveryFeeExempt||intrinsicPerUnit===0?0:
+        Math.min(0.00015*terminalPrice,0.125*intrinsicPerUnit)*contractSize;
+      const pnl=netCredit-payout-deliveryFee;
+      return {
+        shock_pct:shockPct,
+        terminal_price:terminalPrice,
+        horizon_return_pct:pnl/capital*100,
+        pnl,
+      };
+    });
+  }
+
   function horizonIncome(capital,apy,days){
     if(!(capital>=0)||!(apy>=0)||!(days>=0))return null;
     return capital*(Math.pow(1+apy,days/365)-1);
@@ -385,15 +421,22 @@
     if(isExpired(position,nowMs)){
       return result("close","risk","仓位已到期，请先核对现金结算。",{
         metrics:positionMetrics(position,research,nowMs),
+        verdict:"到期结算待确认",
       });
     }
     const ownerState=normalizeOwnerState(ownerStateValue);
     const account=totals(ownerState,positions);
     if(account.available<0){
+      const format=value=>Number(value).toLocaleString("en-US",{
+        maximumFractionDigits:2,
+      });
       return result(
         "close","risk",
-        `Put 完整承诺超过稳定币 ${Math.abs(account.available).toLocaleString("en-US",{maximumFractionDigits:2})} USD。`,
-        {metrics:positionMetrics(position,research,nowMs)},
+        `按完整现金覆盖口径：账户已录入稳定币 ${format(ownerState.stablecoin_usd)} USD，Put 完整承诺 ${format(account.put_reserved)} USD，差额 ${format(Math.abs(account.available))} USD。若余额尚未录入，请先更新账户设置。`,
+        {
+          metrics:positionMetrics(position,research,nowMs),
+          verdict:"资金覆盖待确认",
+        },
       );
     }
     if(!sourceUsable(research,nowMs)){
@@ -459,7 +502,8 @@
     MIN_RESEARCH_DTE,MAX_RESEARCH_SPREAD_PCT,LABELS,
     finite,positive,optionalPositive,validDate,utcDate,isExpired,dte,
     normalizeOwnerState,normalizePosition,totals,sourceUsable,
-    annualizedSimple,horizonIncome,deribitStandardPutMargin,deribitCapitalSummary,
+    annualizedSimple,horizonIncome,normalizeStressRange,stressScenarioRows,
+    deribitStandardPutMargin,deribitCapitalSummary,
     positionMetrics,portfolioSummary,evaluateEntry,evaluateClose,
     closePriority,positionRows,
   };
