@@ -280,6 +280,11 @@
     return amount/capital*365/days*100;
   }
 
+  function horizonIncome(capital,apy,days){
+    if(!(capital>=0)||!(apy>=0)||!(days>=0))return null;
+    return capital*(Math.pow(1+apy,days/365)-1);
+  }
+
   function positionMetrics(position,research,nowMs=Date.now()){
     const quote=findQuote(position,research);
     const currentBid=nonNegative(quote?.bid_usd,{nullable:true});
@@ -296,11 +301,20 @@
     const timeRemainingPct=Math.min(100,Math.max(0,rawTimeRemainingPct));
     const quoteUsable=Boolean(quote)&&sourceUsable(research,nowMs)&&currentAsk!==null;
     const capturePct=!quoteUsable||premium<=0?null:(premium-currentAsk)/premium*100;
+    const capacityCapital=position.strike*notional;
+    const remainingValue=quoteUsable?currentAsk*notional:null;
     const remainingApr=!quoteUsable?null:annualizedSimple(
-      currentAsk*notional,
-      position.strike*notional,
-      remainingDays,
+      remainingValue,capacityCapital,remainingDays,
     );
+    const remainingHurdleCost=!quoteUsable||remainingDays<=0?null:
+      horizonIncome(capacityCapital,RWA_APY,remainingDays);
+    const remainingMaxNetValue=remainingHurdleCost===null?null:
+      remainingValue-remainingHurdleCost;
+    const remainingMaxNetApr=remainingMaxNetValue===null?null:
+      annualizedSimple(remainingMaxNetValue,capacityCapital,remainingDays);
+    const exitAprThreshold=RWA_APY*100+EXIT_APR_BUFFER_PP;
+    const remainingAprBufferPp=remainingApr===null?null:
+      remainingApr-exitAprThreshold;
     const closeCost=quoteUsable?currentAsk*notional:null;
     const unrealizedPnl=quoteUsable?(premium-currentAsk)*notional:null;
     const spot=sourceUsable(research,nowMs)?positive(research?.spot):null;
@@ -328,12 +342,21 @@
       time_elapsed_pct:timeElapsedPct,
       time_remaining_pct:timeRemainingPct,
       dte:remainingDays,
+      remaining_value:remainingValue,
       remaining_apr:remainingApr,
+      remaining_hurdle_cost:remainingHurdleCost,
+      remaining_max_net_value:remainingMaxNetValue,
+      remaining_max_net_apr:remainingMaxNetApr,
+      remaining_apr_buffer_pp:remainingAprBufferPp,
+      exit_apr_threshold:exitAprThreshold,
       open_premium_total:premium*notional,
       close_cost:closeCost,
       unrealized_pnl:unrealizedPnl,
       strike_distance_pct: strikeDistancePct,
-      net_own_capital:(position.strike-premium)*position.notional_btc,
+      capacity_capital:capacityCapital,
+      effective_breakeven_price:Math.max(position.strike-premium,0),
+      maximum_net_loss:Math.max(position.strike-premium,0)*notional,
+      net_own_capital:(position.strike-premium)*notional,
     };
   }
 
@@ -436,7 +459,7 @@
     MIN_RESEARCH_DTE,MAX_RESEARCH_SPREAD_PCT,LABELS,
     finite,positive,optionalPositive,validDate,utcDate,isExpired,dte,
     normalizeOwnerState,normalizePosition,totals,sourceUsable,
-    annualizedSimple,deribitStandardPutMargin,deribitCapitalSummary,
+    annualizedSimple,horizonIncome,deribitStandardPutMargin,deribitCapitalSummary,
     positionMetrics,portfolioSummary,evaluateEntry,evaluateClose,
     closePriority,positionRows,
   };
