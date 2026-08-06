@@ -14,6 +14,10 @@
     .replace(/^\/+|\/+$/g,"");
   const positionsRoute=ownerSuffix==="";
   const SESSION_KEY="mango.owner.session.v1";
+  const AUTH_REFRESH_LOCK="mango.owner.session-refresh.v1";
+  const AUTH_REFRESH_EARLY_MS=60000;
+  const AUTH_RETRY_BASE_MS=15000;
+  const AUTH_RETRY_MAX_MS=300000;
   const DRAFT_KEY="mango.owner.position-draft.v1";
   const ACCOUNT_DRAFT_KEY="mango.owner.account-draft.v1";
   const PROJECT_URL="https://yvpgdnbcjgxpjqenhvuo.supabase.co";
@@ -39,6 +43,8 @@
   let saveTimer=null;
   let refreshTimer=null;
   let authTimer=null;
+  let authRefreshPromise=null;
+  let authRetryAttempt=0;
   let otpEmail="";
   let otpResendAt=0;
   let otpResendTimer=null;
@@ -127,10 +133,13 @@
     return value;
   }
 
-  function persistSession(value){
+  function persistSession(value,{write=true}={}){
     session=value;
-    if(value)localStorage.setItem(SESSION_KEY,JSON.stringify(value));
-    else localStorage.removeItem(SESSION_KEY);
+    authRetryAttempt=0;
+    if(write){
+      if(value)localStorage.setItem(SESSION_KEY,JSON.stringify(value));
+      else localStorage.removeItem(SESSION_KEY);
+    }
     scheduleAuthRefresh();
   }
 
@@ -156,33 +165,118 @@
     });
     let payload={};
     try{payload=await response.json()}catch(_){}
-    if(!response.ok)throw new Error(payload.error_description||payload.msg||payload.error||"登录失败");
+    if(!response.ok){
+      const error=new Error(payload.error_description||payload.msg||payload.error||"登录失败");
+      error.status=response.status;
+      error.code=payload.error_code||payload.code||"";
+      throw error;
+    }
     return payload;
   }
 
-  async function refreshSession(){
-    if(!session?.refresh_token)throw new Error("登录已失效");
+  function isTerminalAuthError(error){
+    const status=Number(error?.status);
+    const code=String(error?.code||"").toLowerCase();
+    return status===400||status===401||[
+      "refresh_token_not_found","refresh_token_already_used",
+      "session_not_found","session_expired","user_not_found",
+    ].includes(code);
+  }
+
+  function adoptLatestStoredSession(){
+    const stored=readStoredSession();
+    if(!stored)return false;
+    const sameUser=!session||stored.user.id===session.user.id;
+    const newer=!session||stored.refresh_token!==session.refresh_token||
+      Number(stored.expires_at)>Number(session.expires_at);
+    if(!sameUser||!newer)return false;
+    persistSession(stored,{write:false});
+    return true;
+  }
+
+  async function refreshSessionUnlocked(force=false,requestedRefreshToken=""){
+    adoptLatestStoredSession();
+    if(!session?.refresh_token){
+      const error=new Error("登录已失效");
+      error.status=401;
+      error.code="refresh_token_not_found";
+      throw error;
+    }
+    if(force&&requestedRefreshToken&&session.refresh_token!==requestedRefreshToken)return session;
+    if(!force&&Number(session.expires_at)*1000-Date.now()>=AUTH_REFRESH_EARLY_MS){
+      scheduleAuthRefresh();
+      return session;
+    }
+    const previousRefreshToken=session.refresh_token;
     const payload=await authRequest("token?grant_type=refresh_token",{
-      refresh_token:session.refresh_token,
+      refresh_token:previousRefreshToken,
     });
+    const stored=readStoredSession();
+    if(stored?.user?.id===payload.user?.id&&stored.refresh_token!==previousRefreshToken&&
+      Number(stored.expires_at)>=Number(payload.expires_at||0)){
+      persistSession(stored,{write:false});
+      return session;
+    }
     persistSession(normalizeAuthPayload(payload));
     return session;
   }
 
+  function refreshSession({force=false}={}){
+    if(authRefreshPromise)return authRefreshPromise;
+    const requestedRefreshToken=session?.refresh_token||"";
+    const refresh=()=>refreshSessionUnlocked(force,requestedRefreshToken);
+    const coordinated=navigator.locks?.request
+      ?navigator.locks.request(AUTH_REFRESH_LOCK,refresh)
+      :refresh();
+    authRefreshPromise=Promise.resolve(coordinated).finally(()=>{authRefreshPromise=null});
+    return authRefreshPromise;
+  }
+
   async function ensureSession(){
-    if(!session)session=readStoredSession();
-    if(!session)throw new Error("请先登录");
-    if(Number(session.expires_at)*1000-Date.now()<60000)await refreshSession();
+    adoptLatestStoredSession();
+    if(!session){
+      const error=new Error("请先登录");
+      error.status=401;
+      error.code="session_not_found";
+      throw error;
+    }
+    if(Number(session.expires_at)*1000-Date.now()<AUTH_REFRESH_EARLY_MS){
+      await refreshSession();
+    }
     return session;
   }
 
-  function scheduleAuthRefresh(){
+  function scheduleAuthRefresh(delay=null){
     clearTimeout(authTimer);
     if(!session)return;
-    const wait=Math.max(1000,Number(session.expires_at)*1000-Date.now()-60000);
-    authTimer=setTimeout(()=>{
-      refreshSession().catch(()=>showLogin("登录已失效，请重新登录。"));
-    },wait);
+    const wait=delay===null
+      ?Math.max(1000,Number(session.expires_at)*1000-Date.now()-AUTH_REFRESH_EARLY_MS)
+      :delay;
+    authTimer=setTimeout(runScheduledAuthRefresh,wait);
+  }
+
+  function scheduleAuthRetry(error){
+    if(isTerminalAuthError(error)){
+      if(adoptLatestStoredSession()){
+        scheduleAuthRefresh(0);
+        return;
+      }
+      showLogin("登录已失效，请重新验证邮箱。");
+      return;
+    }
+    authRetryAttempt++;
+    const delay=Math.min(AUTH_RETRY_MAX_MS,AUTH_RETRY_BASE_MS*2**(authRetryAttempt-1));
+    if(!window.MangoOwner?.isActive){
+      showLogin("正在自动恢复上次登录，无需重新收验证码。",{clearSession:false});
+    }
+    scheduleAuthRefresh(delay);
+  }
+
+  async function runScheduledAuthRefresh(){
+    try{
+      await refreshSession();
+      if(!window.MangoOwner?.isActive)await bootAuthenticated();
+    }catch(error){scheduleAuthRetry(error)}
   }
 
   async function rest(path,{method="GET",body=null,prefer="",retry=true}={}){
@@ -194,11 +288,16 @@
       method,headers,cache:"no-store",body:body===null?undefined:JSON.stringify(body),
     });
     if(response.status===401&&retry){
-      try{await refreshSession()}
-      catch(_){
-        const error=new Error("登录已失效");
-        error.status=401;
-        throw error;
+      try{await refreshSession({force:true})}
+      catch(error){
+        if(!isTerminalAuthError(error)){
+          scheduleAuthRetry(error);
+          throw error;
+        }
+        const expiredError=new Error("登录已失效");
+        expiredError.status=401;
+        expiredError.code="session_expired";
+        throw expiredError;
       }
       return rest(path,{method,body,prefer,retry:false});
     }
@@ -215,13 +314,13 @@
     return payload;
   }
 
-  function showLogin(message=""){
+  function showLogin(message="",{clearSession=true}={}){
     privateLoadVersion++;
     stateSaveVersion++;
     clearInterval(refreshTimer);
     refreshTimer=null;
     refreshController?.abort();
-    persistSession(null);
+    if(clearSession)persistSession(null);
     privateReady=false;
     privateError=null;
     researchByAsset={};
@@ -303,6 +402,20 @@
     document.documentElement.classList.toggle("owner-positions-route",positionsRoute);
     document.documentElement.classList.remove("owner-pending");
     window.MangoOwner.isActive=true;
+  }
+
+  function handleSessionStorage(event){
+    if(event.key!==SESSION_KEY)return;
+    const stored=readStoredSession();
+    if(!stored){
+      if(session)showLogin("登录已在其他标签页退出。",{clearSession:false});
+      return;
+    }
+    const changed=!session||stored.refresh_token!==session.refresh_token||
+      Number(stored.expires_at)!==Number(session.expires_at);
+    if(!changed)return;
+    persistSession(stored,{write:false});
+    if(!window.MangoOwner?.isActive)scheduleAuthRefresh(0);
   }
 
   function configureNavigation(){
@@ -1017,8 +1130,10 @@
       }
     });
     document.addEventListener("visibilitychange",()=>{
-      if(!document.hidden){loadPrivateData();refreshResearch(true);scheduleRefresh()}
-      else scheduleRefresh();
+      if(document.hidden){scheduleRefresh();return}
+      adoptLatestStoredSession();
+      if(!window.MangoOwner.isActive){scheduleAuthRefresh(0);return}
+      loadPrivateData();refreshResearch(true);scheduleRefresh();
     });
   }
 
@@ -1106,6 +1221,7 @@
 
   async function boot(){
     window.MangoOwner={isActive:false,chainHeader,chainCell};
+    window.addEventListener("storage",handleSessionStorage);
     $("ownerLoginForm").addEventListener("submit",sendOtp);
     $("ownerOtpForm").addEventListener("submit",verifyOtp);
     $("ownerOtpResend").addEventListener("click",resendOtp);
@@ -1116,7 +1232,7 @@
     try{
       await ensureSession();
       await bootAuthenticated();
-    }catch(_){showLogin("登录已失效，请重新登录。")}
+    }catch(error){scheduleAuthRetry(error)}
   }
 
   boot();
