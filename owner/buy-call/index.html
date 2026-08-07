@@ -347,6 +347,29 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .owner-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .owner-dialog-actions button,.owner-dialog-close{min-height:36px}
 .owner-dialog-error{margin-top:9px}
+/* Position entry is a compact workflow, not a full-page data form. */
+#ownerPositionDialog{position:fixed;inset:0;width:min(520px,calc(100vw - 32px));max-height:calc(100dvh - 32px);margin:auto;overflow:hidden;border-color:var(--line3);border-top:2px solid var(--amber);background:#101319;box-shadow:0 24px 72px rgba(0,0,0,.48);outline:1px solid var(--line3);outline-offset:-1px}
+#ownerPositionDialog:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#ownerPositionDialog::backdrop{background:rgba(3,5,8,.82);backdrop-filter:blur(2px)}
+#ownerPositionDialog form{padding:0}
+#ownerPositionDialog .owner-dialog-head{align-items:center;margin:0;padding:18px 20px 16px;border-bottom:1px solid var(--line2)}
+#ownerPositionDialog .owner-dialog-head h2{margin-top:3px;font-family:var(--sans);font-size:1.06rem;font-weight:650;letter-spacing:-.01em;text-transform:none}
+#ownerPositionDialog .owner-kicker{font-size:.56rem;letter-spacing:.16em}
+.owner-dialog-subtitle{margin-top:5px;color:var(--muted);font-size:.65rem;line-height:1.45}
+#ownerPositionDialog .owner-dialog-close{display:grid;place-items:center;width:34px;height:34px;min-width:34px;min-height:34px;border:1px solid transparent;color:var(--muted);font-family:var(--sans);font-size:1.25rem;line-height:1}
+#ownerPositionDialog .owner-dialog-close:hover{border-color:var(--line2);background:var(--panel2);color:var(--text)}
+#ownerPositionDialog .owner-form-grid{padding:18px 20px 17px;gap:14px 12px}
+#ownerPositionDialog .owner-form-grid label{gap:7px;color:var(--text2);font-family:var(--sans);font-size:.68rem;font-weight:500;letter-spacing:.01em;text-transform:none}
+#ownerPositionDialog .owner-form-grid input,#ownerPositionDialog .owner-form-grid select{height:42px;border-color:var(--line2);background:var(--panel2);padding:0 12px;font-size:.78rem}
+#ownerPositionDialog .owner-form-grid input:hover,#ownerPositionDialog .owner-form-grid select:hover{border-color:var(--line3)}
+#ownerPositionDialog .owner-form-grid input:focus,#ownerPositionDialog .owner-form-grid select:focus{border-color:var(--amber);box-shadow:0 0 0 1px rgba(212,160,36,.18)}
+#ownerPositionDialog .owner-form-note{margin:0 20px;padding:11px 0 13px;border-top:1px solid var(--line);color:var(--muted);font-family:var(--sans);font-size:.62rem;line-height:1.5}
+#ownerPositionDialog .owner-dialog-error{min-height:0;margin:0 20px}
+#ownerPositionDialog .owner-dialog-error:not(:empty){margin-bottom:12px;padding:9px 10px;border-left:2px solid var(--red);background:rgba(199,84,84,.08)}
+#ownerPositionDialog .owner-dialog-actions{margin:0;padding:14px 20px 17px;border-top:1px solid var(--line2);background:rgba(255,255,255,.012)}
+#ownerPositionDialog .owner-dialog-actions button{min-width:88px;min-height:38px}
+#ownerPositionDialog .owner-dialog-actions .owner-primary{min-width:108px;background:var(--amber);color:var(--bg)}
+#ownerPositionDialog .owner-dialog-actions .owner-primary:hover{background:var(--amber-bright);border-color:var(--amber-bright)}
 /* ============ OWNER CHAIN CELL ============ */
 .owner-chain-action{text-align:right!important}
 .owner-holding-badge{display:inline-block;margin-right:7px;padding:2px 6px;background:transparent;color:var(--green);border:1px solid var(--green);font-family:var(--mono);font-size:.56rem;font-weight:600;letter-spacing:.05em}
@@ -481,6 +504,14 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .owner-form-grid{grid-template-columns:1fr}
   .owner-dialog{max-height:calc(100vh - 20px);overflow-y:auto}
   .owner-dialog form{padding:14px}
+  #ownerPositionDialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px);overflow-y:auto}
+  #ownerPositionDialog form{padding:0}
+  #ownerPositionDialog .owner-dialog-head{padding:16px 16px 14px}
+  #ownerPositionDialog .owner-form-grid{padding:16px;gap:12px}
+  #ownerPositionDialog .owner-form-note{margin:0 16px}
+  #ownerPositionDialog .owner-dialog-error{margin-left:16px;margin-right:16px}
+  #ownerPositionDialog .owner-dialog-actions{padding:13px 16px 15px}
+  #ownerPositionDialog .owner-dialog-actions button{flex:1;min-height:42px}
   .owner-stress-controls{grid-template-columns:1fr;gap:8px;padding:11px 11px 3px}
 }
 </style>
@@ -2678,6 +2709,6 @@ window.MangoDashboard={
 if(!IS_OWNER_ROUTE)startDashboard();
 </script>
 <script src="/static/owner_strategy.5cdaf842d4e4.js"></script>
-<script src="/static/owner_app.c4c2292345a3.js"></script>
+<script src="/static/owner_app.876a6f48e125.js"></script>
 </body>
 </html>
