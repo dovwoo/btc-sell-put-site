@@ -13,6 +13,7 @@
   const ownerSuffix=window.location.pathname.slice(markerIndex+marker.length)
     .replace(/^\/+|\/+$/g,"");
   const positionsRoute=ownerSuffix==="";
+  const rankingsRoute=ownerSuffix==="us-rankings";
   const SESSION_KEY="mango.owner.session.v1";
   const AUTH_REFRESH_LOCK="mango.owner.session-refresh.v1";
   const AUTH_REFRESH_EARLY_MS=60000;
@@ -62,6 +63,10 @@
   let noticeMessage="";
   let noticeKind="";
   let noticeTimer=null;
+  let optionRankData=null;
+  let optionRankLoading=false;
+  let optionRankError="";
+  let optionRankController=null;
 
   const $=id=>document.getElementById(id);
   const money=(value,decimals=0)=>{
@@ -106,6 +111,14 @@
     if(value===null||value===undefined||value==="")return "无成功报价";
     const timestamp=Number(value);
     if(!Number.isFinite(timestamp))return "无成功报价";
+    return new Intl.DateTimeFormat("zh-CN",{
+      month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",
+      hour12:false,timeZone:"UTC",
+    }).format(new Date(timestamp))+" UTC";
+  };
+  const utcDateTime=value=>{
+    const timestamp=Date.parse(String(value||""));
+    if(!Number.isFinite(timestamp))return "—";
     return new Intl.DateTimeFormat("zh-CN",{
       month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",
       hour12:false,timeZone:"UTC",
@@ -332,6 +345,11 @@
     positionFilter="all";
     positions=[];
     closedPositions=[];
+    optionRankData=null;
+    optionRankLoading=false;
+    optionRankError="";
+    optionRankController?.abort();
+    optionRankController=null;
     ownerState={
       owner_id:null,stablecoin_usd:0,buy_band_low:null,buy_band_high:null,
       cash_floor_usd:null,updated_at:null,
@@ -408,6 +426,7 @@
   function showOwner(){
     document.documentElement.classList.add("owner-authenticated");
     document.documentElement.classList.toggle("owner-positions-route",positionsRoute);
+    document.documentElement.classList.toggle("owner-rankings-route",rankingsRoute);
     document.documentElement.classList.remove("owner-pending");
     window.MangoOwner.isActive=true;
   }
@@ -437,6 +456,13 @@
       link.textContent="持仓";
       nav.appendChild(link);
     }
+    if(!$("ownerRankingsNav")){
+      const link=document.createElement("a");
+      link.id="ownerRankingsNav";
+      link.href=`${ownerBase}us-rankings/`;
+      link.textContent="美股候选";
+      nav.appendChild(link);
+    }
     if(positionsRoute){
       $("sellPutNav").classList.remove("on");
       $("buyCallNav").classList.remove("on");
@@ -445,10 +471,175 @@
       $("pageTitle").textContent="Sell Put · 持仓";
       document.title="Sell Put Owner";
     }
+    if(rankingsRoute){
+      $("sellPutNav").classList.remove("on");
+      $("buyCallNav").classList.remove("on");
+      $("ownerPositionsNav").classList.remove("on");
+      $("ownerRankingsNav").classList.add("on");
+      $("ownerRankingsNav").setAttribute("aria-current","page");
+      $("pageTitle").textContent="美股期权 · 候选";
+      $("ts").textContent="OWNER ONLY";
+      document.title="U.S. Option Candidates · Owner";
+    }
+  }
+
+  function rankingFunding(row,strategy){
+    const value=String(strategy).startsWith("buy_")
+      ?Number(row?.contract_cost_usd)
+      :Number(row?.capital_required_usd);
+    return Number.isFinite(value)&&value>=0?value:null;
+  }
+
+  function rankingSourceHtml(){
+    const data=optionRankData;
+    const stale=Boolean(data?.stale);
+    const statusClass=!data?"":stale?"bad":"warn";
+    const statusText=!data?"等待加载":stale?"已过期 · 仅查看":"外部候选 · 禁止决策";
+    return `<div><span>数据来源</span><strong>OptionRank Public</strong><small>${esc(data?.upstream_source||"Alpaca Indicative")}</small></div>
+      <div class="${statusClass}"><span>状态</span><strong>${statusText}</strong><small>不是 OPRA 可成交报价</small></div>
+      <div><span>候选生成</span><strong>${utcDateTime(data?.generated_at)}</strong><small>5 分钟共享缓存</small></div>
+      <div><span>市场快照</span><strong>SPY ${money(data?.market?.spy?.price,2)} · QQQ ${money(data?.market?.qqq?.price,2)}</strong><small>${data?`SPY ${signedPct(data.market?.spy?.change_pct)} · QQQ ${signedPct(data.market?.qqq?.change_pct)}`:"等待加载"}</small></div>`;
+  }
+
+  function renderOwnerRankings(){
+    if(!rankingsRoute)return;
+    const source=$("ownerRankingsSource");
+    const state=$("ownerRankingsState");
+    const refresh=$("ownerRankingsRefresh");
+    if(!source||!state)return;
+    source.innerHTML=rankingSourceHtml();
+    if(refresh){
+      refresh.disabled=optionRankLoading;
+      refresh.textContent=optionRankLoading?"读取中…":"检查数据";
+    }
+    if(optionRankLoading&&!optionRankData){
+      state.innerHTML='<div class="owner-rankings-message"><strong>正在读取</strong><span>通过我们的后台读取 OptionRank 公开候选，不会强制刷新上游。</span></div>';
+      return;
+    }
+    if(optionRankError&&!optionRankData){
+      state.innerHTML=`<div class="owner-rankings-message bad"><strong>数据不可用</strong><span>${esc(optionRankError)}；当前不显示旧候选。</span></div>`;
+      return;
+    }
+    if(!optionRankData){
+      state.innerHTML='<div class="owner-rankings-message"><strong>尚未加载</strong><span>点击“检查数据”后按需读取。</span></div>';
+      return;
+    }
+    const strategy=$("ownerRankingStrategy")?.value||"sell_put";
+    const horizon=$("ownerRankingHorizon")?.value||"short";
+    const maximum=Number($("ownerRankingCapital")?.value||0);
+    const upstream=optionRankData.rankings?.[strategy]?.[horizon];
+    const allRows=Array.isArray(upstream)?upstream:[];
+    const rows=allRows.filter(row=>{
+      if(!(maximum>0))return true;
+      const funding=rankingFunding(row,strategy);
+      return funding!==null&&funding<=maximum;
+    }).slice(0,20);
+    if(!rows.length){
+      state.innerHTML='<div class="owner-rankings-message"><strong>没有候选</strong><span>当前策略、期限和资金上限下没有匹配结果。</span></div>';
+      return;
+    }
+    const fundingLabel=String(strategy).startsWith("buy_")?"合约成本":"资金口径";
+    const body=rows.map(row=>{
+      const funding=rankingFunding(row,strategy);
+      const earnings=row.next_earnings?.date
+        ?`下次财报 ${esc(row.next_earnings.date)}${row.next_earnings.estimated?" · 预估":""}`
+        :"财报日未提供";
+      return `<article class="owner-rankings-row">
+        <div class="owner-ranking-ticker"><strong>${esc(row.ticker)}</strong><small>${esc(row.company)}</small></div>
+        <div><strong>${esc(row.expiry)} · $${Number(row.strike).toLocaleString("en-US")}</strong><small>${esc(row.contract_symbol)}</small></div>
+        <div class="owner-ranking-score"><strong>${Number(row.score).toFixed(1)}</strong><small>覆盖 ${pct(row.data_confidence_pct,0)}</small></div>
+        <div><strong>Bid ${money(row.bid_usd,2)} · Ask ${money(row.ask_usd,2)}</strong><small>权利金 ${money(row.premium_usd,2)}</small></div>
+        <div><strong>Δ ${row.delta==null?"—":Number(row.delta).toFixed(2)} · IV ${pct(row.iv_pct,0)}</strong><small>Beta ${row.beta==null?"—":Number(row.beta).toFixed(2)}</small></div>
+        <div class="owner-ranking-capital"><strong>${money(funding)}</strong><small>${fundingLabel}</small></div>
+        <div><strong>${esc(row.reason||"模型候选")}</strong><small>${earnings}</small></div>
+      </article>`;
+    }).join("");
+    state.innerHTML=`<div class="owner-rankings-table">
+      <div class="owner-rankings-table-head"><span>标的</span><span>候选合约</span><span>分数</span><span>Bid · Ask</span><span>Delta · IV</span><span>${fundingLabel}</span><span>研究理由</span></div>
+      ${body}
+    </div>`;
+  }
+
+  function ownerRankingsUrl(){
+    const fallback=`${supabaseUrl}/functions/v1/options-api`;
+    const base=String(
+      window.MANGO_API_BASE!==undefined
+        ?window.MANGO_API_BASE
+        :(["localhost","127.0.0.1"].includes(location.hostname)?"":fallback)
+    ).replace(/\/+$/,"");
+    return `${base}/api/us-stocks/rankings`;
+  }
+
+  async function rankingRequest(){
+    await ensureSession();
+    return fetch(ownerRankingsUrl(),{
+      signal:optionRankController.signal,
+      cache:"no-store",
+      headers:{
+        apikey:anonKey,
+        Authorization:`Bearer ${session.access_token}`,
+      },
+    });
+  }
+
+  async function loadOwnerRankings(){
+    if(optionRankLoading)return;
+    optionRankLoading=true;
+    optionRankError="";
+    optionRankController?.abort();
+    optionRankController=new AbortController();
+    renderOwnerRankings();
+    try{
+      let response=await rankingRequest();
+      if(response.status===401){
+        await refreshSession({force:true});
+        response=await rankingRequest();
+      }
+      let payload={};
+      try{payload=await response.json()}catch(_){}
+      if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
+      if(payload?.source!=="optionrank-public"||!payload?.rankings){
+        throw new Error("外部候选返回结构不完整");
+      }
+      optionRankData=payload;
+    }catch(error){
+      if(error.name==="AbortError")return;
+      optionRankData=null;
+      optionRankError=error.message||"候选数据读取失败";
+    }finally{
+      optionRankLoading=false;
+      renderOwnerRankings();
+    }
+  }
+
+  function installOwnerRankingsUi(){
+    const main=document.querySelector("main.wrap");
+    if(!$("ownerUsRankingsPage")){
+      const page=document.createElement("section");
+      page.id="ownerUsRankingsPage";
+      page.className="owner-us-rankings-page";
+      page.innerHTML=`<header class="owner-rankings-head"><div><span class="owner-kicker">EXTERNAL CANDIDATE FEED</span><h2>美股期权候选</h2><p>只读取 OptionRank 已筛选的候选，不冒充完整期权链。不连接券商，不生成交易指令。</p></div><div class="owner-rankings-actions"><button type="button" class="owner-primary" id="ownerRankingsRefresh">检查数据</button><button type="button" class="owner-quiet" id="ownerRankingsLogout">退出</button></div></header>
+        <section class="owner-rankings-source" id="ownerRankingsSource" aria-label="外部数据源状态"></section>
+        <section class="owner-rankings-controls" aria-label="候选筛选"><label><span>策略</span><select id="ownerRankingStrategy"><option value="sell_put" selected>Sell Put</option><option value="buy_call">Buy Call</option><option value="sell_call">Sell Call</option><option value="buy_put">Buy Put</option></select></label><label><span>期限</span><select id="ownerRankingHorizon"><option value="week">本周</option><option value="short" selected>14–45 天</option><option value="long">90–270 天</option></select></label><label><span>资金上限 USD</span><input id="ownerRankingCapital" type="number" min="0" step="100" inputmode="decimal" placeholder="0 = 不限制"></label><p class="owner-rankings-control-note" id="ownerRankingControlNote">Sell Put 按 OptionRank 资金口径过滤；Buy Call 按单张 Ask 成本过滤。</p></section>
+        <section class="owner-rankings-state" id="ownerRankingsState" aria-live="polite"></section>
+        <p class="owner-ranking-warning"><strong>研究边界：</strong>这是第三方公开候选源，上游为 Alpaca Indicative，不是 OPRA NBBO，也不是可成交报价。它可能延迟、不完整或随时停止，因此所有候选固定禁止决策。</p>`;
+      main.appendChild(page);
+      $("ownerRankingsRefresh").addEventListener("click",loadOwnerRankings);
+      $("ownerRankingsLogout").addEventListener("click",logout);
+      ["ownerRankingStrategy","ownerRankingHorizon","ownerRankingCapital"].forEach(id=>{
+        $(id).addEventListener("change",renderOwnerRankings);
+        $(id).addEventListener("input",renderOwnerRankings);
+      });
+    }
+    renderOwnerRankings();
   }
 
   function installOwnerUi(){
     configureNavigation();
+    if(rankingsRoute){
+      installOwnerRankingsUi();
+      return;
+    }
     const main=document.querySelector("main.wrap");
     if(!$("ownerAccountBar")){
       const account=document.createElement("section");
@@ -1428,6 +1619,10 @@
   async function bootAuthenticated(){
     showOwner();
     installOwnerUi();
+    if(rankingsRoute){
+      await loadOwnerRankings();
+      return;
+    }
     bindGlobalActionsOnce();
     window.MangoDashboard?.start?.();
     loadPrivateData();
