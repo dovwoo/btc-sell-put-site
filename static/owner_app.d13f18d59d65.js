@@ -19,6 +19,7 @@
   const AUTH_RETRY_BASE_MS=15000;
   const AUTH_RETRY_MAX_MS=300000;
   const DRAFT_KEY="mango.owner.position-draft.v1";
+  const CLOSED_DRAFT_KEY="mango.owner.closed-position-draft.v1";
   const ACCOUNT_DRAFT_KEY="mango.owner.account-draft.v1";
   const PROJECT_URL="https://yvpgdnbcjgxpjqenhvuo.supabase.co";
   const config=window.MANGO_OWNER_CONFIG||{};
@@ -35,6 +36,7 @@
     cash_floor_usd:null,updated_at:null,
   };
   let positions=[];
+  let closedPositions=[];
   let researchByAsset={};
   let privateReady=false;
   let privateError=null;
@@ -329,6 +331,7 @@
     expandedPositionIds.clear();
     positionFilter="all";
     positions=[];
+    closedPositions=[];
     ownerState={
       owner_id:null,stablecoin_usd:0,buy_band_low:null,buy_band_high:null,
       cash_floor_usd:null,updated_at:null,
@@ -344,6 +347,11 @@
     if(dialog?.open){
       if(dialog.close)dialog.close();
       else dialog.removeAttribute("open");
+    }
+    const closedDialog=$("ownerClosedDialog");
+    if(closedDialog?.open){
+      if(closedDialog.close)closedDialog.close();
+      else closedDialog.removeAttribute("open");
     }
     const accountDialog=$("ownerAccountDialog");
     if(accountDialog?.open){
@@ -466,6 +474,10 @@
     if(!$("ownerPositionDialog")){
       document.body.insertAdjacentHTML("beforeend",positionDialogHtml());
       bindPositionDialog();
+    }
+    if(!$("ownerClosedDialog")){
+      document.body.insertAdjacentHTML("beforeend",closedRecordDialogHtml());
+      bindClosedRecordDialog();
     }
     if(!$("ownerAccountDialog")){
       document.body.insertAdjacentHTML("beforeend",accountDialogHtml());
@@ -790,6 +802,40 @@
     </button>`;
   }
 
+  function closedRecordRow(record){
+    const pnlClass=record.realized_pnl>0?"good":record.realized_pnl<0?"bad":"muted";
+    const note=record.notes
+      ?`<p class="owner-track-note"><span>复盘备注</span>${esc(record.notes)}</p>`
+      :"";
+    return `<article class="owner-track-row">
+      <div class="owner-track-contract"><strong>${record.asset} ${money(record.strike)} Put</strong><small>${esc(record.expiry)} · ${record.notional.toLocaleString()} ${record.asset}</small></div>
+      <div><span>持有期</span><strong>${esc(record.open_date)} → ${esc(record.close_date)}</strong><small>${record.hold_days.toFixed(0)} 天</small></div>
+      <div><span>权利金 / 平仓成本</span><strong>${money(record.open_premium_per_unit,2)} / ${money(record.close_cost_per_unit,2)}</strong><small>每 1 ${record.asset}</small></div>
+      <div><span>手续费</span><strong>${money(record.fees_usd,2)}</strong></div>
+      <div class="owner-track-pnl ${pnlClass}"><span>已实现 P&amp;L</span><strong>${signedMoney(record.realized_pnl,2)}</strong><small>完整 Strike 资本回报 ${signedPct(record.return_on_capital_pct,2)}</small></div>
+      <div class="owner-track-actions"><button type="button" class="owner-link" data-owner-closed-edit="${esc(record.id)}">编辑</button><button type="button" class="owner-link bad" data-owner-closed-delete="${esc(record.id)}">删除</button></div>
+      ${note}
+    </article>`;
+  }
+
+  function trackRecordHtml(){
+    const summary=Strategy.closedPositionSummary(closedPositions);
+    const pnlClass=summary.realized_pnl_total>0?"good":summary.realized_pnl_total<0?"bad":"muted";
+    const rows=closedPositions.length
+      ?closedPositions.map(closedRecordRow).join("")
+      :`<div class="owner-track-empty"><strong>还没有已平仓记录</strong><span>平仓或结算确认后再手动录入，这里不会根据当前持仓自动推算。</span></div>`;
+    return `<section class="owner-track-record" aria-labelledby="ownerTrackTitle">
+      <div class="owner-track-head"><div><span class="owner-kicker">TRACK RECORD</span><h2 id="ownerTrackTitle">已平仓记录</h2><p>只统计手动确认的已实现盈亏，不与当前持仓和未实现收益混合。</p></div><button type="button" class="owner-primary" id="ownerClosedAdd"${privateReady?"":" disabled"}>＋ 录入平仓</button></div>
+      <div class="owner-track-summary" aria-label="已平仓绩效汇总">
+        <div class="owner-track-metric owner-track-total ${pnlClass}"><span>累计已实现 P&amp;L</span><strong>${signedMoney(summary.realized_pnl_total,2)}</strong><small>已扣录入的手续费</small></div>
+        <div class="owner-track-metric"><span>平仓笔数</span><strong>${summary.count}</strong><small>手动确认记录</small></div>
+        <div class="owner-track-metric"><span>胜率</span><strong>${summary.win_rate_pct===null?"—":pct(summary.win_rate_pct)}</strong><small>${summary.win_count} 赢 / ${summary.loss_count} 亏 / ${summary.flat_count} 平</small></div>
+        <div class="owner-track-metric"><span>累计手续费</span><strong>${money(summary.fees_total,2)}</strong><small>仅计已录入费用</small></div>
+      </div>
+      <div class="owner-track-list">${rows}</div>
+    </section>`;
+  }
+
   function renderPositions(){
     const page=$("ownerPositionsPage");
     if(!page)return;
@@ -811,7 +857,8 @@
       <div class="owner-notice ${esc(noticeKind)}" id="ownerNotice" role="status"${noticeMessage?"":" hidden"}>${esc(noticeMessage)}</div>
       ${privateReady?"":`<div class="owner-private-error">${esc(privateError||"私有数据正在加载，编辑暂停。")}</div>`}
       <div class="owner-entry-slot"></div>
-      <div class="owner-workspace"><section class="owner-list-panel" aria-label="持仓列表"><div class="owner-position-toolbar" role="group" aria-label="持仓过滤"><button type="button" data-owner-filter="all" aria-pressed="${positionFilter==="all"}">全部 <strong>${allRows.length}</strong></button><button type="button" data-owner-filter="attention" aria-pressed="${positionFilter==="attention"}">需处理 <strong>${attentionCount}</strong></button><button type="button" data-owner-filter="normal" aria-pressed="${positionFilter==="normal"}">正常 <strong>${normalCount}</strong></button></div><div class="owner-position-list">${rows}</div></section><aside class="owner-position-inspector" aria-label="持仓详情">${selectedRow?positionDetail(selectedRow):`<div class="owner-empty">选择一笔持仓查看详情。</div>`}</aside></div>`;
+      <div class="owner-workspace"><section class="owner-list-panel" aria-label="持仓列表"><div class="owner-position-toolbar" role="group" aria-label="持仓过滤"><button type="button" data-owner-filter="all" aria-pressed="${positionFilter==="all"}">全部 <strong>${allRows.length}</strong></button><button type="button" data-owner-filter="attention" aria-pressed="${positionFilter==="attention"}">需处理 <strong>${attentionCount}</strong></button><button type="button" data-owner-filter="normal" aria-pressed="${positionFilter==="normal"}">正常 <strong>${normalCount}</strong></button></div><div class="owner-position-list">${rows}</div></section><aside class="owner-position-inspector" aria-label="持仓详情">${selectedRow?positionDetail(selectedRow):`<div class="owner-empty">选择一笔持仓查看详情。</div>`}</aside></div>
+      ${trackRecordHtml()}`;
     if(entryCard)page.querySelector(".owner-entry-slot").appendChild(entryCard);
     $("ownerManualAdd")?.addEventListener("click",()=>openPositionDialog());
     page.querySelectorAll("[data-owner-filter]").forEach(button=>button.addEventListener("click",()=>{
@@ -829,6 +876,11 @@
       openPositionDialog(positions.find(row=>row.id===button.dataset.ownerEdit));
     }));
     page.querySelectorAll("[data-owner-delete]").forEach(button=>button.addEventListener("click",()=>deletePosition(button.dataset.ownerDelete)));
+    $("ownerClosedAdd")?.addEventListener("click",()=>openClosedRecordDialog());
+    page.querySelectorAll("[data-owner-closed-edit]").forEach(button=>button.addEventListener("click",()=>{
+      openClosedRecordDialog(closedPositions.find(row=>row.id===button.dataset.ownerClosedEdit));
+    }));
+    page.querySelectorAll("[data-owner-closed-delete]").forEach(button=>button.addEventListener("click",()=>deleteClosedRecord(button.dataset.ownerClosedDelete)));
     const applyStressRange=(id,rawValue)=>{
       const range=Strategy.normalizeStressRange(rawValue);
       if(range===null)return;
@@ -857,7 +909,7 @@
   }
 
   function positionDialogHtml(){
-    return `<dialog id="ownerPositionDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">POSITION LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2><p class="owner-dialog-subtitle">记录已有仓位，用于跟踪权利金与平仓时点。</p></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
+    return `<dialog id="ownerPositionDialog" class="owner-dialog owner-entry-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">POSITION LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2><p class="owner-dialog-subtitle">记录已有仓位，用于跟踪权利金与平仓时点。</p></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
       <label><span>资产</span><select id="ownerPositionAsset" required><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="HYPE">HYPE</option></select></label>
       <label><span>行权价</span><input id="ownerPositionStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 60000" required></label>
       <label><span>到期日</span><input id="ownerPositionExpiry" type="date" required></label>
@@ -982,6 +1034,165 @@
     }catch(error){privateError=error.message;renderAccount()}
   }
 
+  function closedRecordDialogHtml(){
+    return `<dialog id="ownerClosedDialog" class="owner-dialog owner-entry-dialog owner-closed-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerClosedTitle"><form id="ownerClosedForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">TRACK RECORD</span><h2 id="ownerClosedTitle">录入平仓记录</h2><p class="owner-dialog-subtitle">只记录已确认的实现结果，不读取交易所数据。</p></div><button type="button" class="owner-dialog-close" id="ownerClosedClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerClosedId"><div class="owner-form-grid">
+      <label><span>资产</span><select id="ownerClosedAsset" required><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="HYPE">HYPE</option></select></label>
+      <label><span>行权价</span><input id="ownerClosedStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 60000" required></label>
+      <label><span>到期日</span><input id="ownerClosedExpiry" type="date" required></label>
+      <label><span id="ownerClosedNotionalLabel">BTC 名义数量</span><input id="ownerClosedNotional" type="number" min="0.01" step="any" inputmode="decimal" value="1" required></label>
+      <label><span>开仓日期</span><input id="ownerClosedOpenDate" type="date" required></label>
+      <label><span>平仓 / 结算日期</span><input id="ownerClosedCloseDate" type="date" required></label>
+      <label><span id="ownerClosedPremiumLabel">开仓权利金 / 1 BTC</span><input id="ownerClosedPremium" type="number" min="0" step="any" inputmode="decimal" placeholder="开仓时收到" required></label>
+      <label><span id="ownerClosedCostLabel">平仓 / 结算成本 / 1 BTC</span><input id="ownerClosedCost" type="number" min="0" step="any" inputmode="decimal" placeholder="归零时填 0" required></label>
+      <label><span>手续费 USD</span><input id="ownerClosedFees" type="number" min="0" step="any" inputmode="decimal" value="0" required></label>
+      <label class="owner-form-wide"><span>复盘备注（可选）</span><textarea id="ownerClosedNotes" maxlength="500" rows="3" placeholder="例如：按 70/25 规则平仓，或到期结算。"></textarea></label>
+    </div><div class="owner-closed-preview" id="ownerClosedPreview" aria-live="polite"><span>已实现 P&amp;L</span><strong>补全必填数据后计算</strong><small>（开仓权利金 − 平仓/结算成本）× 名义数量 − 手续费</small></div><div class="owner-dialog-error" id="ownerClosedError" role="alert"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerClosedCancel">取消</button><button type="submit" class="owner-primary" id="ownerClosedSave">添加记录</button></div></form></dialog>`;
+  }
+
+  function updateClosedAssetUi({resetNotional=false}={}){
+    const asset=Strategy.normalizeAsset($("ownerClosedAsset").value);
+    const defaults=ASSET_DEFAULTS[asset];
+    $("ownerClosedNotionalLabel").textContent=`${asset} 名义数量`;
+    $("ownerClosedPremiumLabel").textContent=`开仓权利金 / 1 ${asset}`;
+    $("ownerClosedCostLabel").textContent=`平仓 / 结算成本 / 1 ${asset}`;
+    $("ownerClosedNotional").min=String(defaults.min);
+    if(resetNotional)$("ownerClosedNotional").value=String(defaults.notional);
+  }
+
+  function closedRecordDraft(){
+    return {
+      id:$("ownerClosedId").value||"draft",
+      asset:$("ownerClosedAsset").value,kind:"sell_put",
+      strike:$("ownerClosedStrike").value,
+      expiry:$("ownerClosedExpiry").value,
+      notional:$("ownerClosedNotional").value,
+      open_premium_per_unit:$("ownerClosedPremium").value,
+      close_cost_per_unit:$("ownerClosedCost").value,
+      fees_usd:$("ownerClosedFees").value,
+      open_date:$("ownerClosedOpenDate").value,
+      close_date:$("ownerClosedCloseDate").value,
+      notes:$("ownerClosedNotes").value,
+    };
+  }
+
+  function updateClosedRecordPreview(){
+    const preview=$("ownerClosedPreview");
+    try{
+      const record=Strategy.normalizeClosedPosition(closedRecordDraft());
+      const pnlClass=record.realized_pnl>0?"good":record.realized_pnl<0?"bad":"muted";
+      preview.className=`owner-closed-preview ${pnlClass}`;
+      preview.innerHTML=`<span>已实现 P&amp;L</span><strong>${signedMoney(record.realized_pnl,2)}</strong><small>毛损益 ${signedMoney(record.gross_pnl,2)} · 手续费 ${money(record.fees_usd,2)} · 完整 Strike 资本回报 ${signedPct(record.return_on_capital_pct,2)}</small>`;
+    }catch(_){
+      preview.className="owner-closed-preview muted";
+      preview.innerHTML=`<span>已实现 P&amp;L</span><strong>补全必填数据后计算</strong><small>（开仓权利金 − 平仓/结算成本）× 名义数量 − 手续费</small>`;
+    }
+  }
+
+  function bindClosedRecordDialog(){
+    $("ownerClosedClose").addEventListener("click",closeClosedRecordDialog);
+    $("ownerClosedCancel").addEventListener("click",closeClosedRecordDialog);
+    $("ownerClosedDialog").addEventListener("cancel",event=>{
+      event.preventDefault();
+      closeClosedRecordDialog();
+    });
+    $("ownerClosedAsset").addEventListener("change",()=>{
+      updateClosedAssetUi({resetNotional:true});
+      updateClosedRecordPreview();
+    });
+    $("ownerClosedForm").addEventListener("submit",event=>{
+      event.preventDefault();
+      saveClosedRecord();
+    });
+    $("ownerClosedForm").addEventListener("input",()=>{
+      if(!$("ownerClosedId").value){
+        localStorage.setItem(CLOSED_DRAFT_KEY,JSON.stringify(closedRecordDraft()));
+      }
+      updateClosedRecordPreview();
+    });
+  }
+
+  function openClosedRecordDialog(existing=null){
+    const draft=existing?null:readStoredJson(CLOSED_DRAFT_KEY);
+    const row=existing||draft||{};
+    const asset=Strategy.normalizeAsset(row.asset||currentMarketAsset());
+    $("ownerClosedTitle").textContent=existing?"编辑平仓记录":"录入平仓记录";
+    $("ownerClosedSave").textContent=existing?"保存修改":"添加记录";
+    $("ownerClosedId").value=existing?.id||"";
+    $("ownerClosedAsset").value=asset;
+    $("ownerClosedStrike").value=inputValue(row.strike);
+    $("ownerClosedExpiry").value=row.expiry||"";
+    $("ownerClosedNotional").value=inputValue(row.notional??ASSET_DEFAULTS[asset].notional);
+    $("ownerClosedOpenDate").value=row.open_date||today();
+    $("ownerClosedCloseDate").value=row.close_date||today();
+    $("ownerClosedPremium").value=inputValue(row.open_premium_per_unit);
+    $("ownerClosedCost").value=inputValue(row.close_cost_per_unit);
+    $("ownerClosedFees").value=inputValue(row.fees_usd??0);
+    $("ownerClosedNotes").value=row.notes||"";
+    updateClosedAssetUi();
+    updateClosedRecordPreview();
+    $("ownerClosedError").textContent="";
+    const dialog=$("ownerClosedDialog");
+    if(dialog.showModal)dialog.showModal();
+    else dialog.setAttribute("open","");
+  }
+
+  function closeClosedRecordDialog(){
+    const dialog=$("ownerClosedDialog");
+    if(dialog.close)dialog.close();
+    else dialog.removeAttribute("open");
+  }
+
+  async function saveClosedRecord(){
+    const button=$("ownerClosedSave");
+    const errorNode=$("ownerClosedError");
+    const editing=Boolean($("ownerClosedId").value);
+    try{
+      const normalized=Strategy.normalizeClosedPosition(closedRecordDraft());
+      const body={
+        owner_id:session.user.id,asset:normalized.asset,kind:"sell_put",
+        strike:normalized.strike,expiry:normalized.expiry,
+        notional:normalized.notional,
+        open_premium_per_unit:normalized.open_premium_per_unit,
+        close_cost_per_unit:normalized.close_cost_per_unit,
+        fees_usd:normalized.fees_usd,open_date:normalized.open_date,
+        close_date:normalized.close_date,notes:normalized.notes,
+      };
+      button.disabled=true;
+      button.textContent="保存中…";
+      const id=$("ownerClosedId").value;
+      const rows=await rest(
+        id?`closed_positions?id=eq.${encodeURIComponent(id)}&owner_id=eq.${session.user.id}`:"closed_positions",
+        {method:id?"PATCH":"POST",body,prefer:"return=representation"},
+      );
+      if(!rows?.length)throw new Error("平仓记录没有保存成功");
+      localStorage.removeItem(CLOSED_DRAFT_KEY);
+      closeClosedRecordDialog();
+      await loadPrivateData();
+      setNotice(editing?"平仓记录已更新。":"平仓记录已加入。","ok");
+    }catch(error){
+      errorNode.textContent=error.message;
+    }finally{
+      button.disabled=false;
+      button.textContent=editing?"保存修改":"添加记录";
+    }
+  }
+
+  async function deleteClosedRecord(id){
+    const row=closedPositions.find(record=>record.id===id);
+    if(!row||!confirm(`删除 ${row.asset} ${money(row.strike)} Put 的平仓记录？这会改变累计已实现盈亏。`))return;
+    try{
+      await rest(`closed_positions?id=eq.${encodeURIComponent(id)}&owner_id=eq.${session.user.id}`,{
+        method:"DELETE",prefer:"return=minimal",
+      });
+      await loadPrivateData();
+      setNotice("平仓记录已删除。","ok");
+    }catch(error){
+      privateError=error.message;
+      renderAccount();
+      renderPositions();
+    }
+  }
+
   async function loadPrivateData(){
     const version=++privateLoadVersion;
     const sessionOwnerId=session?.user?.id;
@@ -991,9 +1202,10 @@
     renderPositions();
     renderEntry();
     try{
-      const [stateRows,positionRows]=await Promise.all([
+      const [stateRows,positionRows,closedRows]=await Promise.all([
         rest(`owner_state?select=*&owner_id=eq.${session.user.id}&limit=1`),
         rest(`positions?select=*&owner_id=eq.${session.user.id}&order=expiry.asc,created_at.asc`),
+        rest(`closed_positions?select=*&owner_id=eq.${session.user.id}&order=close_date.desc,created_at.desc`),
       ]);
       if(version!==privateLoadVersion||session?.user?.id!==sessionOwnerId)return;
       let stateRow=stateRows?.[0];
@@ -1007,6 +1219,7 @@
       if(version!==privateLoadVersion||session?.user?.id!==sessionOwnerId)return;
       ownerState=Strategy.normalizeOwnerState(stateRow||{});
       positions=(positionRows||[]).map(Strategy.normalizePosition);
+      closedPositions=(closedRows||[]).map(Strategy.normalizeClosedPosition);
       privateReady=true;
       const accountDraft=readStoredJson(ACCOUNT_DRAFT_KEY);
       if(accountDraft){

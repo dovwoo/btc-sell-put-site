@@ -148,6 +148,78 @@
     };
   }
 
+  function closedPositionMetrics(record){
+    const grossPnl=(record.open_premium_per_unit-record.close_cost_per_unit)*record.notional;
+    const realizedPnl=grossPnl-record.fees_usd;
+    const capital=record.strike*record.notional;
+    return {
+      gross_pnl:grossPnl,
+      realized_pnl:realizedPnl,
+      return_on_capital_pct:capital>0?realizedPnl/capital*100:null,
+      capital,
+      hold_days:(dateMs(record.close_date)-dateMs(record.open_date))/DAY_MS,
+    };
+  }
+
+  function normalizeClosedPosition(raw){
+    const strike=positive(raw?.strike);
+    const notional=positive(raw?.notional);
+    const openPremium=nonNegative(raw?.open_premium_per_unit);
+    const closeCost=nonNegative(raw?.close_cost_per_unit);
+    const fees=nonNegative(raw?.fees_usd??0);
+    const expiry=String(raw?.expiry||"");
+    const openDate=String(raw?.open_date||"");
+    const closeDate=String(raw?.close_date||"");
+    const notes=String(raw?.notes||"").trim();
+    const asset=normalizeAsset(raw?.asset);
+    if(!raw?.id||strike===null||notional===null||openPremium===null||
+      closeCost===null||fees===null||notional<ASSET_MIN_NOTIONAL[asset]||
+      !validDate(expiry)||!validDate(openDate)||!validDate(closeDate)||
+      openDate>expiry||openDate>closeDate||notes.length>500){
+      throw new Error("平仓记录字段无效");
+    }
+    if(raw.kind&&raw.kind!=="sell_put")throw new Error("Owner 只支持 Sell Put");
+    const record={
+      id:String(raw.id),
+      owner_id:raw.owner_id||null,
+      asset,
+      kind:"sell_put",
+      strike,
+      expiry,
+      notional,
+      open_premium_per_unit:openPremium,
+      close_cost_per_unit:closeCost,
+      fees_usd:fees,
+      open_date:openDate,
+      close_date:closeDate,
+      notes,
+      created_at:raw.created_at||null,
+      updated_at:raw.updated_at||null,
+    };
+    return {...record,...closedPositionMetrics(record)};
+  }
+
+  function closedPositionSummary(records){
+    const summary=records.reduce((result,recordValue)=>{
+      const record=recordValue?.realized_pnl===undefined
+        ?normalizeClosedPosition(recordValue)
+        :recordValue;
+      const pnl=finite(record.realized_pnl)??0;
+      result.count++;
+      result.realized_pnl_total+=pnl;
+      result.fees_total+=finite(record.fees_usd)??0;
+      if(pnl>0)result.win_count++;
+      else if(pnl<0)result.loss_count++;
+      else result.flat_count++;
+      return result;
+    },{
+      count:0,realized_pnl_total:0,fees_total:0,
+      win_count:0,loss_count:0,flat_count:0,win_rate_pct:null,
+    });
+    summary.win_rate_pct=summary.count?summary.win_count/summary.count*100:null;
+    return summary;
+  }
+
   function totals(ownerState,positions){
     const stablecoin=nonNegative(ownerState?.stablecoin_usd)??0;
     const putReserved=positions.reduce(
@@ -529,7 +601,8 @@
     MIN_RESEARCH_DTE,MAX_RESEARCH_SPREAD_PCT,LABELS,
     finite,positive,optionalPositive,validDate,utcDate,isExpired,dte,
     normalizeAsset,researchForAsset,
-    normalizeOwnerState,normalizePosition,totals,sourceUsable,
+    normalizeOwnerState,normalizePosition,normalizeClosedPosition,
+    closedPositionMetrics,closedPositionSummary,totals,sourceUsable,
     annualizedSimple,horizonIncome,normalizeStressRange,stressScenarioRows,
     deribitStandardPutMargin,deribitCapitalSummary,
     positionMetrics,portfolioSummary,evaluateEntry,evaluateClose,
