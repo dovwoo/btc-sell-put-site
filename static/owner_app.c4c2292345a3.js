@@ -773,8 +773,17 @@
     const expanded=expandedPositionIds.has(positionValue.id);
     const pnlClass=metrics.quote_usable&&metrics.unrealized_pnl>0
       ?"good":metrics.quote_usable&&metrics.unrealized_pnl<0?"bad":"muted";
+    const aprUsable=metrics.quote_usable&&metrics.remaining_apr!==null;
+    const aprClass=!aprUsable
+      ?"muted"
+      :metrics.remaining_apr<metrics.exit_apr_threshold
+        ?"bad"
+        :metrics.remaining_apr<metrics.exit_apr_threshold+4
+          ?"warn"
+          :"good";
     return `<button type="button" class="owner-position-item ${expanded?"selected":""} ${expired?"owner-expired":""}" data-owner-toggle="${esc(positionValue.id)}" aria-pressed="${expanded}">
       <span class="owner-position-contract"><strong>${positionValue.asset} ${money(positionValue.strike)} Put</strong><small>${esc(positionValue.expiry)} · ${positionValue.notional_btc.toLocaleString()} ${positionValue.asset}</small></span>
+      <span class="owner-position-apr ${aprClass}"><strong>${aprUsable?pct(metrics.remaining_apr):"不可用"}</strong><small>剩余 APR</small></span>
       <span class="owner-position-pnl ${pnlClass}"><strong>${metrics.quote_usable?signedMoney(metrics.unrealized_pnl,2):"不可用"}</strong><small>${metrics.quote_usable?`捕获 ${signedPct(metrics.capture_pct)}`:esc(quoteUnavailableReason(positionValue,metrics))}</small></span>
       <span class="owner-position-dte"><strong>${metrics.dte.toFixed(0)} DTE</strong><small>距 Strike ${signedPct(metrics.strike_distance_pct)}</small></span>
       <span class="owner-position-state ${statusClass(decision.state)}"><i></i><strong>${esc(decision.verdict)}</strong></span>
