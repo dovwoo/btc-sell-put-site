@@ -78,6 +78,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner.no .act-badge{background:transparent;color:var(--red);border:1px solid var(--red)}
 /* ============ PRICE CHART ============ */
 .price-chart-panel{background:var(--panel);border:1px solid var(--line);border-radius:0;padding:10px 12px 7px;margin-bottom:12px}
+.price-chart-panel[hidden]{display:none}
 .price-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:5px}
 .price-chart-head h2{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text);line-height:1.4;letter-spacing:.04em;text-transform:uppercase}
 .price-chart-meta{display:block;font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-top:1px}
@@ -938,8 +939,7 @@ function marketFetch(input,init){
   return fetch(input,init);
 }
 
-function priceApiUrl(symbol=currentSymbol(),timeframe=currentTimeframe,market=currentMarket){
-  if(market==="us_stock") return `${publicApiPath("/api/us-stocks/price-chart")}?ticker=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
+function priceApiUrl(symbol=currentSymbol(),timeframe=currentTimeframe){
   return `${publicApiPath("/api/price-chart")}?asset=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
 }
 
@@ -1128,6 +1128,7 @@ function setAssetButtons(){
   $("stockTab").classList.toggle("on",stockActive);
   $("stockTab").setAttribute("aria-selected",String(stockActive));
   $("stockSearch").classList.toggle("on",stockActive);
+  $("priceChartPanel").hidden=stockActive;
 }
 
 function setTimeframeButtons(){
@@ -1321,6 +1322,7 @@ function renderPriceChart(payload){
 }
 
 async function loadPriceChart(){
+  if(isStockMode()) return;
   const market=currentMarket;
   const symbol=currentSymbol();
   const key=selectionKey();
@@ -1332,10 +1334,9 @@ async function loadPriceChart(){
   const {signal}=priceRequestController;
   if(priceChartIdentity!==identity) setPriceChartState("loading");
   try{
-    const response=await marketFetch(priceApiUrl(symbol,timeframe,market),{
+    const response=await fetch(priceApiUrl(symbol,timeframe),{
       signal,
-      cache:"no-store",
-      headers:market==="us_stock"?{"X-Mango-Owner-Request":"1"}:undefined
+      cache:"no-store"
     });
     if(version!==priceRequestVersion||key!==selectionKey()||timeframe!==currentTimeframe) return;
     if(!response.ok){
@@ -1485,7 +1486,6 @@ function selectStock(symbolValue=currentStockSymbol,force=false){
   clearAssetView();
   applyLang();
   loadData();
-  loadPriceChart();
 }
 
 function stockDelayCopy(){
@@ -2664,13 +2664,15 @@ function applyLang(){
   $("fSort").options[0].textContent=isBuyCall()?t("moveAsc"):t("yieldDesc");
   $("fSort").options[1].textContent=isBuyCall()?t("premiumAsc"):t("strikeDesc");
   $("fSort").options[2].textContent=t("daysDesc");
-  setTimeframeButtons();
-  renderPriceChartCopy();
-  if(PRICE_DATA){
-    renderPriceChart(PRICE_DATA);
-  }else{
-    const chartStatus=$("priceChartState").dataset.status;
-    if(chartStatus) setPriceChartState(chartStatus);
+  if(!isStockMode()){
+    setTimeframeButtons();
+    renderPriceChartCopy();
+    if(PRICE_DATA){
+      renderPriceChart(PRICE_DATA);
+    }else{
+      const chartStatus=$("priceChartState").dataset.status;
+      if(chartStatus) setPriceChartState(chartStatus);
+    }
   }
   if(DATA){
     renderMarketMeta();
@@ -2811,7 +2813,7 @@ let buyCallRiskTimer=null;
 function refreshDashboard(){
   if(!dashboardStarted)return;
   loadData();
-  loadPriceChart();
+  if(!isStockMode())loadPriceChart();
 }
 
 function scheduleDashboardTimers(){
