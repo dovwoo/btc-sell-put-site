@@ -418,6 +418,45 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .owner-link:first-child{margin-left:0}
 .owner-link:hover{color:var(--amber);border-color:var(--amber-dim)}
 .owner-link:disabled{opacity:.4;cursor:not-allowed;border-color:transparent}
+/* ============ OWNER U.S. CANDIDATE FEED ============ */
+.owner-us-rankings-page{display:none;min-width:0}
+.owner-rankings-route main.wrap>:not(.owner-us-rankings-page){display:none!important}
+.owner-rankings-route .owner-us-rankings-page{display:block!important}
+.owner-rankings-route .wrap{max-width:1480px;padding:18px 20px 40px}
+.owner-rankings-head{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;padding:4px 0 16px;border-bottom:1px solid var(--line2)}
+.owner-rankings-head h2{margin:5px 0 5px;font-family:var(--mono);font-size:1.18rem;font-weight:600;letter-spacing:.01em}
+.owner-rankings-head p{max-width:720px;color:var(--muted);font-family:var(--mono);font-size:.64rem;line-height:1.55}
+.owner-rankings-actions{display:flex;align-items:center;gap:8px;flex:none}
+.owner-rankings-source{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:14px;border:1px solid var(--line2);background:var(--line2)}
+.owner-rankings-source>div{min-width:0;min-height:70px;padding:11px 13px;background:var(--panel)}
+.owner-rankings-source span{display:block;color:var(--faint);font-family:var(--mono);font-size:.54rem;letter-spacing:.06em;text-transform:uppercase}
+.owner-rankings-source strong{display:block;margin-top:7px;color:var(--text2);font-family:var(--mono);font-size:.78rem;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.owner-rankings-source small{display:block;margin-top:3px;color:var(--muted);font-family:var(--mono);font-size:.54rem;line-height:1.35}
+.owner-rankings-source .warn strong{color:var(--amber)}
+.owner-rankings-source .bad strong{color:var(--red)}
+.owner-rankings-controls{display:grid;grid-template-columns:minmax(150px,.8fr) minmax(150px,.8fr) minmax(180px,1fr) minmax(0,2fr);align-items:end;gap:12px;padding:14px 0}
+.owner-rankings-controls label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-family:var(--mono);font-size:.56rem;letter-spacing:.05em;text-transform:uppercase}
+.owner-rankings-controls select,.owner-rankings-controls input{width:100%;height:36px;border:1px solid var(--line2);border-radius:0;background:var(--panel);color:var(--text);padding:0 10px;font-family:var(--mono);font-size:.7rem}
+.owner-rankings-controls select:focus,.owner-rankings-controls input:focus{outline:none;border-color:var(--amber-dim)}
+.owner-rankings-control-note{align-self:center;padding-top:13px;color:var(--faint);font-family:var(--mono);font-size:.58rem;line-height:1.45;text-align:right}
+.owner-rankings-state{min-height:190px;border-top:2px solid var(--line3);background:var(--panel)}
+.owner-rankings-message{display:flex;align-items:baseline;gap:14px;padding:28px 18px;border:1px solid var(--line2);border-top:0;color:var(--muted);font-family:var(--mono);font-size:.64rem;line-height:1.5}
+.owner-rankings-message strong{color:var(--text2);font-size:.75rem;white-space:nowrap}
+.owner-rankings-message.bad{border-left:2px solid var(--red)}
+.owner-rankings-table{border:0 solid var(--line2);border-width:0 1px 1px}
+.owner-rankings-table-head,.owner-rankings-row{display:grid;grid-template-columns:minmax(110px,.8fr) minmax(190px,1.2fr) 72px minmax(140px,.9fr) minmax(120px,.75fr) minmax(125px,.85fr) minmax(180px,1.15fr);align-items:center;gap:12px}
+.owner-rankings-table-head{min-height:34px;padding:0 13px;border-bottom:1px solid var(--line2);background:var(--panel2);color:var(--faint);font-family:var(--mono);font-size:.52rem;letter-spacing:.06em;text-transform:uppercase}
+.owner-rankings-row{min-height:72px;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--panel)}
+.owner-rankings-row:last-child{border-bottom:0}
+.owner-rankings-row:hover{background:var(--panel2)}
+.owner-rankings-row>div{min-width:0}
+.owner-rankings-row strong{display:block;color:var(--text2);font-family:var(--mono);font-size:.7rem;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.owner-rankings-row small{display:block;margin-top:3px;color:var(--muted);font-family:var(--mono);font-size:.54rem;line-height:1.35;overflow-wrap:anywhere}
+.owner-ranking-ticker strong{color:var(--amber);font-size:.83rem}
+.owner-ranking-score strong{font-size:.88rem;color:var(--green)}
+.owner-ranking-capital strong{color:var(--text)}
+.owner-ranking-warning{margin-top:12px;padding:9px 11px;border-left:2px solid var(--amber);background:rgba(217,154,48,.055);color:var(--muted);font-family:var(--mono);font-size:.58rem;line-height:1.55}
+.owner-ranking-warning strong{color:var(--amber);font-weight:600}
 /* ============ OWNER POSITIONS ROUTE OVERRIDES ============ */
 .owner-positions-route main.wrap>:not(.owner-account-bar):not(.owner-positions-page){display:none!important}
 .owner-positions-route .owner-positions-page{display:block!important}
@@ -488,9 +527,20 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   /* Owner mobile */
   .owner-login-panel .owner-primary,.owner-login-panel .owner-quiet{min-height:40px}
   .owner-route .bar{grid-template-columns:auto 1fr}
-  .owner-route .nav{grid-template-columns:repeat(3,1fr)}
+  .owner-route .nav{grid-template-columns:repeat(4,1fr)}
   .owner-route .lang,.owner-route .nav a{min-height:40px;display:flex;align-items:center;justify-content:center}
   .owner-positions-route .wrap{padding:12px 10px 32px}
+  .owner-rankings-route .wrap{padding:12px 10px 32px}
+  .owner-rankings-head{align-items:flex-start;flex-direction:column;gap:13px}
+  .owner-rankings-actions{width:100%}
+  .owner-rankings-actions button{flex:1;min-height:40px}
+  .owner-rankings-source{grid-template-columns:1fr 1fr}
+  .owner-rankings-controls{grid-template-columns:1fr 1fr;gap:10px}
+  .owner-rankings-controls label:nth-child(3),.owner-rankings-control-note{grid-column:1/-1}
+  .owner-rankings-control-note{padding-top:0;text-align:left}
+  .owner-rankings-state{overflow-x:auto}
+  .owner-rankings-table{min-width:1040px}
+  .owner-rankings-message{align-items:flex-start;flex-direction:column;gap:6px}
   .owner-account-bar{padding:12px 11px}
   .owner-account-head{align-items:flex-start;flex-wrap:wrap}
   .owner-account-head>div:first-child{display:block;min-width:0}
@@ -2766,6 +2816,6 @@ window.MangoDashboard={
 if(!IS_OWNER_ROUTE)startDashboard();
 </script>
 <script src="/static/owner_strategy.bf4a6785bfef.js"></script>
-<script src="/static/owner_app.d13f18d59d65.js"></script>
+<script src="/static/owner_app.e0ecef46f663.js"></script>
 </body>
 </html>
