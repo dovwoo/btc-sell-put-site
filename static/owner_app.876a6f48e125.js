@@ -857,14 +857,14 @@
   }
 
   function positionDialogHtml(){
-    return `<dialog id="ownerPositionDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">SELL PUT LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
+    return `<dialog id="ownerPositionDialog" class="owner-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle"><form id="ownerPositionForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">POSITION LEDGER</span><h2 id="ownerDialogTitle">加入持仓</h2><p class="owner-dialog-subtitle">记录已有仓位，用于跟踪权利金与平仓时点。</p></div><button type="button" class="owner-dialog-close" id="ownerDialogClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerPositionId"><div class="owner-form-grid">
       <label><span>资产</span><select id="ownerPositionAsset" required><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="HYPE">HYPE</option></select></label>
-      <label><span>Strike</span><input id="ownerPositionStrike" type="number" min="0" step="any" required></label>
+      <label><span>行权价</span><input id="ownerPositionStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 60000" required></label>
       <label><span>到期日</span><input id="ownerPositionExpiry" type="date" required></label>
-      <label><span id="ownerPositionNotionalLabel">BTC 名义数量</span><input id="ownerPositionNotional" type="number" min="0.01" step="any" value="1" required></label>
-      <label><span id="ownerPositionPremiumLabel">开仓权利金 / 1 BTC</span><input id="ownerPositionPremium" type="number" min="0" step="any" required></label>
+      <label><span id="ownerPositionNotionalLabel">BTC 名义数量</span><input id="ownerPositionNotional" type="number" min="0.01" step="any" inputmode="decimal" value="1" required></label>
+      <label><span id="ownerPositionPremiumLabel">开仓权利金 / 1 BTC</span><input id="ownerPositionPremium" type="number" min="0" step="any" inputmode="decimal" placeholder="每 BTC 收到的权利金" required></label>
       <label><span>开仓日期</span><input id="ownerPositionOpenDate" type="date" required></label>
-    </div><p class="owner-form-note" id="ownerPositionNote">Deribit BTC_USDC · USDC 现金结算。权利金可修改；容量始终按 K×Q。</p><div class="owner-dialog-error" id="ownerDialogError"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerDialogCancel">取消</button><button type="submit" class="owner-primary" id="ownerDialogSave">保存</button></div></form></dialog>`;
+    </div><p class="owner-form-note" id="ownerPositionNote">Deribit BTC_USDC · USDC 现金结算 · 资本占用按行权价 × 名义数量</p><div class="owner-dialog-error" id="ownerDialogError" role="alert"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerDialogCancel">取消</button><button type="submit" class="owner-primary" id="ownerDialogSave">添加持仓</button></div></form></dialog>`;
   }
 
   function updatePositionAssetUi({resetNotional=false}={}){
@@ -874,7 +874,7 @@
     $("ownerPositionPremiumLabel").textContent=`开仓权利金 / 1 ${asset}`;
     $("ownerPositionNotional").min=String(defaults.min);
     if(resetNotional)$("ownerPositionNotional").value=String(defaults.notional);
-    $("ownerPositionNote").textContent=`Deribit ${asset}_USDC · USDC 现金结算。权利金可修改；容量始终按 K×Q。`;
+    $("ownerPositionNote").textContent=`Deribit ${asset}_USDC · USDC 现金结算 · 资本占用按行权价 × 名义数量`;
   }
 
   function bindPositionDialog(){
@@ -911,7 +911,8 @@
     const draft=!existing&&!prefill?readStoredJson(DRAFT_KEY):null;
     const row=existing||prefill||draft||{};
     const asset=Strategy.normalizeAsset(row.asset||currentMarketAsset());
-    $("ownerDialogTitle").textContent=existing?"编辑持仓":"加入持仓";
+    $("ownerDialogTitle").textContent=existing?"编辑 Sell Put 持仓":"新增 Sell Put 持仓";
+    $("ownerDialogSave").textContent=existing?"保存修改":"添加持仓";
     $("ownerPositionId").value=existing?.id||"";
     $("ownerPositionAsset").value=asset;
     $("ownerPositionAsset").disabled=Boolean(existing);
