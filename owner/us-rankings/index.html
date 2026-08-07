@@ -54,6 +54,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .stock-search button:hover{background:var(--amber);color:var(--bg)}
 .stock-search-error{font-size:.64rem;color:var(--red)}
 .stock-search-error:empty{display:none}
+.owner-stock-route .asset-switch{display:none}
+.owner-stock-route .stock-search{gap:8px}
+.owner-stock-route .stock-search input{width:210px;height:32px;padding:0 11px;font-size:.76rem}
+.owner-stock-route .stock-search button{height:32px;padding:0 14px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .price{font-family:var(--mono);font-size:1.4rem;font-weight:600;letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums}
 .spot-label{font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
@@ -427,6 +431,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .owner-rankings-head h2{margin:5px 0 5px;font-family:var(--mono);font-size:1.18rem;font-weight:600;letter-spacing:.01em}
 .owner-rankings-head p{max-width:720px;color:var(--muted);font-family:var(--mono);font-size:.64rem;line-height:1.55}
 .owner-rankings-actions{display:flex;align-items:center;gap:8px;flex:none}
+.owner-rankings-actions a.owner-quiet{display:inline-flex;align-items:center;text-decoration:none}
 .owner-rankings-source{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:14px;border:1px solid var(--line2);background:var(--line2)}
 .owner-rankings-source>div{min-width:0;min-height:70px;padding:11px 13px;background:var(--panel)}
 .owner-rankings-source span{display:block;color:var(--faint);font-family:var(--mono);font-size:.54rem;letter-spacing:.06em;text-transform:uppercase}
@@ -630,10 +635,9 @@ if(/\/owner(?:\/|$)/.test(window.location.pathname)){
 </script>
 <!-- OWNER_ONLY_END -->
 
-<style id="productionMarketScope">
-  #stockTab, #stockSearch { display: none !important; }
-</style>
-<script>window.MANGO_MARKET_SCOPE="crypto-only";</script>
+<script id="productionMarketScope">
+  window.MANGO_MARKET_SCOPE="crypto-us-delayed";
+</script>
 <script>window.MANGO_OWNER_CONFIG=Object.freeze({"url":"https://yvpgdnbcjgxpjqenhvuo.supabase.co","anonKey":"sb_publishable_67udoEkphKcZcO9xos_kBw_YdKRV1ZI"});</script>
 </head>
 <body>
@@ -765,7 +769,10 @@ const ASSETS={
   ETH:{priceDecimals:2,strikeDecimals:2,rvDays:30},
   HYPE:{priceDecimals:3,strikeDecimals:2,rvDays:14}
 };
-const STRATEGY_MODE=/\/buy-call\/?$/.test(window.location.pathname)?"buy_call":"sell_put";
+const STRATEGY_MODE=(
+  /\/buy-call\/?$/.test(window.location.pathname)
+  ||new URLSearchParams(window.location.search).get("strategy")==="buy_call"
+)?"buy_call":"sell_put";
 const CHART_COLORS={dvol:"#ff6d00",fng:"#26a69a",vrp:"#e040fb",price:"#7da0ff",rv:"#ffd600"};
 const $=id=>document.getElementById(id);
 let DATA=null;
@@ -797,11 +804,11 @@ const STRINGS={
   zh:{
     langBtn:"EN",refresh:"刷新",loading:"正在加载真实期权链…",
     stockLoading:"正在加载延迟期权链…",fetchError:"数据加载失败",
-    usStocks:"美股",stockPlaceholder:"输入代码，如 AAPL",stockSearch:"查看",
+    usStocks:"美股",stockPlaceholder:"输入代码，如 AAPL",stockSearch:"搜索期权",
     stockInvalid:"请输入正确的美股代码",stockPrice:"股价",stockSpot:"股价",
     stockNotFound:"没有找到 {symbol} 的美股期权数据",
     stockDelayed:"延迟行情（至少 {minutes} 分钟；休市时为上一交易时段）",
-    stockDelayedUnknown:"延迟行情（休市时为上一交易时段）",
+    stockDelayedUnknown:"Indicative 派生报价（非 OPRA；成交数据延迟 15 分钟）",
     stockDataTime:"快照生成于 {time}",retrievedAt:"系统获取于 {time}",
     stockMarketData:"美股延迟行情",
     researchOnly:"研究用，不用于下单",physical:"美式行权 · 股票实物交割",
@@ -815,7 +822,7 @@ const STRINGS={
     sellPutNav:"Sell Put",buyCallNav:"Buy Call",
     buyCallRisk:"买入 Call 的全部权利金都可能损失；标的上涨也不保证盈利，只有到期价高于回本价才会有到期利润。以下回本价未计交易费；Ask 深度金额仅为当前快照，不保证实际成交。",
     callQuoteBlocked:"报价已超过 120 秒，只能查看；请手动刷新后再判断。",
-    stockCallBlocked:"美股为延迟研究行情，只能查看，不可据此下单。",
+    stockCallBlocked:"美股为 Indicative 派生报价，不是 OPRA 可成交盘口；仅供研究。",
     maxPremium:"最小订单成本上限 $",allStrikes:"全部有 Ask 的 Strike",minStrike:"最低 Strike",maxStrike:"最高 Strike",
     unlimited:"不限",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",moveAsc:"所需涨幅 ↑",premiumAsc:"订单成本 ↑",
     callSnapshot:"各到期日成本与回本点",noCalls:"没有符合筛选条件的 Call",
@@ -850,11 +857,11 @@ const STRINGS={
   en:{
     langBtn:"中",refresh:"Refresh",loading:"Loading live option chain…",
     stockLoading:"Loading delayed option chain…",fetchError:"Failed to load data",
-    usStocks:"US Stocks",stockPlaceholder:"Ticker, e.g. AAPL",stockSearch:"View",
+    usStocks:"US Stocks",stockPlaceholder:"Ticker, e.g. AAPL",stockSearch:"Load options",
     stockInvalid:"Enter a valid U.S. ticker",stockPrice:"stock price",stockSpot:"Stock",
     stockNotFound:"No U.S. option data found for {symbol}",
     stockDelayed:"Delayed data (at least {minutes} minutes; prior session when closed)",
-    stockDelayedUnknown:"Delayed data (prior session when closed)",
+    stockDelayedUnknown:"Indicative derivatives (not OPRA; trades delayed 15 minutes)",
     stockDataTime:"Snapshot generated {time}",retrievedAt:"Retrieved at {time}",
     stockMarketData:"U.S. delayed market data",
     researchOnly:"Research only, not for trading",physical:"American exercise · physical share settlement",
@@ -868,7 +875,7 @@ const STRINGS={
     sellPutNav:"Sell Put",buyCallNav:"Buy Call",
     buyCallRisk:"The entire Call premium can be lost. A rise in the underlying does not guarantee a profit; at expiry, price must exceed breakeven. Breakevens below exclude trading fees; ask depth value is a snapshot, not guaranteed execution.",
     callQuoteBlocked:"The quote is over 120 seconds old. View only; refresh manually before making a decision.",
-    stockCallBlocked:"U.S. stock data is delayed and for research only; do not use it to place an order.",
+    stockCallBlocked:"Indicative derivatives are not executable OPRA quotes; research only.",
     maxPremium:"Max minimum-order cost $",allStrikes:"All strikes with an ask",minStrike:"Min Strike",maxStrike:"Max Strike",
     unlimited:"No limit",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",moveAsc:"Required move ↑",premiumAsc:"Order cost ↑",
     callSnapshot:"Cost and breakeven by expiry",noCalls:"No calls match the filters",
@@ -924,8 +931,15 @@ function apiUrl(path,asset=currentAsset){
   return `${publicApiPath(path)}?asset=${encodeURIComponent(asset)}`;
 }
 
+function marketFetch(input,init){
+  if(isStockMode()&&IS_OWNER_ROUTE&&window.MangoOwner?.authorizedFetch){
+    return window.MangoOwner.authorizedFetch(input,init);
+  }
+  return fetch(input,init);
+}
+
 function priceApiUrl(symbol=currentSymbol(),timeframe=currentTimeframe,market=currentMarket){
-  if(market==="us_stock") return `/api/us-stocks/price-chart?ticker=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
+  if(market==="us_stock") return `${publicApiPath("/api/us-stocks/price-chart")}?ticker=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
   return `${publicApiPath("/api/price-chart")}?asset=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
 }
 
@@ -1318,7 +1332,7 @@ async function loadPriceChart(){
   const {signal}=priceRequestController;
   if(priceChartIdentity!==identity) setPriceChartState("loading");
   try{
-    const response=await fetch(priceApiUrl(symbol,timeframe,market),{
+    const response=await marketFetch(priceApiUrl(symbol,timeframe,market),{
       signal,
       cache:"no-store",
       headers:market==="us_stock"?{"X-Mango-Owner-Request":"1"}:undefined
@@ -1420,6 +1434,33 @@ function normalizeStockSymbol(value){
     :null;
 }
 
+function syncOwnerStockUrl(symbol){
+  if(!/\/owner\/(?:us-options|us-rankings)\/?$/.test(window.location.pathname)) return;
+  const url=new URL(window.location.href);
+  url.searchParams.set("ticker",symbol);
+  window.history.replaceState(null,"",url);
+  const sellPutUrl=new URL(url);
+  sellPutUrl.searchParams.delete("strategy");
+  const buyCallUrl=new URL(url);
+  buyCallUrl.searchParams.set("strategy","buy_call");
+  $("sellPutNav").href=`${sellPutUrl.pathname}${sellPutUrl.search}`;
+  $("buyCallNav").href=`${buyCallUrl.pathname}${buyCallUrl.search}`;
+}
+
+function prepareStock(symbolValue=currentStockSymbol){
+  const symbol=normalizeStockSymbol(symbolValue);
+  if(!symbol) return false;
+  currentMarket="us_stock";
+  currentStockSymbol=symbol;
+  $("stockSymbol").value=symbol;
+  $("stockSearchError").textContent="";
+  setAssetButtons();
+  clearAssetView();
+  applyLang();
+  syncOwnerStockUrl(symbol);
+  return true;
+}
+
 function selectStock(symbolValue=currentStockSymbol,force=false){
   const symbol=normalizeStockSymbol(symbolValue);
   if(!symbol){
@@ -1431,6 +1472,7 @@ function selectStock(symbolValue=currentStockSymbol,force=false){
   currentStockSymbol=symbol;
   $("stockSymbol").value=symbol;
   $("stockSearchError").textContent="";
+  syncOwnerStockUrl(symbol);
   setAssetButtons();
   if(unchanged&&!force){
     $("stockSymbol").focus();
@@ -1986,10 +2028,10 @@ async function loadData(){
   try{
     const optionsUrl=isBuyCall()
       ?(market==="us_stock"
-        ?`/api/us-stocks/buy-call?ticker=${encodeURIComponent(symbol)}`
+        ?`${publicApiPath("/api/us-stocks/buy-call")}?ticker=${encodeURIComponent(symbol)}`
         :apiUrl("/api/buy-call",symbol))
       :(market==="us_stock"
-        ?`/api/us-stocks/options?ticker=${encodeURIComponent(symbol)}`
+        ?`${publicApiPath("/api/us-stocks/options")}?ticker=${encodeURIComponent(symbol)}`
         :apiUrl("/api/options",symbol));
     const needsSellPutContext=market==="crypto"&&!isBuyCall();
     const contextPromise=needsSellPutContext
@@ -1998,7 +2040,7 @@ async function loadData(){
         optionalJson(apiUrl("/api/timing-history",symbol),signal)
       ]).catch(()=>[null,null])
       :Promise.resolve([null,null]);
-    const optionResponse=await fetch(optionsUrl,{
+    const optionResponse=await marketFetch(optionsUrl,{
       signal,
       cache:"no-store",
       headers:market==="us_stock"?{"X-Mango-Owner-Request":"1"}:undefined
@@ -2804,6 +2846,7 @@ document.addEventListener("visibilitychange",()=>{
 
 window.MangoDashboard={
   start:startDashboard,
+  prepareStock,
   refresh:refreshDashboard,
   rerender:()=>{renderSnapshot();render()},
   apiUrl:(path,asset)=>apiUrl(path,asset),
@@ -2816,6 +2859,6 @@ window.MangoDashboard={
 if(!IS_OWNER_ROUTE)startDashboard();
 </script>
 <script src="/static/owner_strategy.bf4a6785bfef.js"></script>
-<script src="/static/owner_app.e0ecef46f663.js"></script>
+<script src="/static/owner_app.62fbdbc8bfa4.js"></script>
 </body>
 </html>

@@ -13,7 +13,8 @@
   const ownerSuffix=window.location.pathname.slice(markerIndex+marker.length)
     .replace(/^\/+|\/+$/g,"");
   const positionsRoute=ownerSuffix==="";
-  const rankingsRoute=ownerSuffix==="us-rankings";
+  const stockRoute=ownerSuffix==="us-options"||ownerSuffix==="us-rankings";
+  const rankingsRoute=ownerSuffix==="us-candidates";
   const SESSION_KEY="mango.owner.session.v1";
   const AUTH_REFRESH_LOCK="mango.owner.session-refresh.v1";
   const AUTH_REFRESH_EARLY_MS=60000;
@@ -187,6 +188,17 @@
       throw error;
     }
     return payload;
+  }
+
+  function authorizedFetch(input,init={}){
+    if(!session?.access_token){
+      return Promise.reject(new Error("Owner 登录已失效，请重新登录。"));
+    }
+    const headers=new Headers(init.headers||{});
+    headers.set("apikey",anonKey);
+    headers.set("Authorization",`Bearer ${session.access_token}`);
+    headers.set("X-Mango-Owner-Request","1");
+    return fetch(input,{...init,headers});
   }
 
   function isTerminalAuthError(error){
@@ -426,6 +438,7 @@
   function showOwner(){
     document.documentElement.classList.add("owner-authenticated");
     document.documentElement.classList.toggle("owner-positions-route",positionsRoute);
+    document.documentElement.classList.toggle("owner-stock-route",stockRoute);
     document.documentElement.classList.toggle("owner-rankings-route",rankingsRoute);
     document.documentElement.classList.remove("owner-pending");
     window.MangoOwner.isActive=true;
@@ -459,8 +472,8 @@
     if(!$("ownerRankingsNav")){
       const link=document.createElement("a");
       link.id="ownerRankingsNav";
-      link.href=`${ownerBase}us-rankings/`;
-      link.textContent="美股候选";
+      link.href=`${ownerBase}us-options/`;
+      link.textContent="美股期权";
       nav.appendChild(link);
     }
     if(positionsRoute){
@@ -471,13 +484,26 @@
       $("pageTitle").textContent="Sell Put · 持仓";
       document.title="Sell Put Owner";
     }
+    if(stockRoute){
+      const ticker=String(new URLSearchParams(window.location.search).get("ticker")||"AAPL")
+        .trim().toUpperCase();
+      const tickerParam=encodeURIComponent(ticker);
+      $("sellPutNav").href=`${ownerBase}us-options/?ticker=${tickerParam}`;
+      $("buyCallNav").href=`${ownerBase}us-options/?strategy=buy_call&ticker=${tickerParam}`;
+      $("ownerPositionsNav").classList.remove("on");
+      $("ownerRankingsNav").classList.add("on");
+      $("ownerRankingsNav").setAttribute("aria-current","page");
+      $("pageTitle").textContent="美股期权 · 搜索";
+      $("ts").textContent="OWNER ONLY";
+      document.title="U.S. Options · Owner";
+    }
     if(rankingsRoute){
       $("sellPutNav").classList.remove("on");
       $("buyCallNav").classList.remove("on");
       $("ownerPositionsNav").classList.remove("on");
       $("ownerRankingsNav").classList.add("on");
       $("ownerRankingsNav").setAttribute("aria-current","page");
-      $("pageTitle").textContent="美股期权 · 候选";
+      $("pageTitle").textContent="OptionRank · 候选";
       $("ts").textContent="OWNER ONLY";
       document.title="U.S. Option Candidates · Owner";
     }
@@ -618,7 +644,7 @@
       const page=document.createElement("section");
       page.id="ownerUsRankingsPage";
       page.className="owner-us-rankings-page";
-      page.innerHTML=`<header class="owner-rankings-head"><div><span class="owner-kicker">EXTERNAL CANDIDATE FEED</span><h2>美股期权候选</h2><p>只读取 OptionRank 已筛选的候选，不冒充完整期权链。不连接券商，不生成交易指令。</p></div><div class="owner-rankings-actions"><button type="button" class="owner-primary" id="ownerRankingsRefresh">检查数据</button><button type="button" class="owner-quiet" id="ownerRankingsLogout">退出</button></div></header>
+      page.innerHTML=`<header class="owner-rankings-head"><div><span class="owner-kicker">EXTERNAL CANDIDATE FEED</span><h2>美股期权候选</h2><p>只读取 OptionRank 已筛选的候选，不冒充完整期权链。不连接券商，不生成交易指令。</p></div><div class="owner-rankings-actions"><a class="owner-quiet" href="${ownerBase}us-options/">返回美股搜索</a><button type="button" class="owner-primary" id="ownerRankingsRefresh">检查数据</button><button type="button" class="owner-quiet" id="ownerRankingsLogout">退出</button></div></header>
         <section class="owner-rankings-source" id="ownerRankingsSource" aria-label="外部数据源状态"></section>
         <section class="owner-rankings-controls" aria-label="候选筛选"><label><span>策略</span><select id="ownerRankingStrategy"><option value="sell_put" selected>Sell Put</option><option value="buy_call">Buy Call</option><option value="sell_call">Sell Call</option><option value="buy_put">Buy Put</option></select></label><label><span>期限</span><select id="ownerRankingHorizon"><option value="week">本周</option><option value="short" selected>14–45 天</option><option value="long">90–270 天</option></select></label><label><span>资金上限 USD</span><input id="ownerRankingCapital" type="number" min="0" step="100" inputmode="decimal" placeholder="0 = 不限制"></label><p class="owner-rankings-control-note" id="ownerRankingControlNote">Sell Put 按 OptionRank 资金口径过滤；Buy Call 按单张 Ask 成本过滤。</p></section>
         <section class="owner-rankings-state" id="ownerRankingsState" aria-live="polite"></section>
@@ -640,6 +666,7 @@
       installOwnerRankingsUi();
       return;
     }
+    if(stockRoute)return;
     const main=document.querySelector("main.wrap");
     if(!$("ownerAccountBar")){
       const account=document.createElement("section");
@@ -1624,6 +1651,13 @@
       return;
     }
     bindGlobalActionsOnce();
+    if(stockRoute){
+      const ticker=new URLSearchParams(window.location.search).get("ticker")||"AAPL";
+      const prepared=window.MangoDashboard?.prepareStock?.(ticker);
+      if(!prepared)window.MangoDashboard?.prepareStock?.("AAPL");
+      window.MangoDashboard?.start?.();
+      return;
+    }
     window.MangoDashboard?.start?.();
     loadPrivateData();
     refreshResearch(true);
@@ -1638,7 +1672,7 @@
   }
 
   async function boot(){
-    window.MangoOwner={isActive:false,chainHeader,chainCell};
+    window.MangoOwner={isActive:false,chainHeader,chainCell,authorizedFetch};
     window.addEventListener("storage",handleSessionStorage);
     $("ownerLoginForm").addEventListener("submit",sendOtp);
     $("ownerOtpForm").addEventListener("submit",verifyOtp);
