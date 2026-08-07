@@ -630,7 +630,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 </style>
 <!-- OWNER_ONLY_START -->
 <script>
-if(/\/owner(?:\/|$)/.test(window.location.pathname)){
+if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.location.pathname)){
   document.documentElement.classList.add("owner-pending");
 }
 </script>
@@ -671,6 +671,7 @@ if(/\/owner(?:\/|$)/.test(window.location.pathname)){
     <nav class="nav" aria-label="Option strategy">
       <a id="sellPutNav" href="/options/">Sell Put</a>
       <a id="buyCallNav" href="/buy-call/">Buy Call</a>
+      <a id="usOptionsNav" href="/us-options/">美股期权</a>
     </nav>
     <span class="ts" id="ts">loading...</span>
   </div>
@@ -764,7 +765,7 @@ if(/\/owner(?:\/|$)/.test(window.location.pathname)){
 </main>
 <div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
 <script>
-const IS_OWNER_ROUTE=/\/owner(?:\/|$)/.test(window.location.pathname);
+const IS_OWNER_ROUTE=/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.location.pathname);
 const ASSETS={
   BTC:{priceDecimals:0,strikeDecimals:0,rvDays:30},
   ETH:{priceDecimals:2,strikeDecimals:2,rvDays:30},
@@ -1436,7 +1437,7 @@ function normalizeStockSymbol(value){
 }
 
 function syncOwnerStockUrl(symbol){
-  if(!/\/owner\/(?:us-options|us-rankings)\/?$/.test(window.location.pathname)) return;
+  if(!/\/(?:owner\/)?(?:us-options|us-rankings)\/?$/.test(window.location.pathname)) return;
   const url=new URL(window.location.href);
   url.searchParams.set("ticker",symbol);
   window.history.replaceState(null,"",url);
@@ -2861,6 +2862,6 @@ window.MangoDashboard={
 if(!IS_OWNER_ROUTE)startDashboard();
 </script>
 <script src="/static/owner_strategy.bf4a6785bfef.js"></script>
-<script src="/static/owner_app.62fbdbc8bfa4.js"></script>
+<script src="/static/owner_app.ee0c8bbfa9af.js"></script>
 </body>
 </html>

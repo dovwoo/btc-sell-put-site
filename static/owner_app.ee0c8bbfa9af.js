@@ -1,17 +1,23 @@
 (function(){
   "use strict";
 
+  const pathname=window.location.pathname;
   const marker="/owner";
-  const markerIndex=window.location.pathname.indexOf(marker);
-  if(markerIndex<0)return;
+  const markerIndex=pathname.indexOf(marker);
+  const topStockMatch=pathname.match(/^(.*)\/(us-options|us-rankings)\/?$/);
+  if(markerIndex<0&&!topStockMatch)return;
   document.documentElement.classList.add("owner-route");
 
   const Strategy=window.OwnerStrategy;
   if(!Strategy)throw new Error("OwnerStrategy is required");
-  const projectBase=window.location.pathname.slice(0,markerIndex);
+  const projectBase=markerIndex>=0
+    ?pathname.slice(0,markerIndex)
+    :String(topStockMatch?.[1]||"");
   const ownerBase=`${projectBase}/owner/`;
-  const ownerSuffix=window.location.pathname.slice(markerIndex+marker.length)
-    .replace(/^\/+|\/+$/g,"");
+  const stockBase=`${projectBase}/us-options/`;
+  const ownerSuffix=markerIndex>=0
+    ?pathname.slice(markerIndex+marker.length).replace(/^\/+|\/+$/g,"")
+    :String(topStockMatch?.[2]||"");
   const positionsRoute=ownerSuffix==="";
   const stockRoute=ownerSuffix==="us-options"||ownerSuffix==="us-rankings";
   const rankingsRoute=ownerSuffix==="us-candidates";
@@ -467,15 +473,15 @@
       link.id="ownerPositionsNav";
       link.href=ownerBase;
       link.textContent="持仓";
-      nav.appendChild(link);
+      nav.insertBefore(link,$("usOptionsNav")||null);
     }
-    if(!$("ownerRankingsNav")){
+    if(!$("usOptionsNav")){
       const link=document.createElement("a");
-      link.id="ownerRankingsNav";
-      link.href=`${ownerBase}us-options/`;
+      link.id="usOptionsNav";
       link.textContent="美股期权";
       nav.appendChild(link);
     }
+    $("usOptionsNav").href=stockBase;
     if(positionsRoute){
       $("sellPutNav").classList.remove("on");
       $("buyCallNav").classList.remove("on");
@@ -488,21 +494,21 @@
       const ticker=String(new URLSearchParams(window.location.search).get("ticker")||"AAPL")
         .trim().toUpperCase();
       const tickerParam=encodeURIComponent(ticker);
-      $("sellPutNav").href=`${ownerBase}us-options/?ticker=${tickerParam}`;
-      $("buyCallNav").href=`${ownerBase}us-options/?strategy=buy_call&ticker=${tickerParam}`;
+      $("sellPutNav").href=`${stockBase}?ticker=${tickerParam}`;
+      $("buyCallNav").href=`${stockBase}?strategy=buy_call&ticker=${tickerParam}`;
       $("ownerPositionsNav").classList.remove("on");
-      $("ownerRankingsNav").classList.add("on");
-      $("ownerRankingsNav").setAttribute("aria-current","page");
+      $("usOptionsNav").classList.add("on");
+      $("usOptionsNav").setAttribute("aria-current","page");
       $("pageTitle").textContent="美股期权 · 搜索";
       $("ts").textContent="OWNER ONLY";
-      document.title="U.S. Options · Owner";
+      document.title="U.S. Options";
     }
     if(rankingsRoute){
       $("sellPutNav").classList.remove("on");
       $("buyCallNav").classList.remove("on");
       $("ownerPositionsNav").classList.remove("on");
-      $("ownerRankingsNav").classList.add("on");
-      $("ownerRankingsNav").setAttribute("aria-current","page");
+      $("usOptionsNav").classList.add("on");
+      $("usOptionsNav").setAttribute("aria-current","page");
       $("pageTitle").textContent="OptionRank · 候选";
       $("ts").textContent="OWNER ONLY";
       document.title="U.S. Option Candidates · Owner";
@@ -644,7 +650,7 @@
       const page=document.createElement("section");
       page.id="ownerUsRankingsPage";
       page.className="owner-us-rankings-page";
-      page.innerHTML=`<header class="owner-rankings-head"><div><span class="owner-kicker">EXTERNAL CANDIDATE FEED</span><h2>美股期权候选</h2><p>只读取 OptionRank 已筛选的候选，不冒充完整期权链。不连接券商，不生成交易指令。</p></div><div class="owner-rankings-actions"><a class="owner-quiet" href="${ownerBase}us-options/">返回美股搜索</a><button type="button" class="owner-primary" id="ownerRankingsRefresh">检查数据</button><button type="button" class="owner-quiet" id="ownerRankingsLogout">退出</button></div></header>
+      page.innerHTML=`<header class="owner-rankings-head"><div><span class="owner-kicker">EXTERNAL CANDIDATE FEED</span><h2>美股期权候选</h2><p>只读取 OptionRank 已筛选的候选，不冒充完整期权链。不连接券商，不生成交易指令。</p></div><div class="owner-rankings-actions"><a class="owner-quiet" href="${stockBase}">返回美股搜索</a><button type="button" class="owner-primary" id="ownerRankingsRefresh">检查数据</button><button type="button" class="owner-quiet" id="ownerRankingsLogout">退出</button></div></header>
         <section class="owner-rankings-source" id="ownerRankingsSource" aria-label="外部数据源状态"></section>
         <section class="owner-rankings-controls" aria-label="候选筛选"><label><span>策略</span><select id="ownerRankingStrategy"><option value="sell_put" selected>Sell Put</option><option value="buy_call">Buy Call</option><option value="sell_call">Sell Call</option><option value="buy_put">Buy Put</option></select></label><label><span>期限</span><select id="ownerRankingHorizon"><option value="week">本周</option><option value="short" selected>14–45 天</option><option value="long">90–270 天</option></select></label><label><span>资金上限 USD</span><input id="ownerRankingCapital" type="number" min="0" step="100" inputmode="decimal" placeholder="0 = 不限制"></label><p class="owner-rankings-control-note" id="ownerRankingControlNote">Sell Put 按 OptionRank 资金口径过滤；Buy Call 按单张 Ask 成本过滤。</p></section>
         <section class="owner-rankings-state" id="ownerRankingsState" aria-live="polite"></section>
@@ -1673,6 +1679,11 @@
 
   async function boot(){
     window.MangoOwner={isActive:false,chainHeader,chainCell,authorizedFetch};
+    if(stockRoute){
+      document.querySelector(".owner-login-mark").textContent="PRIVATE MARKET DATA";
+      document.querySelector("#ownerLogin h1").textContent="美股期权";
+      document.querySelector("#ownerLogin h1 + p").textContent="登录后按股票代码查看延迟期权链；研究用，不用于下单。";
+    }
     window.addEventListener("storage",handleSessionStorage);
     $("ownerLoginForm").addEventListener("submit",sendOtp);
     $("ownerOtpForm").addEventListener("submit",verifyOtp);
