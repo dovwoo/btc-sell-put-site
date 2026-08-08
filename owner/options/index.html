@@ -871,6 +871,9 @@ const STRINGS={
     requiredMove:"较现价需上涨",moneyness:"距现价",
     breakevenTip:"Strike + Ask；仅表示到期回本点，未计交易费。",
     callDeltaTip:"Call Delta 近似值；数值越高，价格对标的变动通常越敏感。",
+    gammaTip:"Gamma 表示标的价格每变动 1 美元时 Delta 的近似变化。Crypto 为 Black-Scholes 估算；美股沿用行情源。卖方持仓方向相反。",
+    thetaTip:"Theta 表示时间过去 1 个自然日对期权价值的近似影响。Crypto 为 Black-Scholes 估算；美股沿用行情源。卖方持仓方向相反。",
+    vegaTip:"Vega 表示隐含波动率变动 1 个百分点时，期权价值的近似变化。Crypto 为 Black-Scholes 估算；美股沿用行情源。卖方持仓方向相反。",
     scrollHint:"左右滑动查看更多",narrowFilters:"仅显示前 {count} 条，请缩小筛选范围查看其余合约。",
     annualYield:"条件年化",dvol:"DVOL (90d)",fng:"市场 Fear & Greed (90d)",
     vrp:"VRP：IV - 30d RV",price:"价格历史",rv:"实现波动率",
@@ -925,6 +928,9 @@ const STRINGS={
     requiredMove:"Rise required",moneyness:"Vs spot",
     breakevenTip:"Strike + ask; expiry breakeven only, excluding trading fees.",
     callDeltaTip:"Approximate Call delta. A higher value usually means greater sensitivity to the underlying.",
+    gammaTip:"Approximate Delta change for a $1 move in the underlying. Crypto uses Black-Scholes estimates; U.S. options use the market-data feed. Reverse the sign for a short position.",
+    thetaTip:"Approximate option-value change for one calendar day. Crypto uses Black-Scholes estimates; U.S. options use the market-data feed. Reverse the sign for a short position.",
+    vegaTip:"Approximate option-value change for a one percentage-point IV move. Crypto uses Black-Scholes estimates; U.S. options use the market-data feed. Reverse the sign for a short position.",
     scrollHint:"Swipe sideways for more",narrowFilters:"Showing the first {count} rows; narrow the filters to view the rest.",
     annualYield:"Conditional APR",dvol:"DVOL (90d)",fng:"Market Fear & Greed (90d)",
     vrp:"VRP: IV - 30d RV",price:"Price history",rv:"Realized volatility",
@@ -1135,12 +1141,21 @@ function quoteLabel(){
   return isBuyCall()?askLabel():bidLabel();
 }
 
-function deltaHeader(){
-  if(isCallMode()) return tip("Delta",t("callDeltaTip"));
-  const copy=_lang==="en"
-    ?"Approximate put delta. Higher absolute value means greater in-the-money risk."
-    :"Put Delta 近似值；绝对值越大，进入价内的风险越高。";
-  return tip("Delta",copy);
+function greekHeader(kind){
+  if(kind==="delta"){
+    if(isCallMode()) return tip("Delta",t("callDeltaTip"));
+    const copy=_lang==="en"
+      ?"Approximate put Delta. Higher absolute value means greater in-the-money risk. Reverse the sign for a short position."
+      :"Put Delta 近似值；绝对值越大，进入价内的风险越高。卖方持仓方向相反。";
+    return tip("Delta",copy);
+  }
+  return tip(kind[0].toUpperCase()+kind.slice(1),t(`${kind}Tip`));
+}
+
+function greeksHeaders(){
+  return ["delta","gamma","theta","vega"]
+    .map(kind=>`<th>${greekHeader(kind)}</th>`)
+    .join("");
 }
 
 function ivHeader(){
@@ -2210,6 +2225,30 @@ function formatDelta(delta){
   return `<span style="color:${deltaColor(delta)};font-weight:600">${Number(delta).toFixed(2)}</span>`;
 }
 
+function formatGreekNumber(value,kind){
+  if(value===null||value===undefined||value==="") return "—";
+  const number=Number(value);
+  if(!Number.isFinite(number)) return "—";
+  const absolute=Math.abs(number);
+  if(kind==="gamma"&&absolute>0&&absolute<.0001) return number.toExponential(2);
+  const digits=kind==="gamma"?6:absolute>=100?1:absolute>=1?2:absolute>=.01?3:4;
+  return String(Number(number.toFixed(digits)));
+}
+
+function formatGreek(value,kind){
+  if(kind==="delta") return formatDelta(value);
+  const formatted=formatGreekNumber(value,kind);
+  if(formatted==="—") return formatted;
+  const color=kind==="theta"&&Number(value)<0?"#f0b90b":"#b2b5be";
+  return `<span style="color:${color};font-weight:600">${formatted}</span>`;
+}
+
+function greeksCells(row){
+  return ["delta","gamma","theta","vega"]
+    .map(kind=>`<td>${formatGreek(row[kind],kind)}</td>`)
+    .join("");
+}
+
 function ivColor(iv){
   if(iv===null||iv===undefined) return "#787b86";
   if(iv>=100) return "#ef5350";
@@ -2233,11 +2272,7 @@ function yieldColor(value){
 function formatYield(row){
   const annualYield=finiteNumber(row.ann_yield);
   if(annualYield===null) return "—";
-  let html=`<span style="color:${yieldColor(annualYield)};font-weight:650">${annualYield.toFixed(1)}%</span>`;
-  if(row.panic_yield!==null&&row.panic_yield!==undefined){
-    html+=` <span class="cell-note"><span style="color:#ffa726">${Number(row.panic_yield).toFixed(1)}</span> + <span style="color:#7da0ff">${Number(row.time_yield).toFixed(1)}</span></span>`;
-  }
-  return html;
+  return `<span style="color:${yieldColor(annualYield)};font-weight:650">${annualYield.toFixed(1)}%</span>`;
 }
 
 function depthValueUsd(price,size,multiplier=1){
@@ -2524,10 +2559,10 @@ function renderBuyCallSnapshot(){
   if(!selected.length){
     html+=`<div class="state">${t("noStrike")}</div>`;
   }else{
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${quoteLabel()}</th><th>${depthHeader("ask")}</th><th>${breakevenHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${quoteLabel()}</th><th>${depthHeader("ask")}</th><th>${breakevenHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th></tr></thead><tbody>`;
     selected.forEach((row,index)=>{
       const detailId=`call-detail-snapshot-${index}`;
-      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatAsk(row,detailId)}</td><td>${formatTopDepth(row,"ask")}</td><td>${formatBreakeven(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatAsk(row,detailId)}</td><td>${formatTopDepth(row,"ask")}</td><td>${formatBreakeven(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td></tr>`;
       html+=callQuoteDetailRow(row,detailId);
     });
     html+="</tbody></table></div>";
@@ -2567,10 +2602,10 @@ function renderCoveredCallSnapshot(){
     `<option value="${strike}"${strike===target?" selected":""}>${formatStrike(strike)} (${callMoneyness(strike,spot)})</option>`
   ).join("");
   let html=`<h2>Strike <select id="snapshotStrike">${options}</select> ${t("coveredSnapshot")}</h2>`;
-  html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${coveredYieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+  html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${coveredYieldHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th></tr></thead><tbody>`;
   selected.forEach((row,index)=>{
     const detailId=`covered-detail-snapshot-${index}`;
-    html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatCoveredBid(row)}${callQuoteDetailToggle(row,detailId)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+    html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatCoveredBid(row)}${callQuoteDetailToggle(row,detailId)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td></tr>`;
     html+=callQuoteDetailRow(row,detailId);
   });
   html+="</tbody></table></div>";
@@ -2644,9 +2679,9 @@ function renderSnapshot(){
   if(!selected.length){
     html+=`<div class="state">${t("noStrike")}</div>`;
   }else{
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     selected.forEach(row=>{
-      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
+      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div>";
   }
@@ -2695,10 +2730,10 @@ function renderBuyCall(){
   Object.keys(grouped).sort().forEach((expiry,expiryIndex)=>{
     const expiryRows=grouped[expiry];
     html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>${t("moneyness")}</th><th>${quoteLabel()}</th><th>${depthHeader("ask")}</th><th>${breakevenHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>${t("moneyness")}</th><th>${quoteLabel()}</th><th>${depthHeader("ask")}</th><th>${breakevenHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th></tr></thead><tbody>`;
     expiryRows.forEach((row,rowIndex)=>{
       const detailId=`call-detail-list-${expiryIndex}-${rowIndex}`;
-      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${callMoneyness(row.strike,spot)}</td><td>${formatAsk(row,detailId)}</td><td>${formatTopDepth(row,"ask")}</td><td>${formatBreakeven(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${callMoneyness(row.strike,spot)}</td><td>${formatAsk(row,detailId)}</td><td>${formatTopDepth(row,"ask")}</td><td>${formatBreakeven(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td></tr>`;
       html+=callQuoteDetailRow(row,detailId);
     });
     html+="</tbody></table></div></section>";
@@ -2737,10 +2772,10 @@ function renderCoveredCall(){
   Object.keys(grouped).sort().forEach((expiry,expiryIndex)=>{
     const expiryRows=grouped[expiry];
     html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>${t("moneyness")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${coveredYieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>${t("moneyness")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${coveredYieldHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th></tr></thead><tbody>`;
     expiryRows.forEach((row,rowIndex)=>{
       const detailId=`covered-detail-list-${expiryIndex}-${rowIndex}`;
-      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${callMoneyness(row.strike,spot)}</td><td>${formatCoveredBid(row)}${callQuoteDetailToggle(row,detailId)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${callMoneyness(row.strike,spot)}</td><td>${formatCoveredBid(row)}${callQuoteDetailToggle(row,detailId)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td></tr>`;
       html+=callQuoteDetailRow(row,detailId);
     });
     html+="</tbody></table></div></section>";
@@ -2788,10 +2823,10 @@ function render(){
   Object.keys(grouped).sort().forEach(expiry=>{
     const expiryRows=grouped[expiry];
     html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     expiryRows.forEach(row=>{
       const otm=(spot-Number(row.strike))/spot*100;
-      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div></section>";
   });
