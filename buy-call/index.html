@@ -33,15 +33,21 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .bar .ts{font-family:var(--mono);font-size:.66rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .lang{justify-self:start;background:transparent;color:var(--muted);border:1px solid var(--line2);padding:3px 10px;border-radius:0;font-family:var(--mono);font-size:.66rem;cursor:pointer;letter-spacing:.05em}
 .lang:hover{color:var(--amber);border-color:var(--amber-dim)}
-.nav{display:flex;align-items:center;border:1px solid var(--line2);border-radius:0;overflow:hidden;background:transparent}
+.nav,.strategy-switch{display:flex;align-items:center;border:1px solid var(--line2);border-radius:0;overflow:hidden;background:transparent}
 .nav a{color:var(--muted);text-decoration:none;font-family:var(--mono);font-size:.66rem;padding:4px 10px;border-right:1px solid var(--line2);background:transparent;white-space:nowrap;letter-spacing:.05em;text-transform:uppercase}
 .nav a:last-child{border-right:0}
 .nav a:hover{color:var(--text);background:var(--panel2)}
 .nav a.on{color:var(--amber);background:transparent;box-shadow:inset 0 -1px 0 var(--amber)}
+.utility-nav{color:var(--muted);text-decoration:none;font-family:var(--mono);font-size:.64rem;padding:4px 8px;white-space:nowrap;letter-spacing:.04em}
+.utility-nav:hover,.utility-nav.on{color:var(--text)}
 /* ============ MAIN LAYOUT ============ */
 .wrap{padding:12px 16px;max-width:1440px;margin:0 auto}
 /* ============ MARKET STATUS LINE ============ */
-.market-line{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px;padding:8px 0;border-bottom:1px solid var(--line)}
+.market-line{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:4px;padding:8px 0;border-bottom:1px solid var(--line)}
+.strategy-switch a{min-width:88px;height:28px;padding:0 12px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line2);color:var(--muted);text-decoration:none;font-family:var(--mono);font-size:.66rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.strategy-switch a:last-child{border-right:0}
+.strategy-switch a:hover{color:var(--text);background:var(--panel2)}
+.strategy-switch a.on{color:var(--amber);box-shadow:inset 0 -1px 0 var(--amber)}
 .asset-switch{display:inline-flex;border:1px solid var(--line2);border-radius:0;overflow:hidden;background:transparent}
 .asset-switch button{min-width:56px;height:28px;padding:0 12px;border:0;border-right:1px solid var(--line2);background:transparent;color:var(--muted);font-family:var(--mono);font-size:.7rem;font-weight:600;cursor:pointer;letter-spacing:.04em}
 .asset-switch button:last-child{border-right:0}
@@ -58,6 +64,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .owner-stock-route .stock-search{gap:8px}
 .owner-stock-route .stock-search input{width:210px;height:32px;padding:0 11px;font-size:.76rem}
 .owner-stock-route .stock-search button{height:32px;padding:0 14px}
+.owner-stock-route:not(.stock-data-ready) .strategy-switch{display:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .price{font-family:var(--mono);font-size:1.4rem;font-weight:600;letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums}
 .spot-label{font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
@@ -65,6 +72,17 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .refresh:hover{color:var(--amber);border-color:var(--amber-dim)}
 .market-meta{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin:4px 0 10px 1px;min-height:1em;letter-spacing:.03em}
 .market-meta.delayed{color:var(--amber)}
+.stock-empty{display:none;margin:24px 0;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--muted);font-family:var(--mono);font-size:.72rem;text-align:center}
+.owner-stock-route.stock-search-empty .stock-empty{display:block}
+.owner-stock-route.stock-search-empty .risk-note,
+.owner-stock-route.stock-search-empty .action-banner,
+.owner-stock-route.stock-search-empty .snapshot,
+.owner-stock-route.stock-search-empty .filters,
+.owner-stock-route.stock-search-empty #content,
+.owner-stock-route.stock-search-empty .context-charts{display:none!important}
+.owner-stock-route.stock-search-empty .price,
+.owner-stock-route.stock-search-empty .spot-label,
+.owner-stock-route.stock-search-empty .refresh{display:none}
 /* ============ RISK NOTE / ACTION BANNER ============ */
 .risk-note{display:none;margin:0 0 12px;padding:8px 11px;border:1px solid var(--amber-dim);border-left:2px solid var(--amber);background:var(--panel);color:var(--text2);font-size:.68rem;line-height:1.5}
 .action-banner{padding:9px 12px;margin-bottom:12px;display:flex;align-items:center;gap:12px;border:1px solid var(--line2);border-left:2px solid var(--muted);background:var(--panel)}
@@ -506,7 +524,9 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .nav a{text-align:center;padding:6px 8px;min-height:32px;display:flex;align-items:center;justify-content:center}
   .wrap{padding:10px 10px}
   .market-line{gap:9px}
-  .asset-switch{order:0;width:100%}
+  .strategy-switch{order:0;width:100%;display:grid;grid-template-columns:repeat(3,1fr)}
+  .strategy-switch a{min-width:0;height:32px;padding:0 6px;text-align:center}
+  .asset-switch{order:1;width:100%}
   .asset-switch button{flex:1;height:32px}
   .price{font-size:1.25rem}
   .stock-search{order:1;width:100%}
@@ -629,7 +649,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 }
 </style>
 <style id="productionMarketScope">
-  #stockTab, #stockSearch { display: none !important; }
+  #stockSearch { display: none !important; }
 </style>
 <script>window.MANGO_MARKET_SCOPE="crypto-only";</script>
 </head>
@@ -638,9 +658,8 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   <button class="lang" id="langBtn" type="button">EN</button>
   <h1 id="pageTitle">BTC Sell Put</h1>
   <div class="right">
-    <nav class="nav" aria-label="Option strategy">
-      <a id="sellPutNav" href="/options/">Sell Put</a>
-      <a id="buyCallNav" href="/buy-call/">Buy Call</a>
+    <nav class="nav" aria-label="期权市场">
+      <a id="cryptoMarketNav" href="/options/">Crypto 期权</a>
       <a id="usOptionsNav" href="/us-options/">美股期权</a>
     </nav>
     <span class="ts" id="ts">loading...</span>
@@ -648,15 +667,19 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 </header>
 <main class="wrap">
   <div class="market-line">
+    <nav class="strategy-switch" id="strategySwitch" aria-label="期权策略">
+      <a id="sellPutNav" href="/options/">Sell Put</a>
+      <a id="buyCallNav" href="/buy-call/">Buy Call</a>
+      <a id="coveredCallNav" href="/covered-call/">Covered Call</a>
+    </nav>
     <div class="asset-switch" role="tablist" aria-label="Underlying asset">
       <button type="button" class="on" data-asset="BTC" role="tab" aria-selected="true">BTC</button>
       <button type="button" data-asset="ETH" role="tab" aria-selected="false">ETH</button>
       <button type="button" data-asset="HYPE" role="tab" aria-selected="false">HYPE</button>
-      <button type="button" id="stockTab" data-market="us_stock" role="tab" aria-selected="false">美股</button>
     </div>
     <form class="stock-search" id="stockSearch" novalidate>
       <label class="sr-only" id="stockSymbolLabel" for="stockSymbol">输入美股代码</label>
-      <input id="stockSymbol" name="ticker" value="AAPL" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-labelledby="stockSymbolLabel">
+      <input id="stockSymbol" name="ticker" value="" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-labelledby="stockSymbolLabel">
       <button id="stockSearchBtn" type="submit">查看</button>
       <span class="stock-search-error" id="stockSearchError" role="alert"></span>
     </form>
@@ -665,6 +688,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
     <button class="refresh" id="refreshBtn" type="button">Refresh</button>
   </div>
   <div class="market-meta" id="marketMeta"></div>
+  <section class="stock-empty" id="stockEmpty">输入美股 Ticker，加载期权链后再选择策略。</section>
   <section class="risk-note" id="buyCallRisk" aria-live="polite"></section>
 
   <section class="action-banner" id="actionBanner" style="display:none" aria-live="polite"></section>
@@ -741,16 +765,20 @@ const ASSETS={
   ETH:{priceDecimals:2,strikeDecimals:2,rvDays:30},
   HYPE:{priceDecimals:3,strikeDecimals:2,rvDays:14}
 };
+const REQUESTED_STRATEGY=new URLSearchParams(window.location.search).get("strategy");
 const STRATEGY_MODE=(
+  /\/covered-call\/?$/.test(window.location.pathname)
+  ||REQUESTED_STRATEGY==="covered_call"
+)?"covered_call":((
   /\/buy-call\/?$/.test(window.location.pathname)
-  ||new URLSearchParams(window.location.search).get("strategy")==="buy_call"
-)?"buy_call":"sell_put";
+  ||REQUESTED_STRATEGY==="buy_call"
+)?"buy_call":"sell_put");
 const CHART_COLORS={dvol:"#ff6d00",fng:"#26a69a",vrp:"#e040fb",price:"#7da0ff",rv:"#ffd600"};
 const $=id=>document.getElementById(id);
 let DATA=null;
 let currentAsset="BTC";
 let currentMarket="crypto";
-let currentStockSymbol="AAPL";
+let currentStockSymbol="";
 let requestVersion=0;
 let requestController=null;
 let histCharts={};
@@ -791,13 +819,15 @@ const STRINGS={
     cash:"USDC 现金结算",bestBid:"顶档 Bid",contract:"合约乘数",minimum:"最小交易",obligation:"最小资金义务",
     snapshot:"各到期日年化收益",baseline:"基准 IV",noStrike:"这个 Strike 暂无报价",
     noOptions:"没有符合筛选条件的 Put",expiry:"到期日",days:"天数",bid:"Bid / 单位",
-    sellPutNav:"Sell Put",buyCallNav:"Buy Call",
+    sellPutNav:"Sell Put",buyCallNav:"Buy Call",coveredCallNav:"Covered Call",
     buyCallRisk:"买入 Call 的全部权利金都可能损失；标的上涨也不保证盈利，只有到期价高于回本价才会有到期利润。以下回本价未计交易费；Ask 深度金额仅为当前快照，不保证实际成交。",
+    coveredCallRisk:"Covered Call 使用 Call 顶档 Bid 估算权利金；它会限制标的上涨收益，并可能在美股到期前被提前行权。下表只展示报价，不判断你是否已持有足够现货。",
     callQuoteBlocked:"报价已超过 120 秒，只能查看；请手动刷新后再判断。",
     stockCallBlocked:"美股为延迟研究行情，只能查看，不可据此下单。",
     maxPremium:"最小订单成本上限 $",allStrikes:"全部有 Ask 的 Strike",minStrike:"最低 Strike",maxStrike:"最高 Strike",
     unlimited:"不限",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",moveAsc:"所需涨幅 ↑",premiumAsc:"订单成本 ↑",
     callSnapshot:"各到期日成本与回本点",noCalls:"没有符合筛选条件的 Call",
+    coveredSnapshot:"各到期日权利金年化",coveredYield:"权利金条件年化",coverRequirement:"覆盖要求",
     ask:"Ask / 单位",askPerShare:"Ask / 股",bestAsk:"顶档 Ask",
     topAskDepth:"Ask 深度",topBidDepth:"Bid 深度",depthStale:"旧快照",
     depthValueTip:"顶档报价 × 顶档数量的权利金总值；仅为当前快照，不保证全部成交。",
@@ -844,13 +874,15 @@ const STRINGS={
     cash:"USDC cash-settled",bestBid:"Top-of-book bid",contract:"Contract multiplier",minimum:"Minimum",obligation:"Min obligation",
     snapshot:"Annualized yield by expiry",baseline:"Baseline IV",noStrike:"No quote for this strike",
     noOptions:"No puts match the filters",expiry:"Expiry",days:"Days",bid:"Bid / unit",
-    sellPutNav:"Sell Put",buyCallNav:"Buy Call",
+    sellPutNav:"Sell Put",buyCallNav:"Buy Call",coveredCallNav:"Covered Call",
     buyCallRisk:"The entire Call premium can be lost. A rise in the underlying does not guarantee a profit; at expiry, price must exceed breakeven. Breakevens below exclude trading fees; ask depth value is a snapshot, not guaranteed execution.",
+    coveredCallRisk:"Covered Call premium uses the top-of-book call bid. The strategy caps upside and U.S. contracts can be assigned early. This page shows quotes only and does not verify that you hold enough of the underlying.",
     callQuoteBlocked:"The quote is over 120 seconds old. View only; refresh manually before making a decision.",
     stockCallBlocked:"U.S. stock data is delayed and for research only; do not use it to place an order.",
     maxPremium:"Max minimum-order cost $",allStrikes:"All strikes with an ask",minStrike:"Min Strike",maxStrike:"Max Strike",
     unlimited:"No limit",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",moveAsc:"Required move ↑",premiumAsc:"Order cost ↑",
     callSnapshot:"Cost and breakeven by expiry",noCalls:"No calls match the filters",
+    coveredSnapshot:"Premium APR by expiry",coveredYield:"Conditional premium APR",coverRequirement:"Cover required",
     ask:"Ask / unit",askPerShare:"Ask / share",bestAsk:"Top-of-book ask",
     topAskDepth:"Ask depth",topBidDepth:"Bid depth",depthStale:"old snapshot",
     depthValueTip:"Top-of-book price × size, shown as total premium value; snapshot only, not guaranteed execution.",
@@ -883,6 +915,8 @@ const STRINGS={
 function t(key){return (STRINGS[_lang]||STRINGS.zh)[key]||key}
 
 function isBuyCall(){return STRATEGY_MODE==="buy_call"}
+function isCoveredCall(){return STRATEGY_MODE==="covered_call"}
+function isCallMode(){return isBuyCall()||isCoveredCall()}
 function isStockMode(){return currentMarket==="us_stock"}
 function currentSymbol(){return isStockMode()?currentStockSymbol:currentAsset}
 function selectionKey(){return `${currentMarket}:${currentSymbol()}`}
@@ -1075,7 +1109,7 @@ function quoteLabel(){
 }
 
 function deltaHeader(){
-  if(isBuyCall()) return tip("Delta",t("callDeltaTip"));
+  if(isCallMode()) return tip("Delta",t("callDeltaTip"));
   const copy=_lang==="en"
     ?"Approximate put delta. Higher absolute value means greater in-the-money risk."
     :"Put Delta 近似值；绝对值越大，进入价内的风险越高。";
@@ -1096,10 +1130,17 @@ function setAssetButtons(){
     button.setAttribute("aria-selected",String(active));
   });
   const stockActive=isStockMode();
-  $("stockTab").classList.toggle("on",stockActive);
-  $("stockTab").setAttribute("aria-selected",String(stockActive));
   $("stockSearch").classList.toggle("on",stockActive);
   $("priceChartPanel").hidden=stockActive;
+  $("cryptoMarketNav").classList.toggle("on",!stockActive);
+  $("usOptionsNav").classList.toggle("on",stockActive);
+  if(stockActive){
+    $("usOptionsNav").setAttribute("aria-current","page");
+    $("cryptoMarketNav").removeAttribute("aria-current");
+  }else{
+    $("cryptoMarketNav").setAttribute("aria-current","page");
+    $("usOptionsNav").removeAttribute("aria-current");
+  }
 }
 
 function setTimeframeButtons(){
@@ -1113,30 +1154,33 @@ function setTimeframeButtons(){
 function setStrategyChrome(){
   const sellPutLink=$("sellPutNav");
   const buyCallLink=$("buyCallNav");
-  const buyCallMode=isBuyCall();
-  sellPutLink.classList.toggle("on",!isBuyCall());
-  buyCallLink.classList.toggle("on",buyCallMode);
-  $("labelStrike").hidden=buyCallMode;
-  $("fStrike").hidden=buyCallMode;
-  $("callStrikeRange").hidden=!buyCallMode;
-  if(buyCallMode){
-    buyCallLink.setAttribute("aria-current","page");
-    sellPutLink.removeAttribute("aria-current");
-  }else{
-    sellPutLink.setAttribute("aria-current","page");
-    buyCallLink.removeAttribute("aria-current");
-  }
+  const coveredCallLink=$("coveredCallNav");
+  const callMode=isCallMode();
+  const links=[
+    [sellPutLink,STRATEGY_MODE==="sell_put"],
+    [buyCallLink,isBuyCall()],
+    [coveredCallLink,isCoveredCall()]
+  ];
+  links.forEach(([link,active])=>{
+    link.classList.toggle("on",active);
+    if(active) link.setAttribute("aria-current","page");
+    else link.removeAttribute("aria-current");
+  });
+  $("labelStrike").hidden=callMode;
+  $("fStrike").hidden=callMode;
+  $("callStrikeRange").hidden=!callMode;
   sellPutLink.textContent=t("sellPutNav");
   buyCallLink.textContent=t("buyCallNav");
+  coveredCallLink.textContent=t("coveredCallNav");
   renderBuyCallRisk();
-  if(isBuyCall()){
+  if(isCallMode()){
     $("actionBanner").style.display="none";
     clearCharts();
   }
 }
 
 function buyCallQuoteBlocked(){
-  if(!isBuyCall()||!DATA) return false;
+  if(!isCallMode()||!DATA) return false;
   if(DATA.decision_blocked) return true;
   const initialAge=finiteNumber(DATA.quote_age_seconds)??0;
   const elapsed=DATA_RECEIVED_AT?Math.max(0,(Date.now()-DATA_RECEIVED_AT)/1000):0;
@@ -1145,12 +1189,12 @@ function buyCallQuoteBlocked(){
 
 function renderBuyCallRisk(){
   const note=$("buyCallRisk");
-  if(!isBuyCall()){
+  if(!isCallMode()){
     note.textContent="";
     note.style.display="none";
     return;
   }
-  const warnings=[t("buyCallRisk")];
+  const warnings=[t(isCoveredCall()?"coveredCallRisk":"buyCallRisk")];
   if(DATA&&isStockMode()&&DATA.decision_blocked){
     warnings.push(t("stockCallBlocked"));
   }else if(buyCallQuoteBlocked()){
@@ -1367,7 +1411,7 @@ function clearAssetView(){
   LAST_TIMING=null;
   LAST_HISTORY=null;
   window._snapStrike=null;
-  if(isBuyCall()){
+  if(isCallMode()){
     $("fMinStrike").value="";
     $("fMaxStrike").value="";
   }
@@ -1379,6 +1423,7 @@ function clearAssetView(){
   $("snapshot").innerHTML="";
   $("content").className="state";
   $("content").textContent=loadingCopy();
+  document.documentElement.classList.remove("stock-data-ready");
   clearPriceChartView();
   clearCharts();
 }
@@ -1415,8 +1460,11 @@ function syncOwnerStockUrl(symbol){
   sellPutUrl.searchParams.delete("strategy");
   const buyCallUrl=new URL(url);
   buyCallUrl.searchParams.set("strategy","buy_call");
+  const coveredCallUrl=new URL(url);
+  coveredCallUrl.searchParams.set("strategy","covered_call");
   $("sellPutNav").href=`${sellPutUrl.pathname}${sellPutUrl.search}`;
   $("buyCallNav").href=`${buyCallUrl.pathname}${buyCallUrl.search}`;
+  $("coveredCallNav").href=`${coveredCallUrl.pathname}${coveredCallUrl.search}`;
 }
 
 function prepareStock(symbolValue=currentStockSymbol){
@@ -1433,6 +1481,21 @@ function prepareStock(symbolValue=currentStockSymbol){
   return true;
 }
 
+function prepareStockSearch(){
+  currentMarket="us_stock";
+  currentStockSymbol="";
+  $("stockSymbol").value="";
+  $("stockSearchError").textContent="";
+  document.documentElement.classList.add("stock-search-empty");
+  document.documentElement.classList.remove("stock-data-ready");
+  setAssetButtons();
+  clearAssetView();
+  $("content").textContent="";
+  $("spotLabel").textContent=t("stockSpot");
+  $("stockSymbol").focus();
+  applyLang();
+}
+
 function selectStock(symbolValue=currentStockSymbol,force=false){
   const symbol=normalizeStockSymbol(symbolValue);
   if(!symbol){
@@ -1442,6 +1505,7 @@ function selectStock(symbolValue=currentStockSymbol,force=false){
   const unchanged=isStockMode()&&symbol===currentStockSymbol;
   currentMarket="us_stock";
   currentStockSymbol=symbol;
+  document.documentElement.classList.remove("stock-search-empty");
   $("stockSymbol").value=symbol;
   $("stockSearchError").textContent="";
   syncOwnerStockUrl(symbol);
@@ -1525,7 +1589,7 @@ function localizedAction(action){
 
 function renderAction(action){
   const banner=$("actionBanner");
-  if(isBuyCall()||isStockMode()){
+  if(isCallMode()||isStockMode()){
     banner.style.display="none";
     return;
   }
@@ -1706,12 +1770,13 @@ function reconcileLiveQuote(
     const strike=finiteNumber(row.strike);
     const days=finiteNumber(row.days);
     const spot=finiteNumber(spotPrice);
-    if(strike!==null&&strike>0&&days!==null&&days>0){
-      row.ann_yield=price/strike*365/days*100;
+    const capital=isCoveredCall()?spot:strike;
+    if(capital!==null&&capital>0&&days!==null&&days>0){
+      row.ann_yield=price/capital*365/days*100;
       if(spot!==null&&spot>0){
         const fee=Math.min(.0003*spot,.125*price);
         row.fee_usd=fee;
-        row.net_yield=Math.max(0,price-fee)/strike*365/days*100;
+        row.net_yield=Math.max(0,price-fee)/capital*365/days*100;
       }
     }
     delete row.panic_yield;
@@ -1776,7 +1841,7 @@ function reconcileLiveQuote(
 
 function optionRowReference(instrument){
   const expiries=DATA?.expiries||DATA?.exchanges?.Deribit?.expiries||{};
-  const rowKey=isBuyCall()?"calls":"puts";
+  const rowKey=isCallMode()?"calls":"puts";
   for(const group of Object.values(expiries)){
     const row=(group?.[rowKey]||[]).find(
       candidate=>candidate.instrument===instrument
@@ -1997,14 +2062,18 @@ async function loadData(){
   $("content").className="state";
   $("content").textContent=loadingCopy();
   try{
-    const optionsUrl=isBuyCall()
+    const optionsUrl=isCoveredCall()
+      ?(market==="us_stock"
+        ?`/api/us-stocks/covered-call?ticker=${encodeURIComponent(symbol)}`
+        :apiUrl("/api/covered-call",symbol))
+      :isBuyCall()
       ?(market==="us_stock"
         ?`/api/us-stocks/buy-call?ticker=${encodeURIComponent(symbol)}`
         :apiUrl("/api/buy-call",symbol))
       :(market==="us_stock"
         ?`/api/us-stocks/options?ticker=${encodeURIComponent(symbol)}`
         :apiUrl("/api/options",symbol));
-    const needsSellPutContext=market==="crypto"&&!isBuyCall();
+    const needsSellPutContext=market==="crypto"&&STRATEGY_MODE==="sell_put";
     const contextPromise=needsSellPutContext
       ?Promise.all([
         optionalJson(apiUrl("/api/timing",symbol),signal),
@@ -2031,6 +2100,7 @@ async function loadData(){
       ||(DATA.symbol||DATA.asset)!==symbol
     ) return;
     DATA_RECEIVED_AT=Date.now();
+    if(market==="us_stock") document.documentElement.classList.add("stock-data-ready");
     LAST_TIMING=null;
     LAST_HISTORY=null;
     $("spotPrice").textContent=formatPrice(DATA.spot_price,DATA.price_decimals);
@@ -2093,7 +2163,7 @@ function optionRows(){
   const rows=[];
   const expiries=DATA.expiries||DATA.exchanges?.Deribit?.expiries||{};
   Object.entries(expiries).forEach(([expiry,group])=>{
-    const sideRows=isBuyCall()?group.calls:group.puts;
+    const sideRows=isCallMode()?group.calls:group.puts;
     (sideRows||[]).forEach(row=>rows.push({...row,expiry:row.expiry||expiry}));
   });
   return rows;
@@ -2201,6 +2271,22 @@ function formatBid(row){
     html+=`<span class="cell-note">min ${formatPrice(row.min_premium_usd,2)} / ${formatAmount(row.min_trade_amount,4)} ${currentSymbol()} · ${t("obligation")} ${formatPrice(row.min_obligation_usd,2)}</span>`;
   }
   return html;
+}
+
+function coveredYieldHeader(){
+  const copy=_lang==="en"
+    ?"Call bid divided by the current underlying price, annualized. It measures premium income only and excludes the underlying return, assignment, fees, and slippage."
+    :"Call 顶档 Bid ÷ 当前标的价格后年化；只衡量权利金收入，不包含现货涨跌、行权、手续费和滑点。";
+  return tip(t("coveredYield"),copy);
+}
+
+function formatCoveredBid(row){
+  const decimals=DATA?.price_decimals===0?2:Math.min(4,(DATA?.price_decimals||2)+1);
+  const premium=finiteNumber(row.min_premium_usd);
+  const cover=isStockMode()
+    ?`${formatAmount(row.contract_multiplier??100,0)} 股`
+    :`${formatAmount(row.min_trade_amount??DATA?.min_trade_amount,4)} ${currentSymbol()}`;
+  return `${formatPrice(row.bid_usd,decimals)}<span class="cell-note">${t("contractPremium")} ${formatPrice(premium,2)} · ${t("coverRequirement")} ${cover}</span>`;
 }
 
 function finiteNumber(value){
@@ -2390,11 +2476,53 @@ function renderBuyCallSnapshot(){
   activateQuoteDepthLoading();
 }
 
+function renderCoveredCallSnapshot(){
+  const snapshot=$("snapshot");
+  const bounds=getBuyCallStrikeBounds();
+  if(!bounds.valid){
+    snapshot.innerHTML=`<div class="state error">${t("invalidStrikeRange")}</div>`;
+    return;
+  }
+  const rows=filterBuyCallRowsByStrike(optionRows(),bounds);
+  const spot=Number(DATA.spot_price);
+  const strikes=[...new Set(rows.map(row=>Number(row.strike)))].sort((a,b)=>a-b);
+  if(!strikes.length){
+    snapshot.innerHTML=`<div class="state">${t("noCalls")}</div>`;
+    return;
+  }
+  if(!window._snapStrike||!strikes.includes(Number(window._snapStrike))){
+    window._snapStrike=strikes.reduce((best,value)=>Math.abs(value-spot)<Math.abs(best-spot)?value:best);
+  }
+  const target=Number(window._snapStrike);
+  const selected=rows.filter(row=>Number(row.strike)===target).sort((a,b)=>a.days-b.days);
+  const options=strikes.map(strike=>
+    `<option value="${strike}"${strike===target?" selected":""}>${formatStrike(strike)} (${callMoneyness(strike,spot)})</option>`
+  ).join("");
+  let html=`<h2>Strike <select id="snapshotStrike">${options}</select> ${t("coveredSnapshot")}</h2>`;
+  html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${coveredYieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+  selected.forEach((row,index)=>{
+    const detailId=`covered-detail-snapshot-${index}`;
+    html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatCoveredBid(row)}${callQuoteDetailToggle(row,detailId)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+    html+=callQuoteDetailRow(row,detailId);
+  });
+  html+="</tbody></table></div>";
+  snapshot.innerHTML=html;
+  $("snapshotStrike").addEventListener("change",event=>{
+    window._snapStrike=Number(event.target.value);
+    renderSnapshot();
+  });
+  activateQuoteDepthLoading();
+}
+
 function renderSnapshot(){
   const snapshot=$("snapshot");
   if(!DATA){snapshot.innerHTML="";return}
   if(isBuyCall()){
     renderBuyCallSnapshot();
+    return;
+  }
+  if(isCoveredCall()){
+    renderCoveredCallSnapshot();
     return;
   }
   const rows=optionRows();
@@ -2483,10 +2611,55 @@ function renderBuyCall(){
   activateQuoteDepthLoading();
 }
 
+function renderCoveredCall(){
+  const spot=Number(DATA.spot_price);
+  const minYield=Number($("fYield").value)||0;
+  const maxDays=Number($("fDays").value)||0;
+  const sort=$("fSort").value;
+  const bounds=getBuyCallStrikeBounds();
+  if(!bounds.valid){
+    $("content").className="state error";
+    $("content").textContent=t("invalidStrikeRange");
+    return;
+  }
+  let rows=filterBuyCallRowsByStrike(optionRows(),bounds)
+    .filter(row=>Number(row.ann_yield)>=minYield);
+  if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
+  if(sort==="strike") rows.sort((a,b)=>b.strike-a.strike);
+  else if(sort==="days") rows.sort((a,b)=>a.days-b.days||b.ann_yield-a.ann_yield);
+  else rows.sort((a,b)=>b.ann_yield-a.ann_yield);
+  if(!rows.length){
+    $("content").className="state";
+    $("content").textContent=t("noCalls");
+    return;
+  }
+  const grouped={};
+  rows.forEach(row=>(grouped[row.expiry]??=[]).push(row));
+  let html="";
+  Object.keys(grouped).sort().forEach((expiry,expiryIndex)=>{
+    const expiryRows=grouped[expiry];
+    html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>${t("moneyness")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${coveredYieldHeader()}</th><th>${deltaHeader()}</th><th>${ivHeader()}</th></tr></thead><tbody>`;
+    expiryRows.forEach((row,rowIndex)=>{
+      const detailId=`covered-detail-list-${expiryIndex}-${rowIndex}`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${callMoneyness(row.strike,spot)}</td><td>${formatCoveredBid(row)}${callQuoteDetailToggle(row,detailId)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatDelta(row.delta)}</td><td>${formatIv(row.iv)}</td></tr>`;
+      html+=callQuoteDetailRow(row,detailId);
+    });
+    html+="</tbody></table></div></section>";
+  });
+  $("content").className="";
+  $("content").innerHTML=html;
+  activateQuoteDepthLoading();
+}
+
 function render(){
   if(!DATA){$("content").textContent=loadingCopy();return}
   if(isBuyCall()){
     renderBuyCall();
+    return;
+  }
+  if(isCoveredCall()){
+    renderCoveredCall();
     return;
   }
   const spot=Number(DATA.spot_price);
@@ -2524,12 +2697,12 @@ function render(){
 }
 
 function ownerChainHeader(){
-  if(isBuyCall()||isStockMode())return "";
+  if(isCallMode()||isStockMode())return "";
   return window.MangoOwner?.chainHeader?.()||"";
 }
 
 function ownerChainCell(row){
-  if(isBuyCall()||isStockMode())return "";
+  if(isCallMode()||isStockMode())return "";
   return window.MangoOwner?.chainCell?.(row)||"";
 }
 
@@ -2591,7 +2764,7 @@ function makeMarketChart(canvasId,id,series,priceData){
 
 function renderHistory(history){
   clearCharts();
-  if(isBuyCall()) return;
+  if(isCallMode()) return;
   if(isStockMode()||!history) return;
   const available=(history.available_charts||[])
     .filter(id=>id!=="price"&&history[id]?.timestamps?.length)
@@ -2610,15 +2783,15 @@ function renderHistory(history){
 
 function applyLang(){
   const symbol=currentSymbol();
-  const strategyName=isBuyCall()?"Buy Call":"Sell Put";
+  const strategyName=isBuyCall()?"Buy Call":isCoveredCall()?"Covered Call":"Sell Put";
+  const pageName=isStockMode()&&!symbol?t("usStocks"):`${symbol} ${strategyName}`;
   document.documentElement.lang=_lang;
   $("langBtn").textContent=t("langBtn");
   $("refreshBtn").textContent=t("refresh");
-  $("pageTitle").textContent=`${symbol} ${strategyName}`;
-  document.title=`${symbol} ${strategyName} Monitor`;
+  $("pageTitle").textContent=pageName;
+  document.title=`${pageName} Monitor`;
   setStrategyChrome();
   $("spotLabel").textContent=isStockMode()?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
-  $("stockTab").textContent=t("usStocks");
   $("stockSymbol").placeholder=t("stockPlaceholder");
   $("stockSymbolLabel").textContent=t("stockPlaceholder");
   $("stockSearchBtn").textContent=t("stockSearch");
@@ -2630,7 +2803,7 @@ function applyLang(){
   $("fMinStrike").placeholder=t("unlimited");
   $("fMaxStrike").placeholder=t("unlimited");
   $("labelSort").textContent=t("sort");
-  $("fStrike").options[0].textContent=isBuyCall()?t("allStrikes"):t("allOtm");
+  $("fStrike").options[0].textContent=isCallMode()?t("allStrikes"):t("allOtm");
   $("fStrike").options[1].textContent=t("nearAtm");
   $("fSort").options[0].textContent=isBuyCall()?t("moveAsc"):t("yieldDesc");
   $("fSort").options[1].textContent=isBuyCall()?t("premiumAsc"):t("strikeDesc");
@@ -2660,7 +2833,7 @@ function toggleLang(){
 }
 
 function handleCallQuoteDetailToggle(event){
-  if(!isBuyCall()) return;
+  if(!isCallMode()) return;
   const button=event.target.closest("[data-call-detail-toggle]");
   if(!button) return;
   const detailId=button.getAttribute("aria-controls");
@@ -2693,7 +2866,6 @@ function handleQuoteDepthClick(event){
 document.querySelectorAll("[data-asset]").forEach(button=>{
   button.addEventListener("click",()=>selectAsset(button.dataset.asset));
 });
-$("stockTab").addEventListener("click",()=>selectStock(currentStockSymbol));
 $("stockSearch").addEventListener("submit",event=>{
   event.preventDefault();
   selectStock($("stockSymbol").value,true);
@@ -2820,6 +2992,7 @@ document.addEventListener("visibilitychange",()=>{
 window.MangoDashboard={
   start:startDashboard,
   prepareStock,
+  prepareStockSearch,
   refresh:refreshDashboard,
   rerender:()=>{renderSnapshot();render()},
   apiUrl:(path,asset)=>apiUrl(path,asset),

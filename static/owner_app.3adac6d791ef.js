@@ -465,38 +465,39 @@
   }
 
   function configureNavigation(){
+    $("cryptoMarketNav").href=`${projectBase}/options/`;
     $("sellPutNav").href=`${ownerBase}options/`;
     $("buyCallNav").href=`${ownerBase}buy-call/`;
-    const nav=$("sellPutNav").parentElement;
+    $("coveredCallNav").href=`${ownerBase}covered-call/`;
+    const headerRight=$("cryptoMarketNav").closest(".right");
     if(!$("ownerPositionsNav")){
       const link=document.createElement("a");
       link.id="ownerPositionsNav";
       link.href=ownerBase;
       link.textContent="持仓";
-      nav.insertBefore(link,$("usOptionsNav")||null);
-    }
-    if(!$("usOptionsNav")){
-      const link=document.createElement("a");
-      link.id="usOptionsNav";
-      link.textContent="美股期权";
-      nav.appendChild(link);
+      link.className="utility-nav";
+      headerRight.insertBefore(link,$("ts"));
     }
     $("usOptionsNav").href=stockBase;
     if(positionsRoute){
       $("sellPutNav").classList.remove("on");
       $("buyCallNav").classList.remove("on");
+      $("coveredCallNav").classList.remove("on");
       $("ownerPositionsNav").classList.add("on");
       $("ownerPositionsNav").setAttribute("aria-current","page");
+      $("cryptoMarketNav").classList.add("on");
       $("pageTitle").textContent="Sell Put · 持仓";
       document.title="Sell Put Owner";
     }
     if(stockRoute){
-      const ticker=String(new URLSearchParams(window.location.search).get("ticker")||"AAPL")
+      const ticker=String(new URLSearchParams(window.location.search).get("ticker")||"")
         .trim().toUpperCase();
-      const tickerParam=encodeURIComponent(ticker);
-      $("sellPutNav").href=`${stockBase}?ticker=${tickerParam}`;
-      $("buyCallNav").href=`${stockBase}?strategy=buy_call&ticker=${tickerParam}`;
+      const tickerQuery=ticker?`&ticker=${encodeURIComponent(ticker)}`:"";
+      $("sellPutNav").href=`${stockBase}${ticker?`?ticker=${encodeURIComponent(ticker)}`:""}`;
+      $("buyCallNav").href=`${stockBase}?strategy=buy_call${tickerQuery}`;
+      $("coveredCallNav").href=`${stockBase}?strategy=covered_call${tickerQuery}`;
       $("ownerPositionsNav").classList.remove("on");
+      $("cryptoMarketNav").classList.remove("on");
       $("usOptionsNav").classList.add("on");
       $("usOptionsNav").setAttribute("aria-current","page");
       $("pageTitle").textContent="美股期权 · 搜索";
@@ -506,7 +507,9 @@
     if(rankingsRoute){
       $("sellPutNav").classList.remove("on");
       $("buyCallNav").classList.remove("on");
+      $("coveredCallNav").classList.remove("on");
       $("ownerPositionsNav").classList.remove("on");
+      $("cryptoMarketNav").classList.remove("on");
       $("usOptionsNav").classList.add("on");
       $("usOptionsNav").setAttribute("aria-current","page");
       $("pageTitle").textContent="OptionRank · 候选";
@@ -1658,10 +1661,14 @@
     }
     bindGlobalActionsOnce();
     if(stockRoute){
-      const ticker=new URLSearchParams(window.location.search).get("ticker")||"AAPL";
-      const prepared=window.MangoDashboard?.prepareStock?.(ticker);
-      if(!prepared)window.MangoDashboard?.prepareStock?.("AAPL");
-      window.MangoDashboard?.start?.();
+      const ticker=new URLSearchParams(window.location.search).get("ticker")||"";
+      if(ticker){
+        const prepared=window.MangoDashboard?.prepareStock?.(ticker);
+        if(prepared)window.MangoDashboard?.start?.();
+        else window.MangoDashboard?.prepareStockSearch?.();
+      }else{
+        window.MangoDashboard?.prepareStockSearch?.();
+      }
       return;
     }
     window.MangoDashboard?.start?.();
