@@ -1001,7 +1001,7 @@
         <div><span>现价距 Strike</span><strong>${signedPct(metrics.strike_distance_pct)}</strong></div>
       </div>
       ${unavailable?`<p class="owner-quote-warning">${esc(unavailable)}：未实现 P&amp;L、捕获率和基于报价的平仓结论已禁用；用户录入的持仓仍保留。</p>`:""}
-      <div class="owner-secondary-actions"><button type="button" class="owner-quiet" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑持仓</button><button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
+      <div class="owner-secondary-actions"><button type="button" class="owner-primary owner-close-action" data-owner-close="${esc(positionValue.id)}"${privateReady?"":" disabled"}>平仓</button><button type="button" class="owner-quiet" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑持仓</button><button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
       <details class="owner-research-card" open><summary><span>高级研究 / CVaR / 压力测试</span><span>可调压力区间</span></summary>${researchCard(positionValue)}</details>
     </div>`;
   }
@@ -1101,6 +1101,9 @@
     }));
     page.querySelectorAll("[data-owner-edit]").forEach(button=>button.addEventListener("click",()=>{
       openPositionDialog(positions.find(row=>row.id===button.dataset.ownerEdit));
+    }));
+    page.querySelectorAll("[data-owner-close]").forEach(button=>button.addEventListener("click",()=>{
+      openClosedRecordDialog(null,positions.find(row=>row.id===button.dataset.ownerClose));
     }));
     page.querySelectorAll("[data-owner-delete]").forEach(button=>button.addEventListener("click",()=>deletePosition(button.dataset.ownerDelete)));
     $("ownerClosedAdd")?.addEventListener("click",()=>openClosedRecordDialog());
@@ -1262,7 +1265,7 @@
   }
 
   function closedRecordDialogHtml(){
-    return `<dialog id="ownerClosedDialog" class="owner-dialog owner-entry-dialog owner-closed-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerClosedTitle"><form id="ownerClosedForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">TRACK RECORD</span><h2 id="ownerClosedTitle">录入平仓记录</h2><p class="owner-dialog-subtitle">只记录已确认的实现结果，不读取交易所数据。</p></div><button type="button" class="owner-dialog-close" id="ownerClosedClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerClosedId"><div class="owner-form-grid">
+    return `<dialog id="ownerClosedDialog" class="owner-dialog owner-entry-dialog owner-closed-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerClosedTitle"><form id="ownerClosedForm" method="dialog"><div class="owner-dialog-head"><div><span class="owner-kicker">TRACK RECORD</span><h2 id="ownerClosedTitle">录入平仓记录</h2><p class="owner-dialog-subtitle" id="ownerClosedSubtitle">只记录已确认的实现结果，不读取交易所数据。</p></div><button type="button" class="owner-dialog-close" id="ownerClosedClose" aria-label="关闭">×</button></div><input type="hidden" id="ownerClosedId"><input type="hidden" id="ownerClosedPositionId"><div class="owner-form-grid">
       <label><span>资产</span><select id="ownerClosedAsset" required><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="HYPE">HYPE</option></select></label>
       <label><span>行权价</span><input id="ownerClosedStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 60000" required></label>
       <label><span>到期日</span><input id="ownerClosedExpiry" type="date" required></label>
@@ -1331,19 +1334,40 @@
       saveClosedRecord();
     });
     $("ownerClosedForm").addEventListener("input",()=>{
-      if(!$("ownerClosedId").value){
+      if(!$("ownerClosedId").value&&!$("ownerClosedPositionId").value){
         localStorage.setItem(CLOSED_DRAFT_KEY,JSON.stringify(closedRecordDraft()));
       }
       updateClosedRecordPreview();
     });
   }
 
-  function openClosedRecordDialog(existing=null){
-    const draft=existing?null:readStoredJson(CLOSED_DRAFT_KEY);
-    const row=existing||draft||{};
+  function setClosedSourceMode(sourcePosition=null){
+    const linked=Boolean(sourcePosition);
+    $("ownerClosedPositionId").value=sourcePosition?.id||"";
+    $("ownerClosedAsset").disabled=linked;
+    for(const id of [
+      "ownerClosedStrike","ownerClosedExpiry","ownerClosedNotional",
+      "ownerClosedOpenDate","ownerClosedPremium",
+    ])$(id).readOnly=linked;
+  }
+
+  function openClosedRecordDialog(existing=null,sourcePosition=null){
+    const draft=existing||sourcePosition?null:readStoredJson(CLOSED_DRAFT_KEY);
+    const linked=sourcePosition?{
+      asset:sourcePosition.asset,
+      strike:sourcePosition.strike,
+      expiry:sourcePosition.expiry,
+      notional:sourcePosition.notional_btc,
+      open_date:sourcePosition.open_date,
+      open_premium_per_unit:sourcePosition.open_premium_per_btc,
+    }:null;
+    const row=existing||linked||draft||{};
     const asset=Strategy.normalizeAsset(row.asset||currentMarketAsset());
-    $("ownerClosedTitle").textContent=existing?"编辑平仓记录":"录入平仓记录";
-    $("ownerClosedSave").textContent=existing?"保存修改":"添加记录";
+    $("ownerClosedTitle").textContent=existing?"编辑平仓记录":sourcePosition?"确认平仓":"录入平仓记录";
+    $("ownerClosedSubtitle").textContent=sourcePosition
+      ?"填写实际平仓结果；保存后，该仓位会移入已平仓记录。"
+      :"只记录已确认的实现结果，不读取交易所数据。";
+    $("ownerClosedSave").textContent=existing?"保存修改":sourcePosition?"确认平仓":"添加记录";
     $("ownerClosedId").value=existing?.id||"";
     $("ownerClosedAsset").value=asset;
     $("ownerClosedStrike").value=inputValue(row.strike);
@@ -1355,6 +1379,7 @@
     $("ownerClosedCost").value=inputValue(row.close_cost_per_unit);
     $("ownerClosedFees").value=inputValue(row.fees_usd??0);
     $("ownerClosedNotes").value=row.notes||"";
+    setClosedSourceMode(sourcePosition);
     updateClosedAssetUi();
     updateClosedRecordPreview();
     $("ownerClosedError").textContent="";
@@ -1373,9 +1398,11 @@
     const button=$("ownerClosedSave");
     const errorNode=$("ownerClosedError");
     const editing=Boolean($("ownerClosedId").value);
+    const sourcePositionId=$("ownerClosedPositionId").value;
+    const closingPosition=Boolean(sourcePositionId);
     try{
       const normalized=Strategy.normalizeClosedPosition(closedRecordDraft());
-      const body={
+      const recordBody={
         owner_id:session.user.id,asset:normalized.asset,kind:"sell_put",
         strike:normalized.strike,expiry:normalized.expiry,
         notional:normalized.notional,
@@ -1387,20 +1414,32 @@
       button.disabled=true;
       button.textContent="保存中…";
       const id=$("ownerClosedId").value;
-      const rows=await rest(
-        id?`closed_positions?id=eq.${encodeURIComponent(id)}&owner_id=eq.${session.user.id}`:"closed_positions",
-        {method:id?"PATCH":"POST",body,prefer:"return=representation"},
-      );
+      const rows=closingPosition
+        ?await rest("rpc/close_owner_position",{
+          method:"POST",
+          body:{
+            p_position_id:sourcePositionId,
+            p_close_date:normalized.close_date,
+            p_close_cost_per_unit:normalized.close_cost_per_unit,
+            p_fees_usd:normalized.fees_usd,
+            p_notes:normalized.notes,
+          },
+        })
+        :await rest(
+          id?`closed_positions?id=eq.${encodeURIComponent(id)}&owner_id=eq.${session.user.id}`:"closed_positions",
+          {method:id?"PATCH":"POST",body:recordBody,prefer:"return=representation"},
+        );
       if(!rows?.length)throw new Error("平仓记录没有保存成功");
       localStorage.removeItem(CLOSED_DRAFT_KEY);
+      if(closingPosition)expandedPositionIds.delete(sourcePositionId);
       closeClosedRecordDialog();
       await loadPrivateData();
-      setNotice(editing?"平仓记录已更新。":"平仓记录已加入。","ok");
+      setNotice(editing?"平仓记录已更新。":closingPosition?"持仓已平仓并移入记录。":"平仓记录已加入。","ok");
     }catch(error){
       errorNode.textContent=error.message;
     }finally{
       button.disabled=false;
-      button.textContent=editing?"保存修改":"添加记录";
+      button.textContent=editing?"保存修改":closingPosition?"确认平仓":"添加记录";
     }
   }
 
