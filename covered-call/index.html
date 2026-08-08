@@ -173,10 +173,10 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .filters label{font-family:var(--mono);font-size:.64rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
 .filters select,.filters input{background:transparent;border:1px solid var(--line2);color:var(--text);padding:4px 7px;border-radius:0;font-family:var(--mono);font-size:.7rem}
 .filters input{width:76px}
-.call-strike-range{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
-.call-strike-range[hidden]{display:none}
+.filter-range{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
 .filters .range-field{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.filters .call-strike-range input{width:96px}
+.filters .filter-range input{width:96px}
+.filters .delta-range input{width:76px}
 .state{font-size:.72rem;color:var(--muted);padding:14px 0}
 .error{color:var(--red)}
 /* ============ EXPIRY GROUP HEADERS ============ */
@@ -544,7 +544,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .price-chart-foot{padding:3px 3px 0}
   .snapshot{padding:9px}
   .filters{gap:7px}
-  .call-strike-range{gap:6px}
+  .filter-range{gap:6px}
   .quote-detail-grid{grid-template-columns:repeat(2,minmax(90px,1fr))}
   .quote-detail-inner{position:sticky;left:0;width:min(560px,calc(100vw - 40px))}
   .quote-detail-toggle{min-height:28px}
@@ -724,13 +724,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
     <input id="fYield" type="number" value="5" min="0" step="1">
     <label for="fDays" id="labelDays">Max Days</label>
     <input id="fDays" type="number" value="0" min="0" placeholder="0=all">
-    <label for="fStrike" id="labelStrike">Strike</label>
-    <select id="fStrike">
-      <option value="all" selected>OTM (0–50% below spot)</option>
-      <option value="near">Near OTM (0–20% below spot)</option>
-      <option value="custom">Custom Strike</option>
-    </select>
-    <div class="call-strike-range" id="callStrikeRange" hidden>
+    <div class="filter-range strike-range" id="strikeRange">
       <label class="range-field" for="fMinStrike">
         <span id="labelMinStrike">最低 Strike</span>
         <input id="fMinStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="不限">
@@ -740,12 +734,16 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
         <input id="fMaxStrike" type="number" min="0" step="any" inputmode="decimal" placeholder="不限">
       </label>
     </div>
-    <label for="fSort" id="labelSort">Sort</label>
-    <select id="fSort">
-      <option value="yield">Yield ↓</option>
-      <option value="strike">Strike ↓</option>
-      <option value="days">Days ↑</option>
-    </select>
+    <div class="filter-range delta-range" id="deltaRange">
+      <label class="range-field" for="fMinDelta">
+        <span id="labelMinDelta">最低 Delta</span>
+        <input id="fMinDelta" type="number" min="-1" max="1" step="0.01" inputmode="decimal" placeholder="不限">
+      </label>
+      <label class="range-field" for="fMaxDelta">
+        <span id="labelMaxDelta">最高 Delta</span>
+        <input id="fMaxDelta" type="number" min="-1" max="1" step="0.01" inputmode="decimal" placeholder="不限">
+      </label>
+    </div>
   </section>
   <section id="content" class="state" aria-live="polite">Loading data...</section>
 
@@ -815,8 +813,7 @@ const STRINGS={
     researchOnly:"研究用，不用于下单",physical:"美式行权 · 股票实物交割",
     perContract:"每张",sharesPerContract:"每张 {count} 股",bidPerShare:"Bid / 股",
     contractPremium:"每张权利金",
-    minYield:"最低年化%",maxDays:"最长天数",strike:"Strike",sort:"排序",
-    allOtm:"OTM（现价下方 0–50%）",nearOtm:"近价 OTM（现价下方 0–20%）",customStrikeRange:"自定义 Strike",yieldDesc:"收益 ↓",strikeDesc:"Strike ↓",daysDesc:"天数 ↑",
+    minYield:"最低年化%",maxDays:"最长天数",
     cash:"USDC 现金结算",bestBid:"顶档 Bid",contract:"合约乘数",minimum:"最小交易",obligation:"最小资金义务",
     snapshot:"各到期日年化收益",baseline:"基准 IV",noStrike:"这个 Strike 暂无报价",
     noOptions:"没有符合筛选条件的 Put",expiry:"到期日",days:"天数",bid:"Bid / 单位",
@@ -825,8 +822,8 @@ const STRINGS={
     coveredCallRisk:"Covered Call 使用 Call 顶档 Bid 估算权利金；它会限制标的上涨收益，并可能在美股到期前被提前行权。下表只展示报价，不判断你是否已持有足够现货。",
     callQuoteBlocked:"报价已超过 120 秒，只能查看；请手动刷新后再判断。",
     stockCallBlocked:"美股为延迟研究行情，只能查看，不可据此下单。",
-    maxPremium:"最小订单成本上限 $",allStrikes:"全部有 Ask 的 Strike",minStrike:"最低 Strike",maxStrike:"最高 Strike",
-    unlimited:"不限",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",moveAsc:"所需涨幅 ↑",premiumAsc:"订单成本 ↑",
+    maxPremium:"最小订单成本上限 $",minStrike:"最低 Strike",maxStrike:"最高 Strike",minDelta:"最低 Delta",maxDelta:"最高 Delta",
+    unlimited:"不限",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",invalidDeltaRange:"Delta 必须在 -1 到 1 之间，且最低不能高于最高",
     callSnapshot:"各到期日成本与回本点",noCalls:"没有符合筛选条件的 Call",
     coveredSnapshot:"各到期日权利金年化",coveredYield:"权利金条件年化",coverRequirement:"覆盖要求",
     ask:"Ask / 单位",askPerShare:"Ask / 股",bestAsk:"顶档 Ask",
@@ -870,8 +867,7 @@ const STRINGS={
     researchOnly:"Research only, not for trading",physical:"American exercise · physical share settlement",
     perContract:"per contract",sharesPerContract:"{count} shares per contract",bidPerShare:"Bid / share",
     contractPremium:"Premium per contract",
-    minYield:"Min Yield%",maxDays:"Max Days",strike:"Strike",sort:"Sort",
-    allOtm:"OTM (0–50% below spot)",nearOtm:"Near OTM (0–20% below spot)",customStrikeRange:"Custom Strike",yieldDesc:"Yield ↓",strikeDesc:"Strike ↓",daysDesc:"Days ↑",
+    minYield:"Min Yield%",maxDays:"Max Days",
     cash:"USDC cash-settled",bestBid:"Top-of-book bid",contract:"Contract multiplier",minimum:"Minimum",obligation:"Min obligation",
     snapshot:"Annualized yield by expiry",baseline:"Baseline IV",noStrike:"No quote for this strike",
     noOptions:"No puts match the filters",expiry:"Expiry",days:"Days",bid:"Bid / unit",
@@ -880,8 +876,8 @@ const STRINGS={
     coveredCallRisk:"Covered Call premium uses the top-of-book call bid. The strategy caps upside and U.S. contracts can be assigned early. This page shows quotes only and does not verify that you hold enough of the underlying.",
     callQuoteBlocked:"The quote is over 120 seconds old. View only; refresh manually before making a decision.",
     stockCallBlocked:"U.S. stock data is delayed and for research only; do not use it to place an order.",
-    maxPremium:"Max minimum-order cost $",allStrikes:"All strikes with an ask",minStrike:"Min Strike",maxStrike:"Max Strike",
-    unlimited:"No limit",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",moveAsc:"Required move ↑",premiumAsc:"Order cost ↑",
+    maxPremium:"Max minimum-order cost $",minStrike:"Min Strike",maxStrike:"Max Strike",minDelta:"Min Delta",maxDelta:"Max Delta",
+    unlimited:"No limit",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",invalidDeltaRange:"Delta must stay between -1 and 1, and minimum cannot exceed maximum",
     callSnapshot:"Cost and breakeven by expiry",noCalls:"No calls match the filters",
     coveredSnapshot:"Premium APR by expiry",coveredYield:"Conditional premium APR",coverRequirement:"Cover required",
     ask:"Ask / unit",askPerShare:"Ask / share",bestAsk:"Top-of-book ask",
@@ -919,7 +915,6 @@ function isBuyCall(){return STRATEGY_MODE==="buy_call"}
 function isCoveredCall(){return STRATEGY_MODE==="covered_call"}
 function isCallMode(){return isBuyCall()||isCoveredCall()}
 function isStockMode(){return currentMarket==="us_stock"}
-function supportsCustomSellPutStrikeRange(){return isStockMode()&&!isCallMode()}
 function currentSymbol(){return isStockMode()?currentStockSymbol:currentAsset}
 function selectionKey(){return `${currentMarket}:${currentSymbol()}`}
 function loadingCopy(){return isStockMode()?t("stockLoading"):t("loading")}
@@ -1153,19 +1148,6 @@ function setTimeframeButtons(){
   });
 }
 
-function syncStrikeRangeVisibility(){
-  const callMode=isCallMode();
-  const supported=supportsCustomSellPutStrikeRange();
-  const customOption=$("fStrike").querySelector('option[value="custom"]');
-  if(customOption){
-    customOption.hidden=!supported;
-    customOption.disabled=!supported;
-  }
-  if(!supported&&$("fStrike").value==="custom") $("fStrike").value="all";
-  const custom=supportsCustomSellPutStrikeRange()&&$("fStrike").value==="custom";
-  $("callStrikeRange").hidden=!(callMode||custom);
-}
-
 function setStrategyChrome(){
   const sellPutLink=$("sellPutNav");
   const buyCallLink=$("buyCallNav");
@@ -1181,9 +1163,6 @@ function setStrategyChrome(){
     if(active) link.setAttribute("aria-current","page");
     else link.removeAttribute("aria-current");
   });
-  $("labelStrike").hidden=callMode;
-  $("fStrike").hidden=callMode;
-  syncStrikeRangeVisibility();
   sellPutLink.textContent=t("sellPutNav");
   buyCallLink.textContent=t("buyCallNav");
   coveredCallLink.textContent=t("coveredCallNav");
@@ -1426,10 +1405,6 @@ function clearAssetView(){
   LAST_TIMING=null;
   LAST_HISTORY=null;
   window._snapStrike=null;
-  if(isCallMode()){
-    $("fMinStrike").value="";
-    $("fMaxStrike").value="";
-  }
   $("spotPrice").textContent="—";
   $("spotLabel").textContent=isStockMode()?`${currentStockSymbol} ${t("stockSpot")}`:`${currentAsset} Spot`;
   $("marketMeta").textContent="";
@@ -1443,6 +1418,11 @@ function clearAssetView(){
   clearCharts();
 }
 
+function clearStrikeRange(){
+  $("fMinStrike").value="";
+  $("fMaxStrike").value="";
+}
+
 function selectAsset(asset){
   if(!ASSETS[asset]||(!isStockMode()&&asset===currentAsset)) return;
   currentMarket="crypto";
@@ -1452,6 +1432,7 @@ function selectAsset(asset){
   if(requestController) requestController.abort();
   priceRequestVersion++;
   if(priceRequestController) priceRequestController.abort();
+  clearStrikeRange();
   setAssetButtons();
   clearAssetView();
   applyLang();
@@ -1533,10 +1514,7 @@ function selectStock(symbolValue=currentStockSymbol,force=false){
   if(requestController) requestController.abort();
   priceRequestVersion++;
   if(priceRequestController) priceRequestController.abort();
-  if(!unchanged){
-    $("fMinStrike").value="";
-    $("fMaxStrike").value="";
-  }
+  if(!unchanged) clearStrikeRange();
   clearAssetView();
   applyLang();
   loadData();
@@ -2314,7 +2292,7 @@ function finiteNumber(value){
   return Number.isFinite(number)?number:null;
 }
 
-function getBuyCallStrikeBounds(){
+function getStrikeBounds(){
   const min=finiteNumber($("fMinStrike").value);
   const max=finiteNumber($("fMaxStrike").value);
   return {
@@ -2326,7 +2304,40 @@ function getBuyCallStrikeBounds(){
   };
 }
 
-function filterBuyCallRowsByStrike(rows,bounds=getBuyCallStrikeBounds()){
+function getDeltaBounds(){
+  const min=finiteNumber($("fMinDelta").value);
+  const max=finiteNumber($("fMaxDelta").value);
+  return {
+    min,
+    max,
+    valid:(min===null||(min>=-1&&min<=1))
+      &&(max===null||(max>=-1&&max<=1))
+      &&(min===null||max===null||min<=max)
+  };
+}
+
+function getOptionFilterBounds(){
+  return {strike:getStrikeBounds(),delta:getDeltaBounds()};
+}
+
+function filterValidationError(bounds){
+  if(!bounds.strike.valid) return t("invalidStrikeRange");
+  if(!bounds.delta.valid) return t("invalidDeltaRange");
+  return "";
+}
+
+function filterRowsByDelta(rows,bounds=getDeltaBounds()){
+  if(!bounds.valid) return [];
+  if(bounds.min===null&&bounds.max===null) return rows;
+  return rows.filter(row=>{
+    const delta=finiteNumber(row.delta);
+    return delta!==null
+      &&(bounds.min===null||delta>=bounds.min)
+      &&(bounds.max===null||delta<=bounds.max);
+  });
+}
+
+function filterCallRowsByStrike(rows,bounds=getStrikeBounds()){
   if(!bounds.valid) return [];
   return rows.filter(row=>{
     const strike=Number(row.strike);
@@ -2455,12 +2466,16 @@ function callMoneyness(strike,spot=Number(DATA?.spot_price)){
 
 function renderBuyCallSnapshot(){
   const snapshot=$("snapshot");
-  const bounds=getBuyCallStrikeBounds();
-  if(!bounds.valid){
-    snapshot.innerHTML=`<div class="state error">${t("invalidStrikeRange")}</div>`;
+  const bounds=getOptionFilterBounds();
+  const validationError=filterValidationError(bounds);
+  if(validationError){
+    snapshot.innerHTML=`<div class="state error">${validationError}</div>`;
     return;
   }
-  const rows=filterBuyCallRowsByStrike(optionRows(),bounds);
+  const rows=filterRowsByDelta(
+    filterCallRowsByStrike(optionRows(),bounds.strike),
+    bounds.delta
+  );
   const spot=Number(DATA.spot_price);
   const strikes=[...new Set(rows.map(row=>Number(row.strike)))].sort((a,b)=>a-b);
   if(!strikes.length){
@@ -2497,12 +2512,16 @@ function renderBuyCallSnapshot(){
 
 function renderCoveredCallSnapshot(){
   const snapshot=$("snapshot");
-  const bounds=getBuyCallStrikeBounds();
-  if(!bounds.valid){
-    snapshot.innerHTML=`<div class="state error">${t("invalidStrikeRange")}</div>`;
+  const bounds=getOptionFilterBounds();
+  const validationError=filterValidationError(bounds);
+  if(validationError){
+    snapshot.innerHTML=`<div class="state error">${validationError}</div>`;
     return;
   }
-  const rows=filterBuyCallRowsByStrike(optionRows(),bounds);
+  const rows=filterRowsByDelta(
+    filterCallRowsByStrike(optionRows(),bounds.strike),
+    bounds.delta
+  );
   const spot=Number(DATA.spot_price);
   const strikes=[...new Set(rows.map(row=>Number(row.strike)))].sort((a,b)=>a-b);
   if(!strikes.length){
@@ -2536,29 +2555,19 @@ function renderCoveredCallSnapshot(){
 function filterSellPutRowsByStrike(
   rows,
   spot,
-  strikeFilter="all",
-  bounds={min:null,max:null,valid:true}
+  bounds=getStrikeBounds()
 ){
   const normalizedSpot=Number(spot);
   if(!Number.isFinite(normalizedSpot)||normalizedSpot<=0) return [];
-  if(strikeFilter==="custom"&&!bounds.valid) return [];
-  const minimumRatio=strikeFilter==="near"?.8:.5;
+  if(!bounds.valid) return [];
   return rows.filter(row=>{
     const strike=Number(row.strike);
     return Number.isFinite(strike)
       &&strike>0
       &&strike<normalizedSpot
-      &&(strikeFilter==="custom"
-        ?(bounds.min===null||strike>=bounds.min)
-          &&(bounds.max===null||strike<=bounds.max)
-        :strike>=normalizedSpot*minimumRatio);
+      &&(bounds.min===null||strike>=bounds.min)
+      &&(bounds.max===null||strike<=bounds.max);
   });
-}
-
-function getSellPutStrikeSelection(){
-  const mode=$("fStrike").value;
-  const bounds=getBuyCallStrikeBounds();
-  return {mode,bounds,valid:mode!=="custom"||bounds.valid};
 }
 
 function renderSnapshot(){
@@ -2573,12 +2582,16 @@ function renderSnapshot(){
     return;
   }
   const spot=Number(DATA.spot_price);
-  const selection=getSellPutStrikeSelection();
-  if(!selection.valid){
-    snapshot.innerHTML=`<div class="state error">${t("invalidStrikeRange")}</div>`;
+  const bounds=getOptionFilterBounds();
+  const validationError=filterValidationError(bounds);
+  if(validationError){
+    snapshot.innerHTML=`<div class="state error">${validationError}</div>`;
     return;
   }
-  const rows=filterSellPutRowsByStrike(optionRows(),spot,selection.mode,selection.bounds);
+  const rows=filterRowsByDelta(
+    filterSellPutRowsByStrike(optionRows(),spot,bounds.strike),
+    bounds.delta
+  );
   const strikes=[...new Set(rows.map(row=>Number(row.strike)))].sort((a,b)=>b-a);
   if(!strikes.length){
     snapshot.innerHTML=`<div class="state">${t("noOptions")}</div>`;
@@ -2619,22 +2632,23 @@ function renderBuyCall(){
   const spot=Number(DATA.spot_price);
   const maxPremium=Number($("fYield").value)||0;
   const maxDays=Number($("fDays").value)||0;
-  const sort=$("fSort").value;
-  const bounds=getBuyCallStrikeBounds();
-  if(!bounds.valid){
+  const bounds=getOptionFilterBounds();
+  const validationError=filterValidationError(bounds);
+  if(validationError){
     $("content").className="state error";
-    $("content").textContent=t("invalidStrikeRange");
+    $("content").textContent=validationError;
     return;
   }
-  let rows=filterBuyCallRowsByStrike(optionRows(),bounds);
+  let rows=filterRowsByDelta(
+    filterCallRowsByStrike(optionRows(),bounds.strike),
+    bounds.delta
+  );
   if(maxPremium>0) rows=rows.filter(row=>{
     const cost=callCost(row);
     return cost!==null&&cost<=maxPremium;
   });
   if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
-  if(sort==="move") rows.sort((a,b)=>(callBreakevenMove(a)??Infinity)-(callBreakevenMove(b)??Infinity));
-  else if(sort==="premium") rows.sort((a,b)=>(callCost(a)??Infinity)-(callCost(b)??Infinity));
-  else rows.sort((a,b)=>a.days-b.days||(callBreakevenMove(a)??Infinity)-(callBreakevenMove(b)??Infinity));
+  rows.sort((a,b)=>(callBreakevenMove(a)??Infinity)-(callBreakevenMove(b)??Infinity));
   if(!rows.length){
     $("content").className="state";
     $("content").textContent=t("noCalls");
@@ -2668,19 +2682,20 @@ function renderCoveredCall(){
   const spot=Number(DATA.spot_price);
   const minYield=Number($("fYield").value)||0;
   const maxDays=Number($("fDays").value)||0;
-  const sort=$("fSort").value;
-  const bounds=getBuyCallStrikeBounds();
-  if(!bounds.valid){
+  const bounds=getOptionFilterBounds();
+  const validationError=filterValidationError(bounds);
+  if(validationError){
     $("content").className="state error";
-    $("content").textContent=t("invalidStrikeRange");
+    $("content").textContent=validationError;
     return;
   }
-  let rows=filterBuyCallRowsByStrike(optionRows(),bounds)
+  let rows=filterRowsByDelta(
+    filterCallRowsByStrike(optionRows(),bounds.strike),
+    bounds.delta
+  )
     .filter(row=>Number(row.ann_yield)>=minYield);
   if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
-  if(sort==="strike") rows.sort((a,b)=>b.strike-a.strike);
-  else if(sort==="days") rows.sort((a,b)=>a.days-b.days||b.ann_yield-a.ann_yield);
-  else rows.sort((a,b)=>b.ann_yield-a.ann_yield);
+  rows.sort((a,b)=>b.ann_yield-a.ann_yield);
   if(!rows.length){
     $("content").className="state";
     $("content").textContent=t("noCalls");
@@ -2718,19 +2733,20 @@ function render(){
   const spot=Number(DATA.spot_price);
   const minYield=Number($("fYield").value)||0;
   const maxDays=Number($("fDays").value)||0;
-  const sort=$("fSort").value;
-  const selection=getSellPutStrikeSelection();
-  if(!selection.valid){
+  const bounds=getOptionFilterBounds();
+  const validationError=filterValidationError(bounds);
+  if(validationError){
     $("content").className="state error";
-    $("content").textContent=t("invalidStrikeRange");
+    $("content").textContent=validationError;
     return;
   }
-  let rows=filterSellPutRowsByStrike(optionRows(),spot,selection.mode,selection.bounds)
+  let rows=filterRowsByDelta(
+    filterSellPutRowsByStrike(optionRows(),spot,bounds.strike),
+    bounds.delta
+  )
     .filter(row=>Number(row.ann_yield)>=minYield);
   if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
-  if(sort==="yield") rows.sort((a,b)=>b.ann_yield-a.ann_yield);
-  else if(sort==="strike") rows.sort((a,b)=>b.strike-a.strike);
-  else rows.sort((a,b)=>a.days-b.days||b.ann_yield-a.ann_yield);
+  rows.sort((a,b)=>b.ann_yield-a.ann_yield);
   if(!rows.length){
     $("content").className="state";
     $("content").textContent=t("noOptions");
@@ -2855,18 +2871,14 @@ function applyLang(){
   $("stockSearchBtn").textContent=t("stockSearch");
   $("labelYield").textContent=isBuyCall()?t("maxPremium"):t("minYield");
   $("labelDays").textContent=t("maxDays");
-  $("labelStrike").textContent=t("strike");
   $("labelMinStrike").textContent=t("minStrike");
   $("labelMaxStrike").textContent=t("maxStrike");
+  $("labelMinDelta").textContent=t("minDelta");
+  $("labelMaxDelta").textContent=t("maxDelta");
   $("fMinStrike").placeholder=t("unlimited");
   $("fMaxStrike").placeholder=t("unlimited");
-  $("labelSort").textContent=t("sort");
-  $("fStrike").options[0].textContent=isCallMode()?t("allStrikes"):t("allOtm");
-  $("fStrike").options[1].textContent=t("nearOtm");
-  $("fStrike").options[2].textContent=t("customStrikeRange");
-  $("fSort").options[0].textContent=isBuyCall()?t("moveAsc"):t("yieldDesc");
-  $("fSort").options[1].textContent=isBuyCall()?t("premiumAsc"):t("strikeDesc");
-  $("fSort").options[2].textContent=t("daysDesc");
+  $("fMinDelta").placeholder=t("unlimited");
+  $("fMaxDelta").placeholder=t("unlimited");
   if(!isStockMode()){
     setTimeframeButtons();
     renderPriceChartCopy();
@@ -2934,19 +2946,14 @@ document.querySelectorAll("[data-timeframe]").forEach(button=>{
 });
 $("langBtn").addEventListener("click",toggleLang);
 $("refreshBtn").addEventListener("click",refreshDashboard);
-["fYield","fDays","fSort"].forEach(id=>{
+["fYield","fDays"].forEach(id=>{
   $(id).addEventListener("change",render);
   $(id).addEventListener("input",()=>{
     clearTimeout(window._renderTimer);
     window._renderTimer=setTimeout(render,250);
   });
 });
-$("fStrike").addEventListener("change",()=>{
-  syncStrikeRangeVisibility();
-  renderSnapshot();
-  render();
-});
-["fMinStrike","fMaxStrike"].forEach(id=>{
+["fMinStrike","fMaxStrike","fMinDelta","fMaxDelta"].forEach(id=>{
   $(id).addEventListener("change",()=>{
     renderSnapshot();
     render();
@@ -3006,8 +3013,6 @@ const hoverTooltipObserver=new MutationObserver(()=>{
 if(isBuyCall()){
   $("fYield").value="0";
   $("fYield").placeholder="0=all";
-  $("fSort").options[0].value="move";
-  $("fSort").options[1].value="premium";
 }
 setAssetButtons();
 setTimeframeButtons();
