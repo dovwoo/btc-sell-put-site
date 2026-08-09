@@ -2421,8 +2421,8 @@ function formatGreekNumber(value,kind){
   const number=Number(value);
   if(!Number.isFinite(number)) return "—";
   const absolute=Math.abs(number);
-  if(kind==="gamma"&&absolute>0&&absolute<.0001) return number.toExponential(2);
-  const digits=kind==="gamma"?6:absolute>=100?1:absolute>=1?2:absolute>=.01?3:4;
+  if(kind==="gamma") return number.toFixed(8).replace(/\.?0+$/,"");
+  const digits=absolute>=100?1:absolute>=1?2:absolute>=.01?3:4;
   return String(Number(number.toFixed(digits)));
 }
 
