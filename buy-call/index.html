@@ -738,6 +738,28 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
     </div>
   </section>
 
+  <section class="context-charts" id="contextCharts" aria-labelledby="ivContextTitle">
+    <header class="context-head">
+      <div>
+        <h2 id="ivContextTitle">IV 历史与波动率溢价</h2>
+        <p id="ivContextSubtitle">30D ATM IV · VRP · 标的价格</p>
+      </div>
+      <div class="iv-range-switch" id="ivRangeSwitch" role="group" aria-label="IV 历史区间">
+        <button type="button" data-iv-days="30" aria-pressed="false">30D</button>
+        <button type="button" class="on" data-iv-days="90" aria-pressed="true">90D</button>
+        <button type="button" data-iv-days="365" aria-pressed="false">1Y</button>
+      </div>
+    </header>
+    <div class="iv-metrics" id="ivMetrics" aria-live="polite"></div>
+    <p class="iv-context-note" id="ivContextNote"></p>
+    <div class="iv-context-state" id="ivContextState">正在加载 IV 历史…</div>
+    <section class="chart-grid" id="chartGrid" style="display:none">
+      <div class="chart-box" id="chartBox0" style="display:none"><h3></h3><canvas id="marketChart0"></canvas></div>
+      <div class="chart-box" id="chartBox1" style="display:none"><h3></h3><canvas id="marketChart1"></canvas></div>
+      <div class="chart-box" id="chartBox2" style="display:none"><h3></h3><canvas id="marketChart2"></canvas></div>
+    </section>
+  </section>
+
   <section class="snapshot" id="snapshot"></section>
 
   <section class="filters" aria-label="Option filters">
@@ -767,28 +789,6 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
     </div>
   </section>
   <section id="content" class="state" aria-live="polite">Loading data...</section>
-
-  <section class="context-charts" id="contextCharts" aria-labelledby="ivContextTitle">
-    <header class="context-head">
-      <div>
-        <h2 id="ivContextTitle">IV 历史与波动率溢价</h2>
-        <p id="ivContextSubtitle">30D ATM IV · VRP · 标的价格</p>
-      </div>
-      <div class="iv-range-switch" id="ivRangeSwitch" role="group" aria-label="IV 历史区间">
-        <button type="button" data-iv-days="30" aria-pressed="false">30D</button>
-        <button type="button" class="on" data-iv-days="90" aria-pressed="true">90D</button>
-        <button type="button" data-iv-days="365" aria-pressed="false">1Y</button>
-      </div>
-    </header>
-    <div class="iv-metrics" id="ivMetrics" aria-live="polite"></div>
-    <p class="iv-context-note" id="ivContextNote"></p>
-    <div class="iv-context-state" id="ivContextState">正在加载 IV 历史…</div>
-    <section class="chart-grid" id="chartGrid" style="display:none">
-      <div class="chart-box" id="chartBox0" style="display:none"><h3></h3><canvas id="marketChart0"></canvas></div>
-      <div class="chart-box" id="chartBox1" style="display:none"><h3></h3><canvas id="marketChart1"></canvas></div>
-      <div class="chart-box" id="chartBox2" style="display:none"><h3></h3><canvas id="marketChart2"></canvas></div>
-    </section>
-  </section>
 </main>
 <div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
 <script>
