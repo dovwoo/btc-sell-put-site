@@ -9,6 +9,10 @@
   const ASSETS=["BTC","ETH","HYPE"];
   const VENUES=["binance","okx","deribit"];
   const VENUE_LABELS={binance:"Binance",okx:"OKX",deribit:"Deribit"};
+  const CONTEXT_LABELS={
+    live:"实时快照",historical_backfill:"历史回填",
+    daily_estimate:"日级估算",unavailable:"不可恢复",
+  };
   const EXIT_LABELS={
     capture_70_25:"70/25",
     low_remaining_apr:"低剩余 APR",
@@ -81,23 +85,68 @@
     )||null;
   }
 
+  function openingRequest({openDate,openTime=""},nowMs=Date.now()){
+    const date=String(openDate||"").trim();
+    const time=String(openTime||"").trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error("请填写有效的开仓日期");
+    const parts=date.split("-").map(Number);
+    const start=new Date(parts[0],parts[1]-1,parts[2],0,0,0,0);
+    if(!Number.isFinite(start.getTime())||start.getFullYear()!==parts[0]||
+      start.getMonth()!==parts[1]-1||start.getDate()!==parts[2]){
+      throw new Error("请填写有效的开仓日期");
+    }
+    if(start.getTime()>nowMs)throw new Error("开仓日期不能晚于今天");
+    if(!time)throw new Error("请按成交记录填写开仓时间");
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))throw new Error("请填写有效的开仓时间");
+    const [hour,minute]=time.split(":").map(Number);
+    const exact=new Date(parts[0],parts[1]-1,parts[2],hour,minute,0,0);
+    if(exact.getTime()>nowMs+5*60*1000)throw new Error("开仓时间不能晚于现在");
+    return {requested_at:exact.toISOString(),opened_at:exact.toISOString(),precision:"minute"};
+  }
+
+  function historicalContextObject(value){
+    if(!value||typeof value!=="object"||Array.isArray(value))return {};
+    return {...value};
+  }
+
+  function liveOpeningEligible(openedAt,precision,nowMs){
+    if(precision!=="minute")return false;
+    const timestamp=Date.parse(String(openedAt||""));
+    if(!Number.isFinite(timestamp))return false;
+    const age=nowMs-timestamp;
+    return age>=-5*60*1000&&age<=10*60*1000;
+  }
+
   function buildOpenSnapshot({
     position,research,timing=null,availableBefore=null,reasonText="",venue="deribit",
-    nowMs=Date.now(),
+    openedAt=null,openPrecision="daily",historicalContext=null,nowMs=Date.now(),
   }){
+    const context=historicalContextObject(historicalContext);
     const quote=findQuote(position,research);
-    const usable=Boolean(quote)&&sourceUsable(research,nowMs);
+    const liveCandidate=liveOpeningEligible(openedAt,openPrecision,nowMs);
+    const usable=Boolean(quote)&&sourceUsable(research,nowMs)&&liveCandidate;
     const asof=finite(research?.source_status?.chain_asof_epoch_ms);
-    const age=asof===null?null:Math.max(0,Math.round((nowMs-asof)/1000));
+    const age=liveCandidate&&asof!==null?Math.max(0,Math.round((nowMs-asof)/1000)):null;
     const card=quote?.card||{};
     const expected=card.expected||{};
     const capital=finite(position?.strike)*finite(position?.notional_btc);
     const cvarReturn=finite(expected.cvar95_horizon_return_pct);
     const timingAsset=String(timing?.asset||position?.asset||"").toUpperCase();
     const sameTimingAsset=timingAsset===String(position?.asset||"").toUpperCase();
+    const contextMethod=usable?"live":["historical_backfill","daily_estimate"]
+      .includes(String(context.capture_method||""))?String(context.capture_method):"unavailable";
+    const regime=context.market_regime&&typeof context.market_regime==="object"
+      ?context.market_regime:{};
     return {
       venue:normalizeVenue(venue),
-      spot_usd:usable?finite(research?.spot):null,
+      opened_at:openPrecision==="minute"?text(openedAt,64):null,
+      open_time_precision:openPrecision==="minute"?"minute":"daily",
+      context_capture_method:contextMethod,
+      context_asof_at:usable&&asof!==null
+        ?new Date(asof).toISOString():text(context.context_asof_at,64),
+      context_source:usable?"Live option chain + historical context":text(context.source,200),
+      market_context:context,
+      spot_usd:usable?finite(research?.spot):finite(context.spot_usd),
       bid_per_unit:usable?finite(quote?.bid_usd):null,
       ask_per_unit:usable?finite(quote?.ask_usd):null,
       mark_per_unit:usable?finite(quote?.mark_usd):null,
@@ -106,14 +155,16 @@
       gamma:usable?finite(quote?.gamma):null,
       theta_usd_per_day:usable?finite(quote?.theta):null,
       vega_usd_per_iv_pt:usable?finite(quote?.vega):null,
-      timing_signal:sameTimingAsset?text(timing?.action_code||timing?.action||"",64):null,
+      timing_signal:usable&&sameTimingAsset
+        ?text(timing?.action_code||timing?.action||"",64)
+        :text(regime.code||"",64),
       quote_freshness_seconds:age,
       conditional_apr_pct:usable?finite(card.net_conditional_apr_pct):null,
       expected_excess_rwa_apr_pct:usable
         ?finite(expected.expected_excess_rwa_apr_pct):null,
       cvar95_usd:usable&&cvarReturn!==null&&Number.isFinite(capital)
         ?capital*cvarReturn/100:null,
-      available_before_usd:finite(availableBefore),
+      available_before_usd:usable?finite(availableBefore):null,
       reason_text:text(reasonText),
     };
   }
@@ -126,6 +177,13 @@
       ...raw,
       venue:normalizeVenue(raw.venue),
       asset,
+      opened_at:text(raw.opened_at,64),
+      open_time_precision:raw.open_time_precision==="minute"?"minute":"daily",
+      context_capture_method:Object.hasOwn(CONTEXT_LABELS,raw.context_capture_method)
+        ?raw.context_capture_method:"unavailable",
+      context_asof_at:text(raw.context_asof_at,64),
+      context_source:text(raw.context_source,200),
+      market_context:historicalContextObject(raw.market_context),
       strike:finite(raw.strike),notional:finite(raw.notional),
       open_premium_per_unit:finite(raw.open_premium_per_unit),
       spot_usd:finite(raw.spot_usd),bid_per_unit:finite(raw.bid_per_unit),
@@ -239,8 +297,8 @@
   }
 
   return {
-    EXIT_LABELS,VENUE_LABELS,buildOpenSnapshot,normalizeSnapshot,normalizeReview,
+    EXIT_LABELS,VENUE_LABELS,CONTEXT_LABELS,buildOpenSnapshot,normalizeSnapshot,normalizeReview,
     joinReviewRows,aggregate,strategySummary,filterRows,sourceUsable,
-    normalizeVenue,estimateCloseFee,
+    normalizeVenue,estimateCloseFee,openingRequest,liveOpeningEligible,
   };
 });
