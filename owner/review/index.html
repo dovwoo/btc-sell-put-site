@@ -626,6 +626,112 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .owner-stress-chart line.zero{stroke:var(--line3);stroke-dasharray:5 5;vector-effect:non-scaling-stroke}
 .owner-stress-chart text{fill:var(--muted);font-family:var(--mono);font-size:13px}
 .owner-stress-summary{border-top:1px solid var(--line)}
+/* ============ OWNER SCENARIO STRESS ============ */
+.owner-scenario-page{display:none;min-width:0;margin-bottom:28px}
+.owner-scenario-route main.wrap>:not(.owner-scenario-page){display:none!important}
+.owner-scenario-route .owner-scenario-page{display:block}
+.owner-scenario-route .wrap{max-width:1480px;padding:18px 20px 40px}
+.owner-scenario-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:14px;border:1px solid var(--line2);background:var(--line2)}
+.owner-scenario-control{display:grid;grid-template-columns:1fr 84px;align-items:center;gap:10px;padding:14px;background:var(--panel)}
+.owner-scenario-control label{grid-column:1/-1;display:flex;justify-content:space-between;color:var(--muted);font-family:var(--mono);font-size:.56rem}
+.owner-scenario-control label strong{color:var(--amber);font-size:.7rem}
+.owner-scenario-control input[type="range"]{width:100%;accent-color:var(--amber)}
+.owner-scenario-control input[type="number"]{height:34px;padding:0 8px;text-align:right}
+.owner-scenario-presets{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0}
+.owner-scenario-presets button{min-height:34px;padding:0 12px;border:1px solid var(--line2);background:transparent;color:var(--text2);font-family:var(--mono);font-size:.56rem;cursor:pointer}
+.owner-scenario-presets button:hover,.owner-scenario-presets button:focus-visible{border-color:var(--amber);color:var(--amber)}
+.owner-scenario-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border:1px solid var(--line2);background:var(--line2)}
+.owner-scenario-summary>div{padding:14px;background:var(--panel2)}
+.owner-scenario-summary span{display:block;color:var(--muted);font-family:var(--mono);font-size:.53rem}
+.owner-scenario-summary strong{display:block;margin-top:6px;font-family:var(--mono);font-size:.9rem;font-variant-numeric:tabular-nums}
+.owner-scenario-summary small{display:block;margin-top:4px;color:var(--faint);font-family:var(--mono);font-size:.48rem}
+.owner-scenario-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(420px,1.15fr);gap:12px;margin-top:12px}
+.owner-scenario-panel{min-width:0;border:1px solid var(--line2);background:var(--panel)}
+.owner-scenario-panel>header{padding:13px 15px;border-bottom:1px solid var(--line2);background:var(--panel2)}
+.owner-scenario-panel h3{font-size:.82rem}.owner-scenario-panel header p{margin-top:4px;color:var(--muted);font-family:var(--mono);font-size:.52rem}
+.owner-scenario-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.61rem}
+.owner-scenario-table th,.owner-scenario-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.owner-scenario-table th:first-child,.owner-scenario-table td:first-child{text-align:left}
+.owner-scenario-table th{color:var(--muted);font-size:.51rem;font-weight:500}
+.owner-scenario-table tr.unavailable td{color:var(--muted)}
+.owner-scenario-heatmap{display:block;width:100%;min-height:360px}
+.owner-scenario-note{padding:11px 14px;color:var(--muted);font-family:var(--mono);font-size:.53rem;line-height:1.5}
+/* ============ OWNER SHARE MANAGER ============ */
+.owner-share-page{display:none;min-width:0;margin-bottom:28px}
+.owner-share-route main.wrap>:not(.owner-share-page){display:none!important}
+.owner-share-route .owner-share-page{display:block}
+.owner-share-route .wrap{max-width:1240px;padding:18px 20px 40px}
+.owner-share-create{margin-top:14px;padding:16px;border:1px solid var(--line2);background:var(--panel)}
+.owner-share-create h3{font-size:.85rem}.owner-share-create form{display:grid;grid-template-columns:1.2fr .7fr 1fr auto;align-items:end;gap:12px;margin-top:13px}
+.owner-share-create label{display:grid;gap:6px;color:var(--muted);font-family:var(--mono);font-size:.54rem}.owner-share-create select,.owner-share-create input[type="password"]{height:38px;padding:0 10px}.owner-share-create button{height:38px}
+.owner-share-password-toggle{display:flex!important;align-items:center;gap:8px;min-height:38px}.owner-share-password-toggle input{accent-color:var(--amber)}
+.owner-share-password[hidden]{display:none}
+.owner-share-error{min-height:18px;margin-top:9px;color:var(--red);font-family:var(--mono);font-size:.54rem}.owner-share-error.ok{color:var(--green)}
+.owner-share-list{margin-top:12px;border:1px solid var(--line2);background:var(--panel)}.owner-share-list>header{display:flex;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--line2);background:var(--panel2)}.owner-share-list>header h3{font-size:.8rem}.owner-share-list>header span{color:var(--muted);font-family:var(--mono);font-size:.55rem}
+.owner-share-row{display:grid;grid-template-columns:1.5fr .8fr auto;align-items:center;gap:18px;padding:14px 15px;border-bottom:1px solid var(--line)}.owner-share-row.inactive{opacity:.55}.owner-share-row>div>span,.owner-share-row>div>small{display:block;color:var(--muted);font-family:var(--mono);font-size:.51rem}.owner-share-row>div>strong{display:block;margin:4px 0;color:var(--text2);font-family:var(--mono);font-size:.7rem}.owner-share-actions{display:flex;gap:8px}.owner-share-actions button{min-height:34px}
+/* ============ IV SURFACE ============ */
+.iv-surface-page{display:none;min-width:0;margin-bottom:28px}
+.iv-surface-route main.wrap>:not(.market-line):not(.market-meta):not(.iv-surface-page){display:none!important}
+.iv-surface-route .iv-surface-page{display:block}
+.iv-surface-route .strategy-switch{display:none}
+.iv-surface-route .wrap{max-width:1480px;padding-top:14px}
+.iv-surface-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 0 17px;border-bottom:1px solid var(--line2)}
+.iv-surface-head h2{margin-top:5px;font-size:1.45rem}
+.iv-surface-head p{max-width:680px;margin-top:6px;color:var(--muted);font-size:.68rem;line-height:1.55}
+.iv-surface-kicker{color:var(--amber);font-family:var(--mono);font-size:.57rem;font-weight:700;letter-spacing:.16em}
+.iv-surface-back{display:inline-flex;min-height:36px;align-items:center;padding:0 13px;border:1px solid var(--line2);color:var(--text2);font-family:var(--mono);font-size:.6rem;text-decoration:none}
+.iv-surface-back:hover,.iv-surface-back:focus-visible{border-color:var(--amber);color:var(--amber)}
+.iv-surface-controls{display:flex;align-items:flex-end;gap:14px;padding:14px 0}
+.iv-surface-controls label{display:grid;gap:6px;color:var(--muted);font-family:var(--mono);font-size:.55rem;letter-spacing:.05em}
+.iv-surface-controls select{min-width:190px;height:36px;padding:0 32px 0 10px}
+.iv-surface-status{margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:.56rem}
+.iv-surface-status.warn{color:var(--amber)}
+.iv-surface-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line2);background:var(--line2)}
+.iv-surface-metrics>div{min-width:0;padding:13px 14px;background:var(--panel)}
+.iv-surface-metrics span{display:block;color:var(--muted);font-family:var(--mono);font-size:.53rem;line-height:1.35}
+.iv-surface-metrics strong{display:block;margin-top:7px;color:var(--text2);font-family:var(--mono);font-size:.85rem;font-variant-numeric:tabular-nums}
+.iv-surface-metrics small{display:block;margin-top:4px;color:var(--faint);font-family:var(--mono);font-size:.48rem}
+.iv-surface-charts{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;margin-top:12px}
+.iv-surface-chart{min-width:0;border:1px solid var(--line2);background:var(--panel)}
+.iv-surface-chart header{padding:14px 16px;border-bottom:1px solid var(--line2);background:var(--panel2)}
+.iv-surface-chart h3{font-size:.82rem}
+.iv-surface-chart p{margin-top:4px;color:var(--muted);font-family:var(--mono);font-size:.52rem}
+.iv-surface-chart svg{display:block;width:100%;height:auto;min-height:300px}
+.iv-chart-grid{stroke:var(--line2);stroke-width:1;vector-effect:non-scaling-stroke}
+.iv-chart-axis{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.iv-chart-put{fill:none;stroke:#2fb3a8;stroke-width:2.5;vector-effect:non-scaling-stroke}
+.iv-chart-call{fill:none;stroke:#769af8;stroke-width:2.5;vector-effect:non-scaling-stroke}
+.iv-chart-term{fill:none;stroke:var(--amber);stroke-width:2.5;vector-effect:non-scaling-stroke}
+.iv-chart-point{stroke-width:2;vector-effect:non-scaling-stroke}
+.iv-chart-point.put{fill:var(--panel);stroke:#2fb3a8}.iv-chart-point.call{fill:var(--panel);stroke:#769af8}.iv-chart-point.term{fill:var(--panel);stroke:var(--amber)}
+.iv-chart-atm{stroke:var(--amber);stroke-width:1;stroke-dasharray:5 5;vector-effect:non-scaling-stroke}
+.iv-chart-legend{display:flex;gap:16px;padding:0 16px 14px;color:var(--muted);font-family:var(--mono);font-size:.52rem}
+.iv-chart-legend i{display:inline-block;width:14px;height:2px;margin:0 5px 3px 0;background:currentColor}.iv-chart-legend .put{color:#2fb3a8}.iv-chart-legend .call{color:#769af8}
+.iv-surface-empty{padding:40px 18px;color:var(--muted);font-family:var(--mono);font-size:.65rem;text-align:center}
+.iv-surface-history{margin-top:12px;padding:13px 15px;border-left:2px solid var(--line3);background:var(--panel);color:var(--muted);font-family:var(--mono);font-size:.57rem}
+.iv-surface-link{margin-left:auto;color:var(--amber);font-family:var(--mono);font-size:.55rem;text-decoration:none;white-space:nowrap}
+/* ============ READ-ONLY SHARE ============ */
+.share-page,.not-found-page{display:none}
+.share-route body,.not-found-route body{background:var(--bg)}
+.share-route .bar,.share-route main.wrap>:not(.share-page),.not-found-route .bar,.not-found-route main.wrap>:not(.not-found-page){display:none!important}
+.share-route .share-page,.not-found-route .not-found-page{display:block}
+.share-route .wrap,.not-found-route .wrap{max-width:1120px;padding:54px 20px}
+.share-shell{border-top:3px solid var(--amber);background:var(--panel);box-shadow:0 20px 70px rgba(0,0,0,.25)}
+.share-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:26px 28px;border-bottom:1px solid var(--line2)}
+.share-head h1{margin-top:7px;font-size:1.7rem}.share-head p{margin-top:6px;color:var(--muted);font-size:.7rem}
+.share-readonly{padding:7px 10px;border:1px solid var(--line2);color:var(--amber);font-family:var(--mono);font-size:.55rem;letter-spacing:.08em}
+.share-meta{padding:11px 28px;border-bottom:1px solid var(--line);color:var(--muted);font-family:var(--mono);font-size:.54rem}
+.share-password{display:grid;gap:12px;max-width:420px;margin:34px auto;padding:22px;border:1px solid var(--line2);background:var(--panel2)}
+.share-password[hidden]{display:none}
+.share-password label{display:grid;gap:7px;color:var(--muted);font-family:var(--mono);font-size:.57rem}.share-password input{height:42px;padding:0 11px}.share-password button{height:42px}
+.share-error{min-height:18px;color:var(--red);font-family:var(--mono);font-size:.55rem}
+.share-body{padding:22px 28px 30px}
+.share-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;border:1px solid var(--line2);background:var(--line2)}
+.share-metrics>div{padding:14px;background:var(--panel2)}.share-metrics span{display:block;color:var(--muted);font-family:var(--mono);font-size:.53rem}.share-metrics strong{display:block;margin-top:6px;font-family:var(--mono);font-size:.9rem}.share-metrics small{display:block;margin-top:4px;color:var(--faint);font-family:var(--mono);font-size:.48rem}
+.share-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-top:12px}.share-table{overflow-x:auto;border:1px solid var(--line2)}.share-table h3{padding:12px 14px;border-bottom:1px solid var(--line2);background:var(--panel2);font-size:.8rem}.share-table table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.6rem}.share-table th,.share-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}.share-table th:first-child,.share-table td:first-child{text-align:left}.share-table th{color:var(--muted);font-size:.5rem;font-weight:500}
+.share-rules{padding:20px;border:1px solid var(--line2);background:var(--panel2)}.share-rules h3{font-size:1rem}.share-rules ol{display:grid;gap:14px;margin:18px 0 0 22px;color:var(--text2);font-size:.7rem;line-height:1.65}
+.share-message{display:grid;gap:8px;padding:46px 18px;color:var(--muted);font-family:var(--mono);font-size:.65rem;text-align:center}.share-message strong{color:var(--text2);font-size:.9rem}.share-message.bad strong,.share-message.bad{color:var(--red)}
+.not-found-page{max-width:720px;margin:80px auto;padding:32px;border-top:3px solid var(--amber);background:var(--panel)}.not-found-page strong{display:block;color:var(--amber);font-family:var(--mono);font-size:2rem}.not-found-page h1{margin-top:12px}.not-found-page p{margin-top:8px;color:var(--muted)}.not-found-page a{display:inline-flex;margin-top:22px;padding:10px 14px;border:1px solid var(--line2);color:var(--text2);text-decoration:none}
 /* ============ OWNER POSITIONS ROUTE OVERRIDES ============ */
 .owner-positions-route main.wrap>:not(.owner-account-bar):not(.owner-positions-page){display:none!important}
 .owner-positions-route .owner-positions-page{display:block!important}
@@ -834,12 +940,40 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .owner-portfolio-stress-controls{grid-template-columns:1fr;padding:12px}
   .owner-portfolio-stress-controls>input[type="range"]{grid-column:auto;grid-row:auto}
   .owner-stress-chart{height:220px;padding:10px}
+  .iv-surface-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .iv-surface-charts{grid-template-columns:1fr}
+  .owner-scenario-grid{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  .iv-surface-route .wrap{padding:10px 10px 28px}
+  .iv-surface-head{display:grid;gap:12px;padding-top:14px}
+  .iv-surface-back{width:max-content}
+  .iv-surface-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .iv-surface-controls select{width:100%;min-width:0}
+  .iv-surface-status{grid-column:1/-1;margin-left:0}
+  .iv-surface-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .iv-surface-chart svg{min-height:240px}
+  .owner-scenario-route .wrap{padding:12px 10px 32px}
+  .owner-scenario-controls{grid-template-columns:1fr}
+  .owner-scenario-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .owner-scenario-grid{display:block}.owner-scenario-panel+ .owner-scenario-panel{margin-top:12px}
+  .owner-scenario-panel{overflow-x:auto}.owner-scenario-heatmap{min-width:620px}
+  .owner-share-route .wrap{padding:12px 10px 32px}.owner-share-create form{grid-template-columns:1fr}.owner-share-row{grid-template-columns:1fr}.owner-share-actions{justify-content:flex-start}
+  .share-route .wrap,.not-found-route .wrap{padding:20px 10px}.share-head{display:grid;padding:20px}.share-meta,.share-body{padding-left:16px;padding-right:16px}.share-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.share-grid{grid-template-columns:1fr}.share-readonly{width:max-content}
 }
 </style>
 <!-- OWNER_ONLY_START -->
 <script>
 if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.location.pathname)){
   document.documentElement.classList.add("owner-pending");
+}
+if(/\/options\/iv-surface\/?$/.test(window.location.pathname)){
+  document.documentElement.classList.add("iv-surface-route");
+}
+if(/^\/share(?:\/|$)/.test(window.location.pathname)){
+  document.documentElement.classList.add("share-route");
+}else if(!/^\/(?:$|options\/?$|buy-call\/?$|covered-call\/?$|options\/iv-surface\/?$|owner(?:\/|$)|us-options\/?$|us-rankings\/?$|us-candidates\/?$)/.test(window.location.pathname)){
+  document.documentElement.classList.add("not-found-route");
 }
 </script>
 <!-- OWNER_ONLY_END -->
@@ -906,6 +1040,27 @@ if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.locati
     <button class="refresh" id="refreshBtn" type="button">Refresh</button>
   </div>
   <div class="market-meta" id="marketMeta"></div>
+  <section class="iv-surface-page" id="ivSurfacePage" aria-labelledby="ivSurfaceTitle">
+    <header class="iv-surface-head">
+      <div><span class="iv-surface-kicker">VOLATILITY MAP</span><h2 id="ivSurfaceTitle">IV 曲面</h2><p>把不同到期日、Strike 与 Delta 的隐含波动率放在同一张图里。缺失 IV 会直接跳过，不以零补齐。</p></div>
+      <a class="iv-surface-back" href="/options/">返回期权链</a>
+    </header>
+    <div class="iv-surface-controls">
+      <label>到期日<select id="ivSurfaceExpiry"></select></label>
+      <label>横轴<select id="ivSurfaceXAxis"><option value="strike">Strike</option><option value="delta">Delta</option></select></label>
+      <span class="iv-surface-status" id="ivSurfaceStatus">正在读取 Put / Call 期权链…</span>
+    </div>
+    <section class="iv-surface-metrics" id="ivSurfaceMetrics" aria-live="polite"></section>
+    <div class="iv-surface-charts">
+      <section class="iv-surface-chart"><header><h3>Volatility Smile</h3><p id="ivSmileSubtitle">所选到期日的 Put / Call IV</p></header><div id="ivSmileChart"></div><div class="iv-chart-legend"><span class="put"><i></i>Put IV</span><span class="call"><i></i>Call IV</span></div></section>
+      <section class="iv-surface-chart"><header><h3>ATM Term Structure</h3><p>到期天数与 ATM IV</p></header><div id="ivTermChart"></div></section>
+    </div>
+    <p class="iv-surface-history">历史 smile：正在积累。当前页面只展示本次期权链快照，不把单点 ATM 历史冒充完整曲面历史。</p>
+  </section>
+  <section class="share-page" id="sharePage" aria-labelledby="shareTitle">
+    <div class="share-shell"><header class="share-head"><div><span class="iv-surface-kicker">SELL PUT · PRIVATE SNAPSHOT</span><h1 id="shareTitle">Sell Put Track Record</h1><p>分享者：Sell Put Trader</p></div><span class="share-readonly">只读快照</span></header><div class="share-meta" id="shareMeta">正在验证分享链接…</div><form class="share-password" id="sharePasswordForm" hidden><label>访问密码<input id="sharePassword" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="one-time-code"></label><div class="share-error" id="shareError" role="alert"></div><button type="submit" class="owner-primary">查看快照</button></form><div class="share-body" id="shareBody" aria-live="polite"></div></div>
+  </section>
+  <section class="not-found-page"><strong>404</strong><h1>这个页面不存在</h1><p>The page you requested does not exist.</p><a href="/options/">返回 Sell Put</a></section>
   <section class="stock-empty" id="stockEmpty">输入美股 Ticker，加载期权链后再选择策略。</section>
   <section class="risk-note" id="buyCallRisk" aria-live="polite"></section>
 
@@ -941,6 +1096,7 @@ if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.locati
         <h2 id="ivContextTitle">IV 历史与波动率溢价</h2>
         <p id="ivContextSubtitle">30D ATM IV · VRP · 标的价格</p>
       </div>
+      <a class="iv-surface-link" href="/options/iv-surface/">查看 IV 曲面 →</a>
       <div class="iv-range-switch" id="ivRangeSwitch" role="group" aria-label="IV 历史区间">
         <button type="button" data-iv-days="30" aria-pressed="false">30D</button>
         <button type="button" class="on" data-iv-days="90" aria-pressed="true">90D</button>
@@ -988,8 +1144,13 @@ if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.locati
   <section id="content" class="state" aria-live="polite">Loading data...</section>
 </main>
 <div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
+<script src="/static/iv_surface.5c94b5ce2484.js"></script>
+<script src="/static/share_view.8bda7f557442.js"></script>
 <script>
 const IS_OWNER_ROUTE=/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.location.pathname);
+const IV_SURFACE_ROUTE=/\/options\/iv-surface\/?$/.test(window.location.pathname);
+const SHARE_ROUTE=/^\/share(?:\/|$)/.test(window.location.pathname);
+const NOT_FOUND_ROUTE=document.documentElement.classList.contains("not-found-route");
 const ASSETS={
   BTC:{priceDecimals:0,strikeDecimals:0,rvDays:30},
   ETH:{priceDecimals:2,strikeDecimals:2,rvDays:30},
@@ -1041,6 +1202,8 @@ let quoteDepthState=null;
 let liveQuoteRenderTimer=null;
 let activeHoverTip=null;
 let _lang="zh";
+let IV_SURFACE_PAYLOAD=null;
+let ivSurfaceExpiry="";
 
 const STRINGS={
   zh:{
@@ -1797,11 +1960,13 @@ function selectAsset(asset){
   priceRequestVersion++;
   if(priceRequestController) priceRequestController.abort();
   clearStrikeRange();
+  IV_SURFACE_PAYLOAD=null;
+  ivSurfaceExpiry="";
   setAssetButtons();
   clearAssetView();
   applyLang();
   loadData();
-  loadPriceChart();
+  if(!IV_SURFACE_ROUTE)loadPriceChart();
 }
 
 function normalizeStockSymbol(value){
@@ -2439,7 +2604,134 @@ function emitMarketData(stage,error=null){
   }}));
 }
 
+function ivSurfaceValue(value,suffix="%"){
+  return value===null||value===undefined||!Number.isFinite(Number(value))
+    ?"—"
+    :`${Number(value)>=0&&suffix===" pp"?"+":""}${Number(value).toFixed(1)}${suffix}`;
+}
+
+function ivSurfaceEscape(value){
+  return String(value??"").replace(/[&<>"']/g,character=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
+}
+
+function ivSurfaceMetric(label,value,detail=""){
+  return `<div><span>${ivSurfaceEscape(label)}</span><strong>${ivSurfaceEscape(value)}</strong>${detail?`<small>${ivSurfaceEscape(detail)}</small>`:""}</div>`;
+}
+
+function ivLineChart(series,{atmX=null,xFormat=value=>Number(value).toFixed(0)}={}){
+  const width=720,height=330,left=54,right=18,top=24,bottom=42;
+  const all=series.flatMap(row=>row.points||[]).filter(row=>Number.isFinite(row.x)&&Number.isFinite(row.y));
+  if(!all.length)return '<div class="iv-surface-empty">当前期权链没有可绘制的 IV 数据。</div>';
+  let minX=Math.min(...all.map(row=>row.x)),maxX=Math.max(...all.map(row=>row.x));
+  let minY=Math.min(...all.map(row=>row.y)),maxY=Math.max(...all.map(row=>row.y));
+  if(minX===maxX){minX-=1;maxX+=1}
+  if(minY===maxY){minY-=1;maxY+=1}
+  const yPad=Math.max(1,(maxY-minY)*.12);minY=Math.max(0,minY-yPad);maxY+=yPad;
+  const x=value=>left+(value-minX)/(maxX-minX)*(width-left-right);
+  const y=value=>top+(maxY-value)/(maxY-minY)*(height-top-bottom);
+  const grid=Array.from({length:5},(_,index)=>{
+    const ratio=index/4;
+    const yValue=maxY-(maxY-minY)*ratio;
+    const xValue=minX+(maxX-minX)*ratio;
+    const yy=top+(height-top-bottom)*ratio;
+    const xx=left+(width-left-right)*ratio;
+    return `<line class="iv-chart-grid" x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}"/><text class="iv-chart-axis" x="${left-8}" y="${yy+4}" text-anchor="end">${yValue.toFixed(1)}%</text><text class="iv-chart-axis" x="${xx}" y="${height-14}" text-anchor="middle">${ivSurfaceEscape(xFormat(xValue))}</text>`;
+  }).join("");
+  const lines=series.map(row=>{
+    const points=row.points.filter(point=>Number.isFinite(point.x)&&Number.isFinite(point.y));
+    const path=points.map(point=>`${x(point.x).toFixed(2)},${y(point.y).toFixed(2)}`).join(" ");
+    const dots=points.map(point=>`<circle class="iv-chart-point ${row.kind}" cx="${x(point.x).toFixed(2)}" cy="${y(point.y).toFixed(2)}" r="4"><title>${ivSurfaceEscape(row.label)} · ${ivSurfaceEscape(xFormat(point.x))} · IV ${point.y.toFixed(1)}%</title></circle>`).join("");
+    return `<polyline class="iv-chart-${row.kind}" points="${path}"/>${dots}`;
+  }).join("");
+  const atm=Number.isFinite(atmX)&&atmX>=minX&&atmX<=maxX
+    ?`<line class="iv-chart-atm" x1="${x(atmX)}" y1="${top}" x2="${x(atmX)}" y2="${height-bottom}"/><text class="iv-chart-axis" x="${x(atmX)+5}" y="${top+12}">ATM</text>`:"";
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="IV chart">${grid}${atm}${lines}</svg>`;
+}
+
+function renderIvSurface(){
+  if(!IV_SURFACE_ROUTE)return;
+  const Surface=window.IvSurface;
+  const status=$("ivSurfaceStatus");
+  if(!Surface||!IV_SURFACE_PAYLOAD){
+    $("ivSurfaceMetrics").innerHTML="";
+    $("ivSmileChart").innerHTML='<div class="iv-surface-empty">正在读取 Put / Call 期权链…</div>';
+    $("ivTermChart").innerHTML="";
+    return;
+  }
+  const {puts,calls}=IV_SURFACE_PAYLOAD;
+  const spot=Number(puts.spot_price||calls.spot_price);
+  const expiries=Surface.optionExpiries(puts,calls);
+  const expirySelect=$("ivSurfaceExpiry");
+  if(!expiries.some(row=>row.expiry===ivSurfaceExpiry)){
+    ivSurfaceExpiry=Surface.nearestExpiry(expiries,30)?.expiry||"";
+  }
+  expirySelect.innerHTML=expiries.map(row=>`<option value="${ivSurfaceEscape(row.expiry)}"${row.expiry===ivSurfaceExpiry?" selected":""}>${ivSurfaceEscape(row.expiry)} · ${row.dte}D</option>`).join("");
+  const selected=expiries.find(row=>row.expiry===ivSurfaceExpiry)||null;
+  const metrics=Surface.metrics(expiries,spot,selected);
+  const labels={backwardation:"Backwardation",contango:"Contango",flat:"Flat",unavailable:"不可用"};
+  const termPoint=key=>metrics.term_points[key];
+  $("ivSurfaceMetrics").innerHTML=[
+    ivSurfaceMetric("所选期限 ATM IV",ivSurfaceValue(metrics.atm_iv),selected?`${selected.dte} DTE`:""),
+    ivSurfaceMetric("-10Δ Put − ATM",ivSurfaceValue(metrics.put_10d_skew," pp"),"左尾偏斜"),
+    ivSurfaceMetric("-25Δ Put − +25Δ Call",ivSurfaceValue(metrics.risk_reversal_25d," pp"),"Risk reversal"),
+    ivSurfaceMetric("7D ATM",ivSurfaceValue(termPoint("d7")?.iv),termPoint("d7")?`${termPoint("d7").dte}D 样本`:""),
+    ivSurfaceMetric("30D ATM",ivSurfaceValue(termPoint("d30")?.iv),termPoint("d30")?`${termPoint("d30").dte}D 样本`:""),
+    ivSurfaceMetric("90D ATM",ivSurfaceValue(termPoint("d90")?.iv),labels[metrics.curve]),
+  ].join("");
+  const axis=$("ivSurfaceXAxis").value;
+  const smile=Surface.smile(selected,axis);
+  const xFormat=axis==="delta"?(value=>Number(value).toFixed(2)):(value=>formatPrice(value,DATA?.strike_decimals));
+  $("ivSmileSubtitle").textContent=selected?`${currentAsset} · ${selected.expiry} · ${selected.dte} DTE`:"无可用到期日";
+  $("ivSmileChart").innerHTML=ivLineChart([
+    {kind:"put",label:"Put",points:smile.puts.map(row=>({x:row.x,y:row.iv}))},
+    {kind:"call",label:"Call",points:smile.calls.map(row=>({x:row.x,y:row.iv}))},
+  ],{atmX:axis==="strike"?spot:null,xFormat});
+  $("ivTermChart").innerHTML=ivLineChart([
+    {kind:"term",label:"ATM",points:metrics.term.map(row=>({x:row.dte,y:row.iv}))},
+  ],{xFormat:value=>`${Number(value).toFixed(0)}D`});
+  const blocked=Boolean(puts.decision_blocked||calls.decision_blocked||puts.source_status?.chain_stale||calls.source_status?.chain_stale);
+  status.classList.toggle("warn",blocked);
+  status.textContent=blocked?"报价已过期或被阻断；仅查看曲面":"Put / Call 同一轮快照 · 仅供研究";
+}
+
+async function loadIvSurfaceData(){
+  const symbol=currentAsset;
+  const version=++requestVersion;
+  if(requestController)requestController.abort();
+  requestController=new AbortController();
+  const {signal}=requestController;
+  IV_SURFACE_PAYLOAD=null;
+  $("ivSurfaceStatus").classList.remove("warn");
+  $("ivSurfaceStatus").textContent="正在读取 Put / Call 期权链…";
+  renderIvSurface();
+  try{
+    const [putResponse,callResponse]=await Promise.all([
+      marketFetch(apiUrl("/api/options",symbol),{signal,cache:"no-store"}),
+      marketFetch(apiUrl("/api/buy-call",symbol),{signal,cache:"no-store"}),
+    ]);
+    if(version!==requestVersion)return;
+    if(!putResponse.ok||!callResponse.ok)throw new Error(`Put ${putResponse.status} / Call ${callResponse.status}`);
+    const [puts,calls]=await Promise.all([putResponse.json(),callResponse.json()]);
+    if(version!==requestVersion||puts.asset!==symbol||calls.asset!==symbol)return;
+    DATA=puts;
+    IV_SURFACE_PAYLOAD={puts,calls};
+    DATA_RECEIVED_AT=Date.now();
+    $("spotPrice").textContent=formatPrice(puts.spot_price,puts.price_decimals);
+    $("spotLabel").textContent=`${symbol} Spot`;
+    $("ts").textContent=puts.provider_timestamp||puts.quoted_at||puts.updated||"";
+    renderMarketMeta();
+    renderIvSurface();
+  }catch(error){
+    if(error.name==="AbortError")return;
+    $("ivSurfaceStatus").classList.add("warn");
+    $("ivSurfaceStatus").textContent=`IV 曲面读取失败：${error.message||"未知错误"}`;
+    $("ivSmileChart").innerHTML='<div class="iv-surface-empty">Put / Call 期权链不完整，当前不显示曲面。</div>';
+    $("ivTermChart").innerHTML="";
+  }
+}
+
 async function loadData(){
+  if(IV_SURFACE_ROUTE)return loadIvSurfaceData();
   const market=currentMarket;
   const symbol=currentSymbol();
   const key=selectionKey();
@@ -3379,6 +3671,11 @@ function applyLang(){
   $("pageTitle").textContent=pageName;
   document.title=`${pageName} Monitor`;
   setStrategyChrome();
+  if(IV_SURFACE_ROUTE){
+    $("pageTitle").textContent=`${symbol} IV Surface`;
+    document.title=`${symbol} IV Surface`;
+    renderIvSurface();
+  }
   $("spotLabel").textContent=isStockMode()?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
   $("stockSymbol").placeholder=t("stockPlaceholder");
   $("stockSymbolLabel").textContent=t("stockPlaceholder");
@@ -3474,6 +3771,11 @@ document.querySelectorAll("[data-iv-days]").forEach(button=>{
 });
 $("langBtn").addEventListener("click",toggleLang);
 $("refreshBtn").addEventListener("click",refreshDashboard);
+$("ivSurfaceExpiry").addEventListener("change",event=>{
+  ivSurfaceExpiry=event.target.value;
+  renderIvSurface();
+});
+$("ivSurfaceXAxis").addEventListener("change",renderIvSurface);
 ["fYield","fDays"].forEach(id=>{
   $(id).addEventListener("change",render);
   $(id).addEventListener("input",()=>{
@@ -3553,7 +3855,7 @@ let buyCallRiskTimer=null;
 function refreshDashboard(){
   if(!dashboardStarted)return;
   loadData();
-  if(!isStockMode())loadPriceChart();
+  if(!isStockMode()&&!IV_SURFACE_ROUTE)loadPriceChart();
 }
 
 function scheduleDashboardTimers(){
@@ -3599,11 +3901,12 @@ window.MangoDashboard={
   }),
 };
 
-if(!IS_OWNER_ROUTE)startDashboard();
+if(!IS_OWNER_ROUTE&&!SHARE_ROUTE&&!NOT_FOUND_ROUTE)startDashboard();
 </script>
 <script src="/static/owner_strategy.bf4a6785bfef.js"></script>
 <script src="/static/decision_journal.3ff075310a19.js"></script>
 <script src="/static/portfolio_risk.9b1bd569f852.js"></script>
-<script src="/static/owner_app.de69f20baebd.js"></script>
+<script src="/static/scenario_stress.398963388043.js"></script>
+<script src="/static/owner_app.af947601f9eb.js"></script>
 </body>
 </html>
