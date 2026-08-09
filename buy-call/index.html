@@ -115,13 +115,22 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .tv-credit:hover{color:var(--muted)}
 /* ============ SECONDARY CHART GRID ============ */
 .context-charts{margin-top:18px;border:1px solid var(--line2);background:var(--panel)}
-.context-charts>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;cursor:pointer;font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);list-style:none;min-height:36px}
-.context-charts>summary::-webkit-details-marker{display:none}
-.context-charts>summary::before{content:"▸";color:var(--amber);font-size:.7rem;margin-right:8px;transition:transform .15s ease}
-.context-charts[open]>summary::before{transform:rotate(90deg)}
-.context-charts>summary span:first-child{display:flex;align-items:center}
-.context-charts>summary span:last-child{color:var(--faint);font-size:.56rem;letter-spacing:.03em;text-transform:none}
-.context-charts[open]>summary{border-bottom:1px solid var(--line2)}
+.context-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border-bottom:1px solid var(--line2)}
+.context-head h2{font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.context-head p{margin-top:3px;color:var(--faint);font-family:var(--mono);font-size:.56rem}
+.iv-range-switch{display:flex;border:1px solid var(--line2);flex:0 0 auto}
+.iv-range-switch button{min-width:42px;height:27px;border:0;border-right:1px solid var(--line2);background:transparent;color:var(--muted);font-family:var(--mono);font-size:.61rem;cursor:pointer}
+.iv-range-switch button:last-child{border-right:0}
+.iv-range-switch button.on{background:var(--amber-dim);color:var(--amber)}
+.iv-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border-bottom:1px solid var(--line2)}
+.iv-metric{min-width:0;padding:9px 11px;border-right:1px solid var(--line2)}
+.iv-metric:last-child{border-right:0}
+.iv-metric span{display:block;color:var(--faint);font-family:var(--mono);font-size:.55rem;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iv-metric strong{display:block;margin-top:3px;color:var(--text);font-family:var(--mono);font-size:.84rem;font-weight:600;font-variant-numeric:tabular-nums}
+.iv-metric strong.high{color:var(--green)}
+.iv-metric strong.low{color:var(--red)}
+.iv-context-note{padding:7px 12px 0;color:var(--muted);font-family:var(--mono);font-size:.58rem;line-height:1.45}
+.iv-context-state{padding:18px 12px;color:var(--muted);font-family:var(--mono);font-size:.65rem;text-align:center}
 .context-charts .chart-grid{margin:0;padding:10px 12px}
 .chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .chart-grid.count-1{grid-template-columns:1fr}
@@ -514,6 +523,9 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 @media(max-width:850px){
   .chart-grid,.chart-grid.count-2{grid-template-columns:1fr}
   .chart-box canvas{height:180px!important}
+  .iv-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .iv-metric:nth-child(3){border-right:0}
+  .iv-metric:nth-child(-n+3){border-bottom:1px solid var(--line2)}
   .owner-track-row{grid-template-columns:1.1fr 1fr 1fr}
   .owner-track-actions{justify-content:flex-start}
 }
@@ -544,6 +556,11 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .timeframe-switch{display:flex;width:100%;margin-top:7px}
   .timeframe-switch button{flex:1;min-width:0;height:28px;padding:0 4px}
   .price-chart-stage{height:220px}
+  .context-head{align-items:flex-start}
+  .iv-range-switch button{min-width:38px}
+  .iv-metric{padding:8px 7px}
+  .iv-metric strong{font-size:.76rem}
+  .iv-context-note{padding-left:9px;padding-right:9px}
   .price-chart-foot{padding:3px 3px 0}
   .snapshot{padding:9px}
   .filters{gap:7px}
@@ -751,14 +768,27 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   </section>
   <section id="content" class="state" aria-live="polite">Loading data...</section>
 
-  <details class="context-charts" id="contextCharts">
-    <summary><span>研究上下文</span><span>DVOL · VRP · Fear &amp; Greed · 90 天</span></summary>
+  <section class="context-charts" id="contextCharts" aria-labelledby="ivContextTitle">
+    <header class="context-head">
+      <div>
+        <h2 id="ivContextTitle">IV 历史与波动率溢价</h2>
+        <p id="ivContextSubtitle">30D ATM IV · VRP · 标的价格</p>
+      </div>
+      <div class="iv-range-switch" id="ivRangeSwitch" role="group" aria-label="IV 历史区间">
+        <button type="button" data-iv-days="30" aria-pressed="false">30D</button>
+        <button type="button" class="on" data-iv-days="90" aria-pressed="true">90D</button>
+        <button type="button" data-iv-days="365" aria-pressed="false">1Y</button>
+      </div>
+    </header>
+    <div class="iv-metrics" id="ivMetrics" aria-live="polite"></div>
+    <p class="iv-context-note" id="ivContextNote"></p>
+    <div class="iv-context-state" id="ivContextState">正在加载 IV 历史…</div>
     <section class="chart-grid" id="chartGrid" style="display:none">
       <div class="chart-box" id="chartBox0" style="display:none"><h3></h3><canvas id="marketChart0"></canvas></div>
       <div class="chart-box" id="chartBox1" style="display:none"><h3></h3><canvas id="marketChart1"></canvas></div>
       <div class="chart-box" id="chartBox2" style="display:none"><h3></h3><canvas id="marketChart2"></canvas></div>
     </section>
-  </details>
+  </section>
 </main>
 <div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
 <script>
@@ -776,7 +806,7 @@ const STRATEGY_MODE=(
   /\/buy-call\/?$/.test(window.location.pathname)
   ||REQUESTED_STRATEGY==="buy_call"
 )?"buy_call":"sell_put");
-const CHART_COLORS={dvol:"#ff6d00",fng:"#26a69a",vrp:"#e040fb",price:"#7da0ff",rv:"#ffd600"};
+const CHART_COLORS={iv:"#ffb74d",atm:"#ffb74d",dvol:"#ff6d00",fng:"#26a69a",vrp:"#e040fb",price:"#7da0ff",rv:"#ffd600"};
 const $=id=>document.getElementById(id);
 let DATA=null;
 let currentAsset="BTC";
@@ -787,6 +817,10 @@ let requestController=null;
 let histCharts={};
 let LAST_TIMING=null;
 let LAST_HISTORY=null;
+let LAST_IV_HISTORY=null;
+let currentIvRange=90;
+let ivRequestVersion=0;
+let ivRequestController=null;
 let PRICE_DATA=null;
 let DATA_RECEIVED_AT=0;
 let currentTimeframe="1h";
@@ -849,8 +883,16 @@ const STRINGS={
     thetaTip:"Theta 表示时间过去 1 个自然日对期权价值的近似影响。Crypto 为 Black-Scholes 估算；美股沿用行情源。卖方持仓方向相反。",
     vegaTip:"Vega 表示隐含波动率变动 1 个百分点时，期权价值的近似变化。Crypto 为 Black-Scholes 估算；美股沿用行情源。卖方持仓方向相反。",
     scrollHint:"左右滑动查看更多",narrowFilters:"仅显示前 {count} 条，请缩小筛选范围查看其余合约。",
-    annualYield:"条件年化",dvol:"DVOL (90d)",fng:"市场 Fear & Greed (90d)",
+    annualYield:"条件年化",dvol:"DVOL",fng:"市场 Fear & Greed",
     vrp:"VRP：IV - 30d RV",price:"价格历史",rv:"实现波动率",
+    atmIv:"30D ATM IV",ivHistoryTitle:"IV 历史与波动率溢价",
+    ivHistorySubtitle:"30D ATM IV · VRP · 标的价格",ivLoading:"正在加载 IV 历史…",
+    ivUnavailable:"IV 历史暂不可用",ivAccumulating:"历史样本正在积累，当前值仍可供查看。",
+    currentIv:"当前 IV",currentDvol:"当前 IV (DVOL)",change1d:"1 日变化",change7d:"7 日变化",
+    percentile30:"30D 百分位",percentile90:"90D 百分位",percentile1y:"1Y 百分位",
+    sellerIvNote:"IV 越高通常代表权利金越贵；这里是研究上下文，不是开仓建议。",
+    buyerIvNote:"IV 越高通常代表买方成本越贵；这里是研究上下文，不是买入建议。",
+    atmIvTip:"取最接近 30 天到期、最接近现价执行价的 Call/Put IV 中位数；BTC/ETH 历史不足时以 DVOL 延续旧图。",
     dvolTip:"Deribit 标的波动率指数；越高表示市场预期波动越大。",
     fngTip:"全市场恐惧贪婪指数，不是单一标的专属信号。",
     vrpTip:"同一天的隐含波动率减去滚动实现波动率；正值越大，期权溢价相对更高。",
@@ -906,8 +948,16 @@ const STRINGS={
     thetaTip:"Approximate option-value change for one calendar day. Crypto uses Black-Scholes estimates; U.S. options use the market-data feed. Reverse the sign for a short position.",
     vegaTip:"Approximate option-value change for a one percentage-point IV move. Crypto uses Black-Scholes estimates; U.S. options use the market-data feed. Reverse the sign for a short position.",
     scrollHint:"Swipe sideways for more",narrowFilters:"Showing the first {count} rows; narrow the filters to view the rest.",
-    annualYield:"Conditional APR",dvol:"DVOL (90d)",fng:"Market Fear & Greed (90d)",
+    annualYield:"Conditional APR",dvol:"DVOL",fng:"Market Fear & Greed",
     vrp:"VRP: IV - 30d RV",price:"Price history",rv:"Realized volatility",
+    atmIv:"30D ATM IV",ivHistoryTitle:"IV history & volatility premium",
+    ivHistorySubtitle:"30D ATM IV · VRP · underlying price",ivLoading:"Loading IV history…",
+    ivUnavailable:"IV history is unavailable",ivAccumulating:"History is accumulating; the current observation remains visible.",
+    currentIv:"Current IV",currentDvol:"Current IV (DVOL)",change1d:"1-day change",change7d:"7-day change",
+    percentile30:"30D percentile",percentile90:"90D percentile",percentile1y:"1Y percentile",
+    sellerIvNote:"Higher IV usually means richer premium. This is research context, not an entry recommendation.",
+    buyerIvNote:"Higher IV usually means a higher buyer cost. This is research context, not a buy recommendation.",
+    atmIvTip:"Median call/put IV at the nearest-to-30-day expiry and nearest-to-spot strike; BTC/ETH fall back to DVOL while ATM history accumulates.",
     dvolTip:"Deribit volatility index for this underlying; higher means larger expected moves.",
     fngTip:"Broad crypto Fear & Greed, not an asset-specific signal.",
     vrpTip:"Implied volatility minus rolling realized volatility on the same date.",
@@ -942,6 +992,12 @@ function publicApiPath(path){
 
 function apiUrl(path,asset=currentAsset){
   return `${publicApiPath(path)}?asset=${encodeURIComponent(asset)}`;
+}
+
+function ivHistoryUrl(symbol=currentSymbol(),days=currentIvRange){
+  return isStockMode()
+    ?`/api/us-stocks/iv-history?ticker=${encodeURIComponent(symbol)}&days=${days}`
+    :`${publicApiPath("/api/iv-history")}?asset=${encodeURIComponent(symbol)}&days=${days}`;
 }
 
 function marketFetch(input,init){
@@ -1419,10 +1475,29 @@ function clearCharts(){
   $("chartGrid").style.display="none";
 }
 
+function setIvRangeButtons(){
+  document.querySelectorAll("[data-iv-days]").forEach(button=>{
+    const active=Number(button.dataset.ivDays)===currentIvRange;
+    button.classList.toggle("on",active);
+    button.setAttribute("aria-pressed",String(active));
+  });
+}
+
+function resetIvContext(){
+  $("ivMetrics").replaceChildren();
+  $("ivContextNote").textContent="";
+  $("ivContextState").style.display="block";
+  $("ivContextState").textContent=t("ivLoading");
+  setIvRangeButtons();
+}
+
 function clearAssetView(){
+  ivRequestVersion++;
+  if(ivRequestController) ivRequestController.abort();
   DATA=null;
   LAST_TIMING=null;
   LAST_HISTORY=null;
+  LAST_IV_HISTORY=null;
   window._snapStrike=null;
   $("spotPrice").textContent="—";
   $("spotLabel").textContent=isStockMode()?`${currentStockSymbol} ${t("stockSpot")}`:`${currentAsset} Spot`;
@@ -1435,6 +1510,7 @@ function clearAssetView(){
   document.documentElement.classList.remove("stock-data-ready");
   clearPriceChartView();
   clearCharts();
+  resetIvContext();
 }
 
 function clearStrikeRange(){
@@ -1664,11 +1740,40 @@ function renderMarketMeta(){
 
 async function optionalJson(url,signal){
   try{
-    const response=await fetch(url,{signal,cache:"no-store"});
+    const response=await marketFetch(url,{
+      signal,cache:"no-store",
+      headers:isStockMode()?{"X-Mango-Owner-Request":"1"}:undefined
+    });
     return response.ok?await response.json():null;
   }catch(error){
     if(error.name==="AbortError") throw error;
     return null;
+  }
+}
+
+async function loadIvRange(){
+  if(!DATA)return;
+  const symbol=currentSymbol();
+  const key=selectionKey();
+  const days=currentIvRange;
+  const version=++ivRequestVersion;
+  if(ivRequestController)ivRequestController.abort();
+  ivRequestController=new AbortController();
+  const {signal}=ivRequestController;
+  $("ivContextState").style.display="block";
+  $("ivContextState").textContent=t("ivLoading");
+  try{
+    const payload=await optionalJson(ivHistoryUrl(symbol,days),signal);
+    if(
+      version!==ivRequestVersion||key!==selectionKey()
+      ||days!==currentIvRange||signal.aborted
+    )return;
+    LAST_IV_HISTORY=payload;
+    renderHistory(LAST_HISTORY,payload);
+  }catch(error){
+    if(error.name==="AbortError"||version!==ivRequestVersion)return;
+    LAST_IV_HISTORY=null;
+    renderHistory(LAST_HISTORY,null);
   }
 }
 
@@ -2060,7 +2165,7 @@ function activateQuoteDepthLoading(){
 
 function emitMarketData(stage,error=null){
   document.dispatchEvent(new CustomEvent("mango:market-data",{detail:{
-    stage,error,data:DATA,timing:LAST_TIMING,history:LAST_HISTORY,
+    stage,error,data:DATA,timing:LAST_TIMING,history:LAST_HISTORY,ivHistory:LAST_IV_HISTORY,
     asset:currentAsset,market:currentMarket,strategy:STRATEGY_MODE,
   }}));
 }
@@ -2089,13 +2194,13 @@ async function loadData(){
       :(market==="us_stock"
         ?`/api/us-stocks/options?ticker=${encodeURIComponent(symbol)}`
         :apiUrl("/api/options",symbol));
-    const needsSellPutContext=market==="crypto"&&STRATEGY_MODE==="sell_put";
-    const contextPromise=needsSellPutContext
-      ?Promise.all([
-        optionalJson(apiUrl("/api/timing",symbol),signal),
-        optionalJson(apiUrl("/api/timing-history",symbol),signal)
-      ]).catch(()=>[null,null])
-      :Promise.resolve([null,null]);
+    const needsSellPutTiming=market==="crypto"&&STRATEGY_MODE==="sell_put";
+    const timingPromise=needsSellPutTiming
+      ?optionalJson(apiUrl("/api/timing",symbol),signal)
+      :Promise.resolve(null);
+    const historyPromise=market==="crypto"
+      ?optionalJson(apiUrl("/api/timing-history",symbol),signal)
+      :Promise.resolve(null);
     const optionResponse=await marketFetch(optionsUrl,{
       signal,
       cache:"no-store",
@@ -2119,6 +2224,7 @@ async function loadData(){
     if(market==="us_stock") document.documentElement.classList.add("stock-data-ready");
     LAST_TIMING=null;
     LAST_HISTORY=null;
+    LAST_IV_HISTORY=null;
     $("spotPrice").textContent=formatPrice(DATA.spot_price,DATA.price_decimals);
     $("spotLabel").textContent=market==="us_stock"?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
     $("ts").textContent=market==="us_stock"
@@ -2129,9 +2235,16 @@ async function loadData(){
     renderAction(null);
     renderSnapshot();
     render();
-    renderHistory(null);
+    resetIvContext();
     emitMarketData("chain");
-    const [timing,history]=await contextPromise;
+    const [timing,history,ivHistory]=await Promise.all([
+      timingPromise,
+      historyPromise,
+      optionalJson(ivHistoryUrl(symbol,currentIvRange),signal)
+    ]).catch(error=>{
+      if(error.name==="AbortError")throw error;
+      return [null,null,null];
+    });
     if(
       version!==requestVersion
       ||key!==selectionKey()
@@ -2140,8 +2253,9 @@ async function loadData(){
     ) return;
     LAST_TIMING=timing;
     LAST_HISTORY=history;
+    LAST_IV_HISTORY=ivHistory;
     renderAction(timing);
-    renderHistory(history);
+    renderHistory(history,ivHistory);
     emitMarketData("context");
   }catch(error){
     if(error.name==="AbortError"||version!==requestVersion||key!==selectionKey()) return;
@@ -2150,6 +2264,7 @@ async function loadData(){
     DATA_RECEIVED_AT=0;
     LAST_TIMING=null;
     LAST_HISTORY=null;
+    LAST_IV_HISTORY=null;
     window._snapStrike=null;
     $("spotPrice").textContent="—";
     $("spotLabel").textContent=market==="us_stock"?`${symbol} ${t("stockSpot")}`:`${symbol} Spot`;
@@ -2833,12 +2948,19 @@ function alignPrice(priceData,timestamps){
 }
 
 function chartMeta(id){
-  const rvDays=assetSpec().rvDays;
+  const rvDays=30;
   const map={
+    iv:{
+      label:LAST_IV_HISTORY?.metric==="dvol"
+        ?t("dvol")
+        :(LAST_IV_HISTORY?.current_dvol_pct==null?t("atmIv"):`${t("atmIv")} · DVOL`),
+      tip:LAST_IV_HISTORY?.metric==="dvol"?t("dvolTip"):t("atmIvTip"),
+      color:CHART_COLORS.iv,overlay:true
+    },
     dvol:{label:t("dvol"),tip:t("dvolTip"),color:CHART_COLORS.dvol,overlay:true},
     fng:{label:t("fng"),tip:t("fngTip"),color:CHART_COLORS.fng,overlay:true},
     vrp:{label:t("vrp").replace("30d",rvDays+"d"),tip:t("vrpTip"),color:CHART_COLORS.vrp,overlay:true},
-    price:{label:`${currentAsset} ${t("price")}`,tip:t("priceTip"),color:CHART_COLORS.price,overlay:false,isPrice:true},
+    price:{label:`${currentSymbol()} ${t("price")}`,tip:t("priceTip"),color:CHART_COLORS.price,overlay:false,isPrice:true},
     rv:{label:`${rvDays}d ${t("rv")}`,tip:t("rvTip"),color:CHART_COLORS.rv,overlay:true}
   };
   return map[id];
@@ -2849,18 +2971,31 @@ function makeMarketChart(canvasId,id,series,priceData){
   const labels=series.timestamps.map(timestamp=>new Date(Number(timestamp)));
   const datasets=[{
     label:meta.label,data:series.values,borderColor:meta.color,backgroundColor:meta.color+"22",
-    borderWidth:1.5,pointRadius:0,tension:.25,yAxisID:"y",fill:false
+    borderWidth:1.5,pointRadius:series.values.length<3?2:0,tension:.25,yAxisID:"y",fill:false
   }];
+  if(
+    id==="iv"&&LAST_IV_HISTORY?.metric!=="dvol"
+    &&LAST_IV_HISTORY?.dvol?.timestamps?.length
+  ){
+    datasets.push({
+      label:"DVOL",data:alignPrice(LAST_IV_HISTORY.dvol,series.timestamps),
+      borderColor:CHART_COLORS.dvol,backgroundColor:CHART_COLORS.dvol+"22",
+      borderWidth:1.2,pointRadius:0,tension:.25,yAxisID:"y",fill:false
+    });
+  }
   if(meta.overlay&&priceData?.timestamps?.length){
     datasets.push({
-      label:`${currentAsset} Price`,data:alignPrice(priceData,series.timestamps),
+      label:`${currentSymbol()} Price`,data:alignPrice(priceData,series.timestamps),
       borderColor:"rgba(255,255,255,.26)",borderWidth:1,borderDash:[4,3],
       pointRadius:0,tension:.25,yAxisID:"y1",fill:false
     });
   }
   const scales={
     x:{type:"time",time:{tooltipFormat:"MMM d"},ticks:{color:"#787b86",font:{size:10},maxTicksLimit:6},grid:{color:"#2a2e3944"}},
-    y:{position:"left",ticks:{color:meta.color,font:{size:10},callback:meta.isPrice?formatAxisPrice:undefined},grid:{color:"#2a2e3944"}}
+    y:{position:"left",ticks:{
+      color:meta.color,font:{size:10},
+      callback:meta.isPrice?formatAxisPrice:value=>Number(value).toFixed(1)
+    },grid:{color:"#2a2e3944"}}
   };
   if(meta.overlay){
     scales.y1={position:"right",ticks:{color:"rgba(255,255,255,.3)",font:{size:10},callback:formatAxisPrice},grid:{drawOnChartArea:false}};
@@ -2875,21 +3010,92 @@ function makeMarketChart(canvasId,id,series,priceData){
   });
 }
 
-function renderHistory(history){
+function metricNode(label,value,tone=""){
+  const item=document.createElement("div");
+  item.className="iv-metric";
+  const name=document.createElement("span");
+  name.textContent=label;
+  const result=document.createElement("strong");
+  result.textContent=value;
+  if(tone)result.className=tone;
+  item.append(name,result);
+  return item;
+}
+
+function numericMetric(value,suffix="%",signed=false){
+  if(value===null||value===undefined||value==="")return "—";
+  const number=Number(value);
+  if(!Number.isFinite(number))return "—";
+  const prefix=signed&&number>0?"+":"";
+  return `${prefix}${number.toFixed(1)}${suffix}`;
+}
+
+function percentileTone(value){
+  if(value===null||value===undefined||value==="")return "";
+  const number=Number(value);
+  if(!Number.isFinite(number))return "";
+  if(number>70)return "high";
+  if(number<30)return "low";
+  return "";
+}
+
+function renderIvMetrics(ivHistory){
+  const percentiles=ivHistory?.percentiles||{};
+  const entries=[
+    [t(ivHistory?.metric==="dvol"?"currentDvol":"currentIv"),numericMetric(ivHistory?.current_iv_pct)],
+    [t("change1d"),numericMetric(ivHistory?.change_1d_pct,"%",true)],
+    [t("change7d"),numericMetric(ivHistory?.change_7d_pct,"%",true)],
+    [t("percentile30"),numericMetric(percentiles.days_30),percentileTone(percentiles.days_30)],
+    [t("percentile90"),numericMetric(percentiles.days_90),percentileTone(percentiles.days_90)],
+    [t("percentile1y"),numericMetric(percentiles.days_365),percentileTone(percentiles.days_365)]
+  ];
+  $("ivMetrics").replaceChildren(...entries.map(entry=>metricNode(...entry)));
+}
+
+function renderHistory(history,ivHistory=LAST_IV_HISTORY){
   clearCharts();
-  if(isCallMode()) return;
-  if(isStockMode()||!history) return;
-  const available=(history.available_charts||[])
-    .filter(id=>id!=="price"&&history[id]?.timestamps?.length)
-    .slice(0,3);
-  if(!available.length) return;
+  $("ivContextTitle").textContent=t("ivHistoryTitle");
+  $("ivContextSubtitle").textContent=`${currentSymbol()} · ${t("ivHistorySubtitle")}`;
+  renderIvMetrics(ivHistory);
+  const state=$("ivContextState");
+  if(!ivHistory){
+    state.style.display="block";
+    state.textContent=t("ivUnavailable");
+    $("ivContextNote").textContent=isBuyCall()?t("buyerIvNote"):t("sellerIvNote");
+    return;
+  }
+  const context=[];
+  if(ivHistory.current_dvol_pct!==null&&ivHistory.current_dvol_pct!==undefined&&Number.isFinite(Number(ivHistory.current_dvol_pct))){
+    context.push(`DVOL ${numericMetric(ivHistory.current_dvol_pct)}`);
+  }
+  if(ivHistory.current_atm_iv_30d_pct!==null&&ivHistory.current_atm_iv_30d_pct!==undefined&&Number.isFinite(Number(ivHistory.current_atm_iv_30d_pct))){
+    context.push(`${t("atmIv")} ${numericMetric(ivHistory.current_atm_iv_30d_pct)}`);
+  }
+  context.push(isBuyCall()?t("buyerIvNote"):t("sellerIvNote"));
+  if(ivHistory.history_status==="accumulating")context.push(t("ivAccumulating"));
+  $("ivContextNote").textContent=context.join("  ·  ");
+  const fng=ivHistory.fng||history?.fng;
+  const charts=[
+    {id:"iv",series:ivHistory.iv},
+    {id:"vrp",series:ivHistory.vrp},
+    {id:"fng",series:fng}
+  ].filter(item=>item.series?.timestamps?.length).slice(0,3);
+  if(!charts.length){
+    state.style.display="block";
+    state.textContent=ivHistory.history_status==="accumulating"
+      ?t("ivAccumulating")
+      :t("ivUnavailable");
+    return;
+  }
+  state.style.display="none";
+  const available=charts.map(item=>item.id);
   $("chartGrid").className=`chart-grid count-${available.length}`;
-  available.forEach((id,index)=>{
+  charts.forEach((item,index)=>{
     const box=$("chartBox"+index);
-    const meta=chartMeta(id);
+    const meta=chartMeta(item.id);
     box.querySelector("h3").innerHTML=tip(meta.label,meta.tip);
     box.style.display="block";
-    makeMarketChart("marketChart"+index,id,history[id],history.price_history);
+    makeMarketChart("marketChart"+index,item.id,item.series,ivHistory.price);
   });
   $("chartGrid").style.display="grid";
 }
@@ -2918,6 +3124,9 @@ function applyLang(){
   $("fMaxStrike").placeholder=t("unlimited");
   $("fMinDelta").placeholder=t("unlimited");
   $("fMaxDelta").placeholder=t("unlimited");
+  $("ivContextTitle").textContent=t("ivHistoryTitle");
+  $("ivContextSubtitle").textContent=`${symbol} · ${t("ivHistorySubtitle")}`;
+  setIvRangeButtons();
   if(!isStockMode()){
     setTimeframeButtons();
     renderPriceChartCopy();
@@ -2933,7 +3142,9 @@ function applyLang(){
     renderAction(LAST_TIMING);
     renderSnapshot();
     render();
-    renderHistory(LAST_HISTORY);
+    renderHistory(LAST_HISTORY,LAST_IV_HISTORY);
+  }else if(!LAST_IV_HISTORY){
+    $("ivContextState").textContent=t("ivLoading");
   }
 }
 
@@ -2982,6 +3193,15 @@ $("stockSearch").addEventListener("submit",event=>{
 });
 document.querySelectorAll("[data-timeframe]").forEach(button=>{
   button.addEventListener("click",()=>selectTimeframe(button.dataset.timeframe));
+});
+document.querySelectorAll("[data-iv-days]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    const days=Number(button.dataset.ivDays);
+    if(![30,90,365].includes(days)||days===currentIvRange)return;
+    currentIvRange=days;
+    setIvRangeButtons();
+    loadIvRange();
+  });
 });
 $("langBtn").addEventListener("click",toggleLang);
 $("refreshBtn").addEventListener("click",refreshDashboard);
@@ -3105,7 +3325,7 @@ window.MangoDashboard={
   rerender:()=>{renderSnapshot();render()},
   apiUrl:(path,asset)=>apiUrl(path,asset),
   getState:()=>({
-    data:DATA,timing:LAST_TIMING,history:LAST_HISTORY,
+    data:DATA,timing:LAST_TIMING,history:LAST_HISTORY,ivHistory:LAST_IV_HISTORY,
     asset:currentAsset,market:currentMarket,strategy:STRATEGY_MODE,
   }),
 };
