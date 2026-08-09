@@ -39,6 +39,9 @@
   const config=window.MANGO_OWNER_CONFIG||{};
   const supabaseUrl=String(config.url||PROJECT_URL).replace(/\/$/,"");
   const anonKey=String(config.anonKey||config.publishableKey||"").trim();
+  const localPreview=["localhost","127.0.0.1"].includes(location.hostname)&&
+    new URLSearchParams(location.search).get("preview")==="1";
+  const LOCAL_PREVIEW_OWNER_ID="00000000-0000-0000-0000-000000000000";
   const OWNER_ASSETS=["BTC","ETH","HYPE"];
   const ASSET_DEFAULTS={
     BTC:{notional:1,min:.01},ETH:{notional:1,min:.1},HYPE:{notional:10,min:10},
@@ -83,6 +86,11 @@
   let optionRankLoading=false;
   let optionRankError="";
   let optionRankController=null;
+  let openContextController=null;
+  let openContextTimer=null;
+  let openContextValue=null;
+  let openContextKey="";
+  let openContextVersion=0;
   const reviewFilters={month:"all",asset:"all",rule:"all"};
   let portfolioTab="delta";
   let portfolioStressRange=30;
@@ -209,6 +217,11 @@
   }
 
   function authorizedFetch(input,init={}){
+    if(localPreview){
+      const headers=new Headers(init.headers||{});
+      headers.set("X-Mango-Owner-Request","1");
+      return fetch(input,{...init,headers});
+    }
     if(!session?.access_token){
       return Promise.reject(new Error("Owner 登录已失效，请重新登录。"));
     }
@@ -278,6 +291,7 @@
   }
 
   async function ensureSession(){
+    if(localPreview)return session;
     adoptLatestStoredSession();
     if(!session){
       const error=new Error("请先登录");
@@ -325,6 +339,10 @@
   }
 
   async function rest(path,{method="GET",body=null,prefer="",retry=true}={}){
+    if(localPreview){
+      if(method==="GET")return [];
+      throw new Error("本地预览模式不会写入生产私有账本");
+    }
     await ensureSession();
     const headers={apikey:anonKey,Authorization:`Bearer ${session.access_token}`};
     if(body!==null)headers["content-type"]="application/json";
@@ -739,15 +757,25 @@
 
   function snapshotReviewHtml(snapshot){
     if(!snapshot)return `<div class="owner-review-empty-snapshot"><strong>未记录开仓快照</strong><span>历史仓位仍可填写平仓复盘。</span></div>`;
+    const context=snapshot.market_context||{};
+    const regime=context.market_regime?.label||"—";
+    const quality=Journal.CONTEXT_LABELS[snapshot.context_capture_method]||"不可恢复";
+    const contextIv=context.dvol_pct??context.implied_vol_pct;
     return `<div class="owner-review-snapshot-grid">
       <div><span>平台</span><strong>${esc(Journal.VENUE_LABELS[snapshot.venue]||snapshot.venue)}</strong></div>
+      <div><span>环境数据</span><strong>${esc(quality)}</strong><small>${esc(snapshot.open_time_precision==="minute"?"分钟级":"日级")}</small></div>
       <div><span>开仓现价</span><strong>${money(snapshot.spot_usd,2)}</strong></div>
-      <div><span>IV</span><strong>${snapshot.iv_pct===null?"—":pct(snapshot.iv_pct*100)}</strong></div>
+      <div><span>7D / 30D</span><strong>${signedPct(context.price_change_7d_pct)} / ${signedPct(context.price_change_30d_pct)}</strong></div>
+      <div><span>RV / DVOL·IV</span><strong>${pct(context.realized_vol_pct)} / ${pct(contextIv)}</strong></div>
+      <div><span>IV 分位 / VRP</span><strong>${pct(context.iv_percentile_pct)} / ${context.vrp_pct==null?"—":`${Number(context.vrp_pct).toFixed(1)} pp`}</strong></div>
+      <div><span>恐惧贪婪</span><strong>${context.fear_greed==null?"—":Number(context.fear_greed).toFixed(0)}</strong></div>
+      <div><span>期权 IV</span><strong>${snapshot.iv_pct===null?"—":pct(snapshot.iv_pct*100)}</strong></div>
       <div><span>Delta</span><strong>${snapshot.delta===null?"—":Number(snapshot.delta).toFixed(3)}</strong></div>
       <div><span>条件 APR</span><strong>${snapshot.conditional_apr_pct===null?"—":pct(snapshot.conditional_apr_pct)}</strong></div>
       <div><span>超额 RWA APR</span><strong>${snapshot.expected_excess_rwa_apr_pct===null?"—":pct(snapshot.expected_excess_rwa_apr_pct)}</strong></div>
       <div><span>CVaR95</span><strong>${money(snapshot.cvar95_usd,2)}</strong></div>
-      <div><span>报价新鲜度</span><strong>${snapshot.quote_freshness_seconds===null?"—":`${snapshot.quote_freshness_seconds}s`}</strong></div>
+      <div><span>报价新鲜度</span><strong>${snapshot.quote_freshness_seconds===null?"不可恢复":`${snapshot.quote_freshness_seconds}s`}</strong></div>
+      <p><span>市场状态</span>${esc(regime)}</p>
       <p><span>当时为什么开</span>${esc(snapshot.reason_text||"未填写")}</p>
     </div>`;
   }
@@ -1419,6 +1447,8 @@
       <label><span id="ownerPositionNotionalLabel">BTC 名义数量</span><input id="ownerPositionNotional" type="number" min="0.01" step="any" inputmode="decimal" value="1" required></label>
       <label><span id="ownerPositionPremiumLabel">开仓权利金 / 1 BTC</span><input id="ownerPositionPremium" type="number" min="0" step="any" inputmode="decimal" placeholder="每 BTC 收到的权利金" required></label>
       <label><span>开仓日期</span><input id="ownerPositionOpenDate" type="date" required></label>
+      <label><span>开仓时间</span><input id="ownerPositionOpenTime" type="time" step="60" required><small>按成交记录填写，精确到分钟</small></label>
+      <section class="owner-open-context owner-form-wide" id="ownerOpenContext" aria-live="polite"><div><span>开仓市场环境</span><strong>填写日期和时间后自动回填</strong></div><small>只回填可验证的市场数据；历史 Bid / Ask / Greeks 不会伪造。</small></section>
       <details class="owner-reason-field owner-form-wide" open><summary>开仓理由（给半年后的自己看）</summary><label><span>当时为什么决定开这笔仓位？</span><textarea id="ownerPositionReason" maxlength="1000" rows="4" placeholder="记录当时的市场判断、触发条件与担忧。"></textarea></label></details>
     </div><p class="owner-form-note" id="ownerPositionNote">Deribit · 资本占用按行权价 × 名义数量</p><div class="owner-dialog-error" id="ownerDialogError" role="alert"></div><div class="owner-dialog-actions"><button type="button" class="owner-quiet" id="ownerDialogCancel">取消</button><button type="submit" class="owner-primary" id="ownerDialogSave">添加持仓</button></div></form></dialog>`;
   }
@@ -1440,6 +1470,7 @@
     $("ownerPositionAsset").addEventListener("change",()=>{
       updatePositionAssetUi({resetNotional:true});
       localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
+      scheduleOpenContext();
     });
     $("ownerPositionVenue").addEventListener("change",()=>{
       updatePositionAssetUi();
@@ -1452,6 +1483,8 @@
     $("ownerPositionForm").addEventListener("input",()=>{
       localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
     });
+    $("ownerPositionOpenDate").addEventListener("change",scheduleOpenContext);
+    $("ownerPositionOpenTime").addEventListener("change",scheduleOpenContext);
   }
 
   function today(){return new Date().toISOString().slice(0,10)}
@@ -1466,8 +1499,93 @@
       notional_btc:$("ownerPositionNotional").value,
       open_premium_per_btc:$("ownerPositionPremium").value,
       open_date:$("ownerPositionOpenDate").value,
+      open_time:$("ownerPositionOpenTime").value,
       reason_text:$("ownerPositionReason").value,
     };
+  }
+
+  function optionsApiBase(){
+    const fallback=`${supabaseUrl}/functions/v1/options-api`;
+    return String(
+      window.MANGO_API_BASE!==undefined
+        ?window.MANGO_API_BASE
+        :(["localhost","127.0.0.1"].includes(location.hostname)?"":fallback)
+    ).replace(/\/+$/g,"");
+  }
+
+  function openContextUrl(asset,opening){
+    const params=new URLSearchParams({
+      asset,at:opening.requested_at,precision:opening.precision,
+    });
+    return `${optionsApiBase()}/api/owner/open-context?${params}`;
+  }
+
+  function contextDisplayHtml(context,opening){
+    if(!context)return `<div><span>开仓市场环境</span><strong>填写日期和时间后自动回填</strong></div><small>只回填可验证的市场数据；历史 Bid / Ask / Greeks 不会伪造。</small>`;
+    const quality=Journal.CONTEXT_LABELS[context.capture_method]||"不可恢复";
+    const regime=context.market_regime?.label||"市场状态数据不足";
+    const contextIv=context.dvol_pct??context.implied_vol_pct;
+    const warning=Array.isArray(context.warnings)&&context.warnings.length
+      ?context.warnings.join("；"):"数据按开仓时点截断，不使用未来信息。";
+    return `<div class="owner-open-context-head"><span>开仓市场环境</span><strong>${esc(quality)} · ${opening.precision==="minute"?"分钟级":"日级"}</strong></div>
+      <div class="owner-open-context-metrics"><span>Spot <b>${money(context.spot_usd,2)}</b></span><span>7D <b>${signedPct(context.price_change_7d_pct)}</b></span><span>30D <b>${signedPct(context.price_change_30d_pct)}</b></span><span>RV <b>${pct(context.realized_vol_pct)}</b></span><span>DVOL / IV <b>${pct(contextIv)}</b></span><span>IV 分位 <b>${pct(context.iv_percentile_pct)}</b></span><span>VRP <b>${context.vrp_pct==null?"—":`${Number(context.vrp_pct).toFixed(1)} pp`}</b></span><span>F&amp;G <b>${context.fear_greed==null?"—":Number(context.fear_greed).toFixed(0)}</b></span></div>
+      <p>${esc(regime)}</p><small>${esc(warning)}</small>`;
+  }
+
+  function unavailableOpenContext(opening,message){
+    return {
+      requested_at:opening.requested_at,context_asof_at:null,
+      capture_method:"unavailable",requested_precision:opening.precision,
+      effective_precision:opening.precision,coverage:"unavailable",source:"unavailable",
+      market_regime:{code:"unknown",label:"市场环境不可恢复"},
+      warnings:[String(message||"历史市场数据暂不可用")],
+    };
+  }
+
+  function renderOpenContext(context=null,opening=null,{loading=false}={}){
+    const node=$("ownerOpenContext");
+    if(!node||node.hidden)return;
+    if(loading){
+      node.innerHTML=`<div><span>开仓市场环境</span><strong>正在回填…</strong></div><small>按开仓时点读取历史数据。</small>`;
+      return;
+    }
+    node.innerHTML=contextDisplayHtml(context,opening||{precision:"daily"});
+  }
+
+  async function loadOpenContext({force=false}={}){
+    const draft=positionDraft();
+    const opening=Journal.openingRequest({openDate:draft.open_date,openTime:draft.open_time});
+    const key=`${draft.asset}:${opening.requested_at}:${opening.precision}`;
+    if(!force&&openContextValue&&openContextKey===key)return {opening,context:openContextValue};
+    openContextController?.abort();
+    openContextController=new AbortController();
+    const version=++openContextVersion;
+    openContextKey=key;
+    renderOpenContext(null,opening,{loading:true});
+    try{
+      await ensureSession();
+      const response=await authorizedFetch(openContextUrl(draft.asset,opening),{
+        signal:openContextController.signal,cache:"no-store",
+      });
+      const payload=await response.json();
+      if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
+      if(version!==openContextVersion)throw new DOMException("stale","AbortError");
+      openContextValue=payload;
+    }catch(error){
+      if(error.name==="AbortError")throw error;
+      openContextValue=unavailableOpenContext(opening,error.message);
+    }
+    if(version===openContextVersion)renderOpenContext(openContextValue,opening);
+    return {opening,context:openContextValue};
+  }
+
+  function scheduleOpenContext(){
+    clearTimeout(openContextTimer);
+    openContextValue=null;
+    openContextKey="";
+    openContextTimer=setTimeout(()=>loadOpenContext().catch(error=>{
+      if(error.name!=="AbortError")renderOpenContext();
+    }),350);
   }
 
   function openPositionDialog(existing=null,prefill=null){
@@ -1493,16 +1611,23 @@
     );
     $("ownerPositionPremium").value=inputValue(row.open_premium_per_btc??row.bid_usd??0);
     $("ownerPositionOpenDate").value=row.open_date||today();
+    $("ownerPositionOpenTime").value=row.open_time||"";
     $("ownerPositionReason").value=existingSnapshot?.reason_text||row.reason_text||"";
     $("ownerPositionReason").readOnly=Boolean(existing);
+    $("ownerOpenContext").hidden=Boolean(existing);
+    openContextValue=null;
+    openContextKey="";
     updatePositionAssetUi();
     $("ownerDialogError").textContent="";
     const dialog=$("ownerPositionDialog");
     if(dialog.showModal)dialog.showModal();
     else dialog.setAttribute("open","");
+    if(!existing)scheduleOpenContext();
   }
 
   function closePositionDialog(){
+    clearTimeout(openContextTimer);
+    openContextController?.abort();
     const dialog=$("ownerPositionDialog");
     if(dialog.close)dialog.close();
     else dialog.removeAttribute("open");
@@ -1530,6 +1655,7 @@
           method:"PATCH",body,prefer:"return=representation",
         });
       }else{
+        const {opening,context}=await loadOpenContext({force:true});
         const research=researchFor(normalized.asset);
         const dashboardState=window.MangoDashboard?.getState?.()||{};
         const timing=String(dashboardState.asset||"").toUpperCase()===normalized.asset
@@ -1538,6 +1664,8 @@
         const snapshot=Journal.buildOpenSnapshot({
           position:normalized,research,timing,availableBefore:available,
           reasonText:draft.reason_text,venue:draft.venue,
+          openedAt:opening.opened_at,openPrecision:opening.precision,
+          historicalContext:context,
         });
         rows=await rest("rpc/create_position_with_snapshot",{
           method:"POST",body:{p_position:body,p_snapshot:snapshot},
@@ -2088,6 +2216,36 @@
     scheduleRefresh();
   }
 
+  async function bootLocalPreview(){
+    session={
+      access_token:"local-preview",refresh_token:"local-preview",
+      expires_at:Math.floor(Date.now()/1000)+86400,
+      user:{id:LOCAL_PREVIEW_OWNER_ID,email:"local-preview@localhost"},
+    };
+    ownerState=Strategy.normalizeOwnerState({
+      owner_id:LOCAL_PREVIEW_OWNER_ID,stablecoin_usd:0,
+    });
+    positions=[];
+    closedPositions=[];
+    openSnapshots=[];
+    closeReviews=[];
+    privateReady=true;
+    showOwner();
+    installOwnerUi();
+    bindGlobalActionsOnce();
+    if(stockRoute){
+      window.MangoDashboard?.prepareStockSearch?.();
+    }else{
+      window.MangoDashboard?.start?.();
+    }
+    renderAccount();
+    renderPositions();
+    renderOwnerReview();
+    renderOwnerPortfolio();
+    renderEntry();
+    setNotice("本地预览模式：不读取或写入生产私有账本。","warn");
+  }
+
   let actionsBound=false;
   function bindGlobalActionsOnce(){
     if(actionsBound)return;
@@ -2107,6 +2265,7 @@
     $("ownerOtpForm").addEventListener("submit",verifyOtp);
     $("ownerOtpResend").addEventListener("click",resendOtp);
     $("ownerOtpBack").addEventListener("click",()=>showLogin());
+    if(localPreview){await bootLocalPreview();return}
     if(!anonKey){showLogin("Owner 登录配置尚未完成。");return}
     session=readStoredSession();
     if(!session){showLogin();return}
