@@ -11,6 +11,12 @@
     return Number.isFinite(number)?number:null;
   }
 
+  function activateIvSurfaceRoute(documentNode,pathname){
+    if(!documentNode||!/\/options\/iv-surface\/?$/.test(String(pathname||"")))return false;
+    documentNode.documentElement?.classList?.add("iv-surface-route");
+    return true;
+  }
+
   function median(values){
     const rows=(values||[]).map(finite).filter(value=>value!==null).sort((a,b)=>a-b);
     if(!rows.length)return null;
@@ -130,8 +136,10 @@
     };
   }
 
+  if(typeof document!=="undefined")activateIvSurfaceRoute(document,location.pathname);
+
   return {
     finite,median,optionExpiries,nearestExpiry,nearestRowsToSpot,atmIv,
-    nearestDeltaIv,smile,termStructure,nearestTermPoint,classifyCurve,metrics,
+    nearestDeltaIv,smile,termStructure,nearestTermPoint,classifyCurve,metrics,activateIvSurfaceRoute,
   };
 });
