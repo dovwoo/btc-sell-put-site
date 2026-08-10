@@ -12,10 +12,6 @@
   if(!Strategy)throw new Error("OwnerStrategy is required");
   const Journal=window.DecisionJournal;
   if(!Journal)throw new Error("DecisionJournal is required");
-  const Portfolio=window.PortfolioRisk;
-  if(!Portfolio)throw new Error("PortfolioRisk is required");
-  const Scenario=window.ScenarioStress;
-  if(!Scenario)throw new Error("ScenarioStress is required");
   const projectBase=markerIndex>=0
     ?pathname.slice(0,markerIndex)
     :String(topStockMatch?.[1]||"");
@@ -28,9 +24,6 @@
   const stockRoute=ownerSuffix==="us-options"||ownerSuffix==="us-rankings";
   const rankingsRoute=ownerSuffix==="us-candidates";
   const reviewRoute=ownerSuffix==="review";
-  const portfolioRoute=ownerSuffix==="portfolio";
-  const scenarioRoute=ownerSuffix==="scenario";
-  const shareRoute=ownerSuffix==="share";
   const SESSION_KEY="mango.owner.session.v1";
   const AUTH_REFRESH_LOCK="mango.owner.session-refresh.v1";
   const AUTH_REFRESH_EARLY_MS=60000;
@@ -96,13 +89,6 @@
   let openContextKey="";
   let openContextVersion=0;
   const reviewFilters={month:"all",asset:"all",rule:"all"};
-  let portfolioTab="delta";
-  let portfolioStressRange=30;
-  let scenarioValue={price_shock_pct:0,iv_shock_points:0,time_days:0};
-  let scenarioRenderTimer=null;
-  let shareLinks=[];
-  let shareLoading=false;
-  let shareError="";
 
   const $=id=>document.getElementById(id);
   const money=(value,decimals=0)=>{
@@ -488,9 +474,6 @@
     document.documentElement.classList.toggle("owner-stock-route",stockRoute);
     document.documentElement.classList.toggle("owner-rankings-route",rankingsRoute);
     document.documentElement.classList.toggle("owner-review-route",reviewRoute);
-    document.documentElement.classList.toggle("owner-portfolio-route",portfolioRoute);
-    document.documentElement.classList.toggle("owner-scenario-route",scenarioRoute);
-    document.documentElement.classList.toggle("owner-share-route",shareRoute);
     document.documentElement.classList.remove("owner-pending");
     window.MangoOwner.isActive=true;
   }
@@ -531,30 +514,6 @@
       link.className="utility-nav";
       headerRight.insertBefore(link,$("ts"));
     }
-    if(!$("ownerPortfolioNav")){
-      const link=document.createElement("a");
-      link.id="ownerPortfolioNav";
-      link.href=`${ownerBase}portfolio/`;
-      link.textContent="组合";
-      link.className="utility-nav";
-      headerRight.insertBefore(link,$("ownerReviewNav"));
-    }
-    if(!$("ownerScenarioNav")){
-      const link=document.createElement("a");
-      link.id="ownerScenarioNav";
-      link.href=`${ownerBase}scenario/`;
-      link.textContent="情景";
-      link.className="utility-nav";
-      headerRight.insertBefore(link,$("ownerReviewNav"));
-    }
-    if(!$("ownerShareNav")){
-      const link=document.createElement("a");
-      link.id="ownerShareNav";
-      link.href=`${ownerBase}share/`;
-      link.textContent="分享";
-      link.className="utility-nav";
-      headerRight.insertBefore(link,$("ownerReviewNav"));
-    }
     $("usOptionsNav").href=stockBase;
     if(positionsRoute){
       $("sellPutNav").classList.remove("on");
@@ -594,7 +553,7 @@
       document.title="U.S. Option Candidates · Owner";
     }
     if(reviewRoute){
-      for(const id of ["sellPutNav","buyCallNav","coveredCallNav","ownerPositionsNav","ownerPortfolioNav","ownerScenarioNav","ownerShareNav","cryptoMarketNav","usOptionsNav"]){
+      for(const id of ["sellPutNav","buyCallNav","coveredCallNav","ownerPositionsNav","cryptoMarketNav","usOptionsNav"]){
         $(id)?.classList.remove("on");
         $(id)?.removeAttribute("aria-current");
       }
@@ -603,39 +562,6 @@
       $("pageTitle").textContent="Sell Put · 复盘";
       $("ts").textContent="OWNER ONLY";
       document.title="Sell Put Review · Owner";
-    }
-    if(portfolioRoute){
-      for(const id of ["sellPutNav","buyCallNav","coveredCallNav","ownerPositionsNav","ownerReviewNav","ownerScenarioNav","ownerShareNav","cryptoMarketNav","usOptionsNav"]){
-        $(id)?.classList.remove("on");
-        $(id)?.removeAttribute("aria-current");
-      }
-      $("ownerPortfolioNav").classList.add("on");
-      $("ownerPortfolioNav").setAttribute("aria-current","page");
-      $("pageTitle").textContent="Sell Put · 组合风险";
-      $("ts").textContent="OWNER ONLY";
-      document.title="Portfolio Risk · Owner";
-    }
-    if(scenarioRoute){
-      for(const id of ["sellPutNav","buyCallNav","coveredCallNav","ownerPositionsNav","ownerReviewNav","ownerPortfolioNav","ownerShareNav","cryptoMarketNav","usOptionsNav"]){
-        $(id)?.classList.remove("on");
-        $(id)?.removeAttribute("aria-current");
-      }
-      $("ownerScenarioNav").classList.add("on");
-      $("ownerScenarioNav").setAttribute("aria-current","page");
-      $("pageTitle").textContent="Sell Put · 情景压力";
-      $("ts").textContent="OWNER ONLY";
-      document.title="Scenario Stress · Owner";
-    }
-    if(shareRoute){
-      for(const id of ["sellPutNav","buyCallNav","coveredCallNav","ownerPositionsNav","ownerReviewNav","ownerPortfolioNav","ownerScenarioNav","cryptoMarketNav","usOptionsNav"]){
-        $(id)?.classList.remove("on");
-        $(id)?.removeAttribute("aria-current");
-      }
-      $("ownerShareNav").classList.add("on");
-      $("ownerShareNav").setAttribute("aria-current","page");
-      $("pageTitle").textContent="Sell Put · 分享";
-      $("ts").textContent="OWNER ONLY";
-      document.title="Read-only Share · Owner";
     }
   }
 
@@ -898,303 +824,6 @@
     renderOwnerReview();
   }
 
-  function riskUnavailable(copy="报价缺失或过期"){
-    return `<div class="owner-risk-empty"><strong>不可用</strong><span>${esc(copy)}</span></div>`;
-  }
-
-  function riskSignedUnits(value,asset){
-    const number=Number(value);
-    if(!Number.isFinite(number))return "不可用";
-    return `${number>0?"+":""}${number.toLocaleString("en-US",{maximumFractionDigits:4})} ${asset}`;
-  }
-
-  function deltaLedgerHtml(ledger){
-    if(!ledger.position_count)return riskUnavailable("无持仓");
-    const rows=ledger.rows.map(row=>`<tr${row.available?"":' class="muted"'}><td><strong>${row.asset}</strong></td><td>${row.position_count}</td><td>${row.available?riskSignedUnits(row.equivalent_units,row.asset):"不可用"}</td><td>${row.available?signedMoney(row.equivalent_usd):"不可用"}</td><td>${row.available?signedPct(row.stablecoin_pct):"不可用"}</td></tr>`).join("");
-    const totalUsd=ledger.available?signedMoney(ledger.equivalent_usd):"不可用";
-    const totalPct=ledger.available?signedPct(ledger.stablecoin_pct):"不可用";
-    const warning=ledger.unavailable_assets.length
-      ?`<p class="owner-risk-warning">${ledger.unavailable_assets.join(" / ")} 报价不可用；合计停止计算，其他资产仍单独显示。</p>`:"";
-    return `<div class="owner-risk-table"><table><thead><tr><th>资产</th><th>持仓数</th><th>Σ(Delta × 数量)</th><th>等效 USD</th><th>相对稳定币</th></tr></thead><tbody>${rows}<tr class="owner-risk-total"><td><strong>合计</strong></td><td>${ledger.position_count}</td><td>—</td><td>${totalUsd}</td><td>${totalPct}</td></tr></tbody></table></div>${warning}<p class="owner-risk-note">沿用期权链的 Put Delta 口径；负值表示链上 Put 对标的价格的负向敏感度。卖方持仓方向与合约多头方向相反。</p>`;
-  }
-
-  function expiryLadderHtml(ladder){
-    if(!ladder.position_count)return riskUnavailable("无持仓");
-    const max=Math.max(...ladder.rows.map(row=>row.total),1);
-    const bars=ladder.rows.map(row=>{
-      const height=Math.max(4,row.total/max*100);
-      const segments=Portfolio.ASSETS.filter(asset=>row.by_asset[asset]>0).map(asset=>{
-        const portion=row.by_asset[asset]/row.total*100;
-        return `<i class="asset-${asset.toLowerCase()}" style="height:${portion.toFixed(3)}%" title="${asset} ${money(row.by_asset[asset])}"></i>`;
-      }).join("");
-      const concentration=row.portfolio_pct>30?' <em>集中</em>':"";
-      return `<div class="owner-risk-bar-column"><span>${money(row.total)}</span><div class="owner-risk-bar" style="height:${height.toFixed(3)}%">${segments}</div><small>${esc(row.expiry)}${concentration}</small><b>${pct(row.portfolio_pct)}</b></div>`;
-    }).join("");
-    return `<div class="owner-risk-legend"><span class="asset-btc">BTC</span><span class="asset-eth">ETH</span><span class="asset-hype">HYPE</span></div><div class="owner-expiry-chart" role="img" aria-label="按到期日堆叠的完整 Strike 承诺">${bars}</div><p class="owner-risk-note">纵轴为当日到期持仓的完整 K×Q；“集中”仅表示该日超过全部承诺的 30%，不是自动交易结论。</p>`;
-  }
-
-  function strikeLadderHtml(ladders){
-    if(!ladders.length)return riskUnavailable("无持仓");
-    return `<div class="owner-strike-ladders">${ladders.map(ladder=>{
-      const extent=[...ladder.rows.map(row=>row.strike),...(ladder.spot===null?[]:[ladder.spot])];
-      const min=Math.min(...extent),max=Math.max(...extent);
-      const span=Math.max(max-min,1);
-      const maxCapital=Math.max(...ladder.rows.map(row=>row.capital),1);
-      const spotLeft=ladder.spot===null?null:(ladder.spot-min)/span*100;
-      const bars=ladder.rows.map(row=>{
-        const left=(row.strike-min)/span*100;
-        const height=Math.max(5,row.capital/maxCapital*100);
-        return `<div class="owner-strike-bar ${row.moneyness}" style="left:${left.toFixed(3)}%;height:${height.toFixed(3)}%"><span>${money(row.capital)}</span><small>${money(row.strike)}</small></div>`;
-      }).join("");
-      return `<section class="owner-strike-card"><header><div><strong>${ladder.asset}</strong><span>${ladder.rows.length} 个 Strike · ${money(ladder.total)} K×Q</span></div><span>${ladder.spot_available?`Spot ${money(ladder.spot)}`:"Spot 不可用"}</span></header><div class="owner-strike-chart">${spotLeft===null?"":`<i class="owner-spot-line" style="left:${spotLeft.toFixed(3)}%"><b>SPOT</b></i>`}${bars}</div>${ladder.spot_available?"":'<p class="owner-risk-warning">现价过期，柱形仍显示但不判断 OTM / ITM。</p>'}</section>`;
-    }).join("")}</div><p class="owner-risk-note">绿色为 Strike 低于新鲜 Spot；红色为 Strike 大于或等于 Spot。柱高表示该 Strike 的 K×Q。</p>`;
-  }
-
-  function stressChartSvg(points){
-    if(!points.length)return "";
-    const values=points.map(point=>point.total_pnl??point.known_total_pnl);
-    let min=Math.min(...values),max=Math.max(...values);
-    if(min===max){min-=1;max+=1}
-    const width=800,height=230,padX=42,padY=28;
-    const range=Math.max(Math.abs(points[0].shock_pct),Math.abs(points.at(-1).shock_pct),1);
-    const x=value=>padX+(value+range)/(2*range)*(width-padX*2);
-    const y=value=>padY+(max-value)/(max-min)*(height-padY*2);
-    const coordinates=points.map(point=>`${x(point.shock_pct).toFixed(1)},${y(point.total_pnl??point.known_total_pnl).toFixed(1)}`).join(" ");
-    const zeroY=min<=0&&max>=0?y(0):null;
-    return `<svg class="owner-stress-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="跨资产压力路径损益折线图">${zeroY===null?"":`<line class="zero" x1="${padX}" x2="${width-padX}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}"/>`}<polyline points="${coordinates}"/>${points.map(point=>`<circle cx="${x(point.shock_pct).toFixed(1)}" cy="${y(point.total_pnl??point.known_total_pnl).toFixed(1)}" r="4"><title>${signedPct(point.shock_pct)} · ${signedMoney(point.total_pnl??point.known_total_pnl)}</title></circle>`).join("")}<text x="${padX}" y="${height-5}">-${range}%</text><text x="${width-padX}" y="${height-5}" text-anchor="end">+${range}%</text></svg>`;
-  }
-
-  function stressPortfolioHtml(stress){
-    if(!stress.position_count)return riskUnavailable("无持仓");
-    const worst=stress.worst_point;
-    const rows=(worst?.by_asset||[]).map(row=>`<tr${row.available?"":' class="muted"'}><td><strong>${row.asset}</strong></td><td>${row.available?signedMoney(row.pnl):"不可用"}</td></tr>`).join("");
-    const unavailable=worst?.unavailable_assets||[];
-    return `<div class="owner-portfolio-stress-controls"><label><span>BTC / ETH / HYPE 同步涨跌范围</span><strong>±${portfolioStressRange.toFixed(1)}%</strong></label><input id="ownerPortfolioStressRange" type="range" min="1" max="100" step="0.1" value="${portfolioStressRange.toFixed(1)}"><label class="owner-stress-number"><input id="ownerPortfolioStressNumber" type="number" min="1" max="100" step="0.1" value="${portfolioStressRange.toFixed(1)}" inputmode="decimal"><span>%</span></label></div>${stressChartSvg(stress.points)}<div class="owner-risk-table owner-stress-summary"><table><thead><tr><th>最差路径 ${worst?signedPct(worst.shock_pct):"—"}</th><th>损益</th></tr></thead><tbody>${rows}<tr class="owner-risk-total"><td><strong>${unavailable.length?"已知部分":"全组合"}</strong></td><td>${worst?signedMoney(worst.total_pnl??worst.known_total_pnl):"不可用"}</td></tr></tbody></table></div>${unavailable.length?`<p class="owner-risk-warning">${unavailable.join(" / ")} 缺少新鲜报价或 IV；折线只表示其余已知资产，不能当作全组合损益。</p>`:""}${worst?.worst_position?`<p class="owner-risk-note">最差单笔：${esc(worst.worst_position.asset)} · ${signedMoney(worst.worst_position.pnl)}。假设 IV 与剩余期限不变，按 Black–Scholes 重算，不含手续费、滑点或保证金变化。</p>`:""}`;
-  }
-
-  function renderOwnerPortfolio(){
-    if(!portfolioRoute)return;
-    const page=$("ownerPortfolioPage");
-    if(!page)return;
-    if(!privateReady){
-      page.innerHTML=`<div class="owner-private-error">${esc(privateError||"正在读取私有组合数据…")}</div>`;
-      return;
-    }
-    const now=Date.now();
-    const delta=Portfolio.deltaLedger(ownerState,positions,researchByAsset,now);
-    const expiry=Portfolio.expiryLadder(positions);
-    const strikes=Portfolio.strikeLadders(positions,researchByAsset,now);
-    const stress=Portfolio.stressPortfolio(positions,researchByAsset,portfolioStressRange,now);
-    const panel=(id,title,copy,body)=>`<section class="owner-risk-panel${portfolioTab===id?" active":""}" data-owner-risk-panel="${id}"><header><span class="owner-kicker">${id.toUpperCase()}</span><h3>${title}</h3><p>${copy}</p></header>${body}</section>`;
-    page.innerHTML=`<header class="owner-review-head owner-portfolio-head"><div><span class="owner-kicker">PORTFOLIO RISK LEDGER</span><h2>组合风险总账</h2><p>只读组合视角；不改变单笔仓位的平仓规则，也不生成调仓建议。</p></div><button type="button" class="owner-quiet" id="ownerPortfolioRefresh"${researchLoading?" disabled":""}>${researchLoading?"刷新中…":"刷新报价"}</button></header><nav class="owner-risk-tabs" aria-label="组合风险视图">${[["delta","Delta 总账"],["expiry","到期阶梯"],["strike","Strike 阶梯"],["stress","联合压力"]].map(([id,label])=>`<button type="button" data-owner-risk-tab="${id}" class="${portfolioTab===id?"active":""}">${label}</button>`).join("")}</nav><div class="owner-risk-panels">${panel("delta","Delta 敞口总账","按资产汇总链上 Put Delta × 名义数量。",deltaLedgerHtml(delta))}${panel("expiry","到期日阶梯","按到期日堆叠完整 Strike 承诺。",expiryLadderHtml(expiry))}${panel("strike","Strike 阶梯","查看每种资产的承诺落在哪些行权价。",strikeLadderHtml(strikes))}${panel("stress","跨资产联合压力","假设三种资产同时涨跌、IV 不变，重算组合路径。",stressPortfolioHtml(stress))}</div>`;
-    $("ownerPortfolioRefresh")?.addEventListener("click",refreshAll);
-    page.querySelectorAll("[data-owner-risk-tab]").forEach(button=>button.addEventListener("click",()=>{portfolioTab=button.dataset.ownerRiskTab;renderOwnerPortfolio()}));
-    $("ownerPortfolioStressRange")?.addEventListener("input",event=>{portfolioStressRange=Portfolio.normalizeRange(event.target.value);renderOwnerPortfolio()});
-    $("ownerPortfolioStressNumber")?.addEventListener("change",event=>{portfolioStressRange=Portfolio.normalizeRange(event.target.value);renderOwnerPortfolio()});
-  }
-
-  function installOwnerPortfolioUi(){
-    const main=document.querySelector("main.wrap");
-    if(!$("ownerPortfolioPage")){
-      const page=document.createElement("section");
-      page.id="ownerPortfolioPage";
-      page.className="owner-portfolio-page";
-      main.appendChild(page);
-    }
-    renderOwnerPortfolio();
-  }
-
-  function scenarioInput(label,key,value,minimum,maximum,step,suffix){
-    return `<section class="owner-scenario-control"><label><span>${esc(label)}</span><strong>${Number(value)>0?"+":""}${Number(value).toFixed(step<1?1:0)}${suffix}</strong></label><input type="range" min="${minimum}" max="${maximum}" step="${step}" value="${value}" data-scenario-field="${key}"><input type="number" min="${minimum}" max="${maximum}" step="${step}" value="${value}" inputmode="decimal" data-scenario-field="${key}"></section>`;
-  }
-
-  function drawScenarioHeatmap(map){
-    const canvas=$("ownerScenarioHeatmap");
-    if(!canvas||!map?.cells?.length)return;
-    const ratio=Math.min(window.devicePixelRatio||1,2);
-    const cssWidth=Math.max(620,canvas.parentElement.clientWidth||620);
-    const cssHeight=380;
-    canvas.style.width=`${cssWidth}px`;
-    canvas.style.height=`${cssHeight}px`;
-    canvas.width=Math.round(cssWidth*ratio);
-    canvas.height=Math.round(cssHeight*ratio);
-    const context=canvas.getContext("2d");
-    context.scale(ratio,ratio);
-    const left=58,top=24,right=18,bottom=44;
-    const columns=map.price_shocks.length,rows=map.iv_shocks.length;
-    const cellWidth=(cssWidth-left-right)/columns;
-    const cellHeight=(cssHeight-top-bottom)/rows;
-    const maximum=Math.max(1,...map.cells.map(cell=>Math.abs(cell.change||0)));
-    context.font='11px ui-monospace, SFMono-Regular, Menlo, monospace';
-    context.textAlign="center";
-    context.textBaseline="middle";
-    map.cells.forEach((cell,index)=>{
-      const column=index%columns,row=Math.floor(index/columns);
-      const intensity=Math.min(1,Math.abs(cell.change||0)/maximum);
-      const positive=(cell.change||0)>=0;
-      context.fillStyle=positive?`rgba(47,179,168,${.12+intensity*.68})`:`rgba(255,107,107,${.12+intensity*.68})`;
-      context.fillRect(left+column*cellWidth,top+row*cellHeight,cellWidth-1,cellHeight-1);
-      context.fillStyle="#e5e7eb";
-      context.fillText(signedMoney(cell.change,0),left+(column+.5)*cellWidth,top+(row+.5)*cellHeight);
-    });
-    context.fillStyle="#8b93a5";
-    map.price_shocks.forEach((value,index)=>context.fillText(`${value>0?"+":""}${value}%`,left+(index+.5)*cellWidth,cssHeight-bottom+17));
-    context.textAlign="right";
-    map.iv_shocks.forEach((value,index)=>context.fillText(`${value>0?"+":""}${value}pt`,left-8,top+(index+.5)*cellHeight));
-    context.textAlign="center";
-    context.fillText("标的价格变化",left+(cssWidth-left-right)/2,cssHeight-8);
-    context.save();context.translate(11,top+(cssHeight-top-bottom)/2);context.rotate(-Math.PI/2);context.fillText("IV 变化",0,0);context.restore();
-  }
-
-  function scheduleScenarioRender(){
-    clearTimeout(scenarioRenderTimer);
-    scenarioRenderTimer=setTimeout(renderOwnerScenario,100);
-  }
-
-  function renderOwnerScenario(){
-    if(!scenarioRoute)return;
-    const page=$("ownerScenarioPage");
-    if(!page)return;
-    if(!privateReady){
-      page.innerHTML=`<div class="owner-private-error">${esc(privateError||"正在读取私有持仓与期权链…")}</div>`;
-      return;
-    }
-    const now=Date.now();
-    const result=Scenario.portfolioScenario(positions,researchByAsset,scenarioValue,now);
-    const presets=Object.entries(Scenario.PRESETS).map(([key,row])=>`<button type="button" data-scenario-preset="${key}">${esc(row.label)}</button>`).join("");
-    if(!positions.length){
-      page.innerHTML=`<header class="owner-review-head"><div><span class="owner-kicker">SCENARIO LAB</span><h2>组合情景压力</h2><p>同时调整价格、IV 与经过时间，按 Black–Scholes 重算现有 Sell Put。</p></div><a class="owner-quiet" href="${ownerBase}">返回持仓</a></header><div class="owner-risk-empty"><strong>暂无持仓</strong><span>录入 Sell Put 后才会生成压力结果。</span></div>`;
-      return;
-    }
-    const rowHtml=result.rows.map(row=>{
-      const position=positions.find(item=>String(item.id)===String(row.id));
-      const label=`${row.asset||position?.asset||"—"} ${money(position?.strike)} Put`;
-      return row.available
-        ?`<tr><td><strong>${label}</strong><small>${esc(position?.expiry||"")}</small></td><td>${signedMoney(row.current_pnl)}</td><td>${signedMoney(row.scenario_pnl)}</td><td class="${row.change<0?"bad":"good"}">${signedMoney(row.change)}</td></tr>`
-        :`<tr class="unavailable"><td><strong>${label}</strong><small>${esc(position?.expiry||"")}</small></td><td colspan="3">不可用 · ${esc(row.reason)}</td></tr>`;
-    }).join("");
-    const worst=result.worst?`${result.worst.asset} ${signedMoney(result.worst.change)}`:"—";
-    const best=result.best?`${result.best.asset} ${signedMoney(result.best.change)}`:"—";
-    page.innerHTML=`<header class="owner-review-head"><div><span class="owner-kicker">SCENARIO LAB</span><h2>组合情景压力</h2><p>价格、IV 与时间三维重估；只显示模型结果，不生成调仓、对冲或下单建议。</p></div><button type="button" class="owner-quiet" id="ownerScenarioRefresh"${researchLoading?" disabled":""}>${researchLoading?"刷新中…":"刷新报价"}</button></header>
-      <div class="owner-scenario-controls">${scenarioInput("标的价格", "price_shock_pct",result.scenario.price_shock_pct,-50,50,.1,"%")}${scenarioInput("IV", "iv_shock_points",result.scenario.iv_shock_points,-30,30,.1," pt")}${scenarioInput("经过时间", "time_days",result.scenario.time_days,0,30,1," 天")}</div>
-      <div class="owner-scenario-presets" aria-label="压力预设">${presets}</div>
-      <section class="owner-scenario-summary"><div><span>当前模型 P&amp;L</span><strong>${signedMoney(result.current_pnl)}</strong><small>${result.available_count} 笔可用</small></div><div><span>情景 P&amp;L</span><strong>${signedMoney(result.scenario_pnl)}</strong><small>相对开仓权利金</small></div><div><span>组合变化</span><strong class="${result.change<0?"bad":"good"}">${signedMoney(result.change)}</strong><small>${result.unavailable_count?`${result.unavailable_count} 笔未纳入`:"全部仓位已纳入"}</small></div><div><span>最差 / 最好单笔</span><strong>${esc(worst)}</strong><small>${esc(best)}</small></div></section>
-      <div class="owner-scenario-grid"><section class="owner-scenario-panel"><header><h3>逐仓重估</h3><p>当前 P&amp;L → 情景 P&amp;L → 变化</p></header><div class="owner-risk-table"><table class="owner-scenario-table"><thead><tr><th>仓位</th><th>当前</th><th>情景</th><th>变化</th></tr></thead><tbody>${rowHtml}</tbody></table></div><p class="owner-scenario-note">IV 被限制在 1%–500%；到期后的期权按内在价值处理。缺少新鲜报价、IV 或任一 Greek 的仓位不参与汇总。</p></section><section class="owner-scenario-panel"><header><h3>价格 × IV 热力图</h3><p>固定经过 ${result.scenario.time_days} 天；格内为相对当前模型 P&amp;L 的变化</p></header><div style="overflow-x:auto"><canvas class="owner-scenario-heatmap" id="ownerScenarioHeatmap" role="img" aria-label="价格与 IV 组合压力热力图"></canvas></div></section></div>`;
-    $("ownerScenarioRefresh")?.addEventListener("click",refreshAll);
-    page.querySelectorAll("[data-scenario-field]").forEach(input=>input.addEventListener("input",event=>{
-      const key=event.target.dataset.scenarioField;
-      scenarioValue=Scenario.normalizeScenario({...scenarioValue,[key]:event.target.value});
-      scheduleScenarioRender();
-    }));
-    page.querySelectorAll("[data-scenario-preset]").forEach(button=>button.addEventListener("click",()=>{
-      scenarioValue=Scenario.normalizeScenario(Scenario.PRESETS[button.dataset.scenarioPreset]);
-      renderOwnerScenario();
-    }));
-    if(result.available_count)requestAnimationFrame(()=>drawScenarioHeatmap(Scenario.heatmap(positions,researchByAsset,result.scenario.time_days,now)));
-  }
-
-  function installOwnerScenarioUi(){
-    const main=document.querySelector("main.wrap");
-    if(!$("ownerScenarioPage")){
-      const page=document.createElement("section");
-      page.id="ownerScenarioPage";
-      page.className="owner-scenario-page";
-      main.appendChild(page);
-    }
-    renderOwnerScenario();
-  }
-
-  function shareApiUrl(path=""){
-    return `${supabaseUrl}/functions/v1/share-api${path}`;
-  }
-
-  async function ownerShareRequest(path="",options={}){
-    await ensureSession();
-    const headers=new Headers(options.headers||{});
-    headers.set("apikey",anonKey);
-    headers.set("authorization",`Bearer ${session.access_token}`);
-    if(options.body)headers.set("content-type","application/json");
-    let response=await fetch(shareApiUrl(path),{...options,headers,cache:"no-store"});
-    if(response.status===401){
-      await refreshSession({force:true});
-      headers.set("authorization",`Bearer ${session.access_token}`);
-      response=await fetch(shareApiUrl(path),{...options,headers,cache:"no-store"});
-    }
-    let payload={};try{payload=await response.json()}catch(_){ }
-    if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
-    return payload;
-  }
-
-  function shareKindLabel(kind){
-    return ({track_record:"Track record",current_positions:"当前持仓快照",strategy_summary:"策略规则摘要"})[kind]||kind;
-  }
-
-  function renderOwnerShare(){
-    if(!shareRoute)return;
-    const page=$("ownerSharePage");
-    if(!page)return;
-    const rows=shareLinks.map(link=>{
-      const revoked=Boolean(link.revoked_at);
-      const expired=Date.parse(link.expires_at)<=Date.now();
-      const state=revoked?"已撤销":expired?"已过期":"有效";
-      return `<article class="owner-share-row ${revoked||expired?"inactive":""}"><div><span>${esc(shareKindLabel(link.kind))}</span><strong>${esc(String(link.token).slice(0,8))}…</strong><small>${link.password_required?"密码保护 · ":""}${state} · ${utcDateTime(link.expires_at)}</small></div><div><span>访问</span><strong>${Number(link.access_count||0)} 次</strong><small>${link.last_accessed_at?`最后 ${utcDateTime(link.last_accessed_at)}`:"尚未访问"}</small></div><div class="owner-share-actions"><button type="button" class="owner-quiet" data-share-copy="${esc(link.url)}"${revoked||expired?" disabled":""}>复制链接</button><button type="button" class="owner-danger" data-share-revoke="${esc(link.token)}"${revoked?" disabled":""}>撤销</button></div></article>`;
-    }).join("");
-    page.innerHTML=`<header class="owner-review-head"><div><span class="owner-kicker">READ-ONLY SHARE</span><h2>分享策略快照</h2><p>创建时冻结内容；最长 30 天。公开页面永远不包含账户余额、available、名义数量、K×Q 金额或邮箱。</p></div><button type="button" class="owner-quiet" id="ownerShareReload"${shareLoading?" disabled":""}>${shareLoading?"读取中…":"刷新列表"}</button></header>
-      <section class="owner-share-create"><h3>新建分享</h3><form id="ownerShareForm"><label><span>分享内容</span><select name="kind"><option value="track_record">Track record</option><option value="current_positions">当前持仓快照</option><option value="strategy_summary">策略规则摘要</option></select></label><label><span>有效期</span><select name="days"><option value="1">1 天</option><option value="7" selected>7 天</option><option value="30">30 天</option></select></label><label class="owner-share-password-toggle"><input name="password_enabled" type="checkbox"><span>使用 4–8 位数字密码</span></label><label class="owner-share-password" hidden><span>访问密码</span><input name="password" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="new-password"></label><button type="submit" class="owner-primary"${localPreview?" disabled":""}>生成只读链接</button></form><p class="owner-share-error" id="ownerShareError">${esc(localPreview?"本地预览不会创建或修改生产分享链接。":shareError)}</p></section>
-      <section class="owner-share-list"><header><h3>已创建的链接</h3><span>${shareLinks.length} 条</span></header>${rows||'<div class="owner-risk-empty"><strong>还没有分享链接</strong><span>创建后可复制给指定访客，也可以随时撤销。</span></div>'}</section>`;
-    $("ownerShareReload")?.addEventListener("click",loadOwnerShares);
-    const form=$("ownerShareForm");
-    const toggle=form.elements.password_enabled;
-    const passwordLabel=form.querySelector(".owner-share-password");
-    toggle.addEventListener("change",()=>{passwordLabel.hidden=!toggle.checked;form.elements.password.required=toggle.checked;if(!toggle.checked)form.elements.password.value=""});
-    form.addEventListener("submit",createOwnerShare);
-    page.querySelectorAll("[data-share-copy]").forEach(button=>button.addEventListener("click",async()=>{
-      try{await navigator.clipboard.writeText(button.dataset.shareCopy);button.textContent="已复制"}catch(_){prompt("复制这个只读链接：",button.dataset.shareCopy)}
-    }));
-    page.querySelectorAll("[data-share-revoke]").forEach(button=>button.addEventListener("click",()=>revokeOwnerShare(button.dataset.shareRevoke)));
-  }
-
-  async function loadOwnerShares(){
-    if(!shareRoute||shareLoading||localPreview)return;
-    shareLoading=true;shareError="";renderOwnerShare();
-    try{const payload=await ownerShareRequest("/api/share-links");shareLinks=Array.isArray(payload.links)?payload.links:[]}
-    catch(error){shareError=error.message||"分享链接读取失败"}
-    finally{shareLoading=false;renderOwnerShare()}
-  }
-
-  async function createOwnerShare(event){
-    event.preventDefault();
-    if(localPreview)return;
-    const form=event.currentTarget;
-    const error=$("ownerShareError");
-    if(!form.reportValidity())return;
-    const button=form.querySelector('[type="submit"]');
-    button.disabled=true;button.textContent="生成中…";error.textContent="";
-    try{
-      const payload=await ownerShareRequest("/api/share-links",{method:"POST",body:JSON.stringify({kind:form.elements.kind.value,days:Number(form.elements.days.value),password:form.elements.password_enabled.checked?form.elements.password.value:null})});
-      shareLinks.unshift({...payload,access_count:0,last_accessed_at:null,created_at:new Date().toISOString(),revoked_at:null});
-      renderOwnerShare();
-      const created=$("ownerShareError");created.classList.add("ok");created.textContent="链接已生成；复制后请只发给预期访客。";
-    }catch(errorValue){error.textContent=errorValue.message||"创建失败";button.disabled=false;button.textContent="生成只读链接"}
-  }
-
-  async function revokeOwnerShare(token){
-    if(!token||localPreview||!confirm("撤销后，访客会立即看到链接已失效。确认撤销？"))return;
-    try{await ownerShareRequest(`/api/share-links/${encodeURIComponent(token)}`,{method:"DELETE"});const row=shareLinks.find(item=>item.token===token);if(row)row.revoked_at=new Date().toISOString();renderOwnerShare()}
-    catch(error){shareError=error.message||"撤销失败";renderOwnerShare()}
-  }
-
-  function installOwnerShareUi(){
-    const main=document.querySelector("main.wrap");
-    if(!$("ownerSharePage")){
-      const page=document.createElement("section");
-      page.id="ownerSharePage";
-      page.className="owner-share-page";
-      main.appendChild(page);
-    }
-    renderOwnerShare();
-  }
-
   function installOwnerUi(){
     configureNavigation();
     if(rankingsRoute){
@@ -1203,18 +832,6 @@
     }
     if(reviewRoute){
       installOwnerReviewUi();
-      return;
-    }
-    if(portfolioRoute){
-      installOwnerPortfolioUi();
-      return;
-    }
-    if(scenarioRoute){
-      installOwnerScenarioUi();
-      return;
-    }
-    if(shareRoute){
-      installOwnerShareUi();
       return;
     }
     if(stockRoute)return;
@@ -2194,8 +1811,6 @@
     renderAccount();
     renderPositions();
     renderOwnerReview();
-    renderOwnerPortfolio();
-    renderOwnerScenario();
     renderEntry();
     try{
       const [stateRows,positionRows,closedRows,snapshotRows,reviewRows]=await Promise.all([
@@ -2239,8 +1854,6 @@
     renderAccount();
     renderPositions();
     renderOwnerReview();
-    renderOwnerPortfolio();
-    renderOwnerScenario();
     renderEntry();
     window.MangoDashboard?.rerender?.();
   }
@@ -2256,8 +1869,6 @@
     researchLoading=true;
     researchError=null;
     renderAccount();
-    renderOwnerPortfolio();
-    renderOwnerScenario();
     const version=++refreshVersion;
     refreshController=new AbortController();
     try{
@@ -2307,8 +1918,6 @@
       renderAccount();
       renderPositions();
       renderOwnerReview();
-      renderOwnerPortfolio();
-      renderOwnerScenario();
       renderEntry();
       window.MangoDashboard?.rerender?.();
     }
@@ -2356,7 +1965,6 @@
     });
     document.addEventListener("mango:market-data",()=>{
       renderEntry();
-      if(localPreview)return;
       if(!researchFor(currentMarketAsset())||Date.now()-lastResearchAt>30000){
         refreshResearch();
       }
@@ -2441,18 +2049,8 @@
       await loadOwnerRankings();
       return;
     }
-    if(shareRoute){
-      await loadOwnerShares();
-      return;
-    }
     if(reviewRoute){
       await loadPrivateData.call(null);
-      return;
-    }
-    if(portfolioRoute||scenarioRoute){
-      await loadPrivateData.call(null);
-      refreshResearch(true);
-      scheduleRefresh();
       return;
     }
     bindGlobalActionsOnce();
@@ -2490,9 +2088,7 @@
     showOwner();
     installOwnerUi();
     bindGlobalActionsOnce();
-    if(shareRoute){
-      renderOwnerShare();
-    }else if(stockRoute){
+    if(stockRoute){
       window.MangoDashboard?.prepareStockSearch?.();
     }else{
       window.MangoDashboard?.start?.();
@@ -2500,8 +2096,6 @@
     renderAccount();
     renderPositions();
     renderOwnerReview();
-    renderOwnerPortfolio();
-    renderOwnerScenario();
     renderEntry();
     setNotice("本地预览模式：不读取或写入生产私有账本。","warn");
   }
