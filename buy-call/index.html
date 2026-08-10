@@ -603,7 +603,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .bar h1{font-size:.74rem;text-align:right}
   .bar .right{grid-column:1/-1;width:100%;justify-content:center}
   .bar .ts{display:none}
-  .nav{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .nav{display:grid;grid-template-columns:repeat(3,1fr);width:100%}
   .nav a{text-align:center;padding:6px 8px;min-height:32px;display:flex;align-items:center;justify-content:center}
   .wrap{padding:10px 10px}
   .market-line{gap:9px}
@@ -641,7 +641,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   /* Owner mobile */
   .owner-login-panel .owner-primary,.owner-login-panel .owner-quiet{min-height:40px}
   .owner-route .bar{grid-template-columns:auto 1fr}
-  .owner-route .nav{grid-template-columns:repeat(4,1fr)}
+  .owner-route .nav{grid-template-columns:repeat(5,1fr)}
   .owner-route .lang,.owner-route .nav a{min-height:40px;display:flex;align-items:center;justify-content:center}
   .owner-positions-route .wrap{padding:12px 10px 32px}
   .owner-rankings-route .wrap{padding:12px 10px 32px}
@@ -763,6 +763,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
     <nav class="nav" aria-label="期权市场">
       <a id="cryptoMarketNav" href="/options/">Crypto 期权</a>
       <a id="usOptionsNav" href="/us-options/">美股期权</a>
+      <a id="strategyNav" href="/strategy/">策略</a>
     </nav>
     <span class="ts" id="ts">loading...</span>
   </div>
