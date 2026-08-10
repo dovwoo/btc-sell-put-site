@@ -22,6 +22,12 @@
     return new URLSearchParams(search).get("preview")||"";
   }
 
+  function activateShareRoute(documentNode,pathname){
+    if(!documentNode||!/^\/share(?:\/|$)/.test(String(pathname||"")))return false;
+    documentNode.documentElement?.classList?.add("share-route");
+    return true;
+  }
+
   function value(value,suffix=""){
     return value===null||value===undefined||!Number.isFinite(Number(value))?"—":`${Number(value).toFixed(1)}${suffix}`;
   }
@@ -116,9 +122,10 @@
   }
 
   if(typeof document!=="undefined"){
+    activateShareRoute(document,location.pathname);
     if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});
     else install();
   }
 
-  return {escapeHtml,extractToken,localPreviewKind,value,kindTitle,snapshotHtml,previewPayload};
+  return {escapeHtml,extractToken,localPreviewKind,activateShareRoute,value,kindTitle,snapshotHtml,previewPayload};
 });
