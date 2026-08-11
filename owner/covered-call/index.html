@@ -1322,7 +1322,7 @@ function setAssetButtons(){
     button.setAttribute("aria-selected",String(active));
   });
   const stockActive=isStockMode();
-  $("stockSearch").classList.toggle("on",stockActive);
+  $("stockSearch").classList.toggle("on",stockActive||window.MANGO_MARKET_SCOPE==="crypto-only");
   $("priceChartPanel").hidden=stockActive;
   $("cryptoMarketNav").classList.toggle("on",!stockActive);
   $("usOptionsNav").classList.toggle("on",stockActive);
@@ -3374,7 +3374,16 @@ document.querySelectorAll("[data-asset]").forEach(button=>{
 });
 $("stockSearch").addEventListener("submit",event=>{
   event.preventDefault();
-  selectStock($("stockSymbol").value,true);
+  const symbol=normalizeStockSymbol($("stockSymbol").value);
+  if(!symbol){
+    $("stockSearchError").textContent=t("stockInvalid");
+    return;
+  }
+  if(window.MANGO_MARKET_SCOPE==="crypto-only"){
+    window.location.href=`/us-options/?ticker=${encodeURIComponent(symbol)}`;
+    return;
+  }
+  selectStock(symbol,true);
 });
 document.querySelectorAll("[data-timeframe]").forEach(button=>{
   button.addEventListener("click",()=>selectTimeframe(button.dataset.timeframe));
