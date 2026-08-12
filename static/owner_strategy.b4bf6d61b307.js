@@ -249,7 +249,7 @@
     if(!["sell","wait","no"].includes(timing.action))return false;
     return ![
       "stale","insufficient_history","volatility_unavailable",
-      "iv_rv_unavailable","timing_inputs_unavailable",
+      "iv_rv_unavailable","timing_inputs_unavailable","volatility_context",
     ].includes(timing.action_code);
   }
 
@@ -288,6 +288,12 @@
         account.available<0
           ?`现有 Put 已出现 ${Math.abs(account.available).toLocaleString("en-US",{maximumFractionDigits:2})} USD 承诺缺口。`
           :"现有 Put 已占满稳定币。",
+      );
+    }
+    if(timing?.action_code==="volatility_context"){
+      return result(
+        "entry","unknown",
+        "旧择时信号已停用；当前页面只展示波动率背景，暂无法判断是否到开仓复核点。",
       );
     }
     if(!sourceUsable(research,nowMs,{history:true})||!timingUsable(timing)){
