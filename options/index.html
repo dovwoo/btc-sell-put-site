@@ -90,16 +90,21 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner .act-badge{font-family:var(--mono);font-size:.66rem;font-weight:600;white-space:nowrap;padding:3px 8px;border-radius:0;letter-spacing:.06em;text-transform:uppercase}
 .action-banner .act-reason{font-size:.7rem;color:var(--text);line-height:1.45;flex:1}
 .action-banner .act-logic{margin-top:10px;padding-top:9px;border-top:1px solid var(--line2)}
+.action-banner .act-group+.act-group{margin-top:10px;padding-top:9px;border-top:1px solid var(--line2)}
 .action-banner .act-logic-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px}
 .action-banner .act-logic-title{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text2)}
 .action-banner .act-model{font-family:var(--mono);font-size:.57rem;color:var(--faint);line-height:1.45;text-align:right}
-.action-banner .act-evidence{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line2)}
-.action-banner .act-evidence-item{min-width:0;padding:7px 8px;border-right:1px solid var(--line2)}
+.action-banner .act-evidence{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line2)}
+.action-banner .act-evidence.act-readings{grid-template-columns:repeat(5,minmax(0,1fr))}
+.action-banner .act-evidence.act-steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+.action-banner .act-evidence-item{min-width:0;padding:10px 11px;border-right:1px solid var(--line2)}
 .action-banner .act-evidence-item:last-child{border-right:0}
 .action-banner .act-evidence-item span,.action-banner .act-evidence-item small{display:block;font-family:var(--mono)}
 .action-banner .act-evidence-item span{font-size:.52rem;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
 .action-banner .act-evidence-item strong{display:block;margin-top:3px;color:var(--text);font-family:var(--mono);font-size:.78rem;font-weight:600;font-variant-numeric:tabular-nums}
 .action-banner .act-evidence-item small{margin-top:4px;color:var(--muted);font-size:.55rem;line-height:1.45}
+.action-banner .act-evidence-item .act-impact{margin-top:8px;padding-top:7px;border-top:1px solid var(--line2);color:var(--text2)}
+.action-banner .act-impact b{display:block;margin-bottom:3px;color:var(--muted);font-size:.55rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
 .action-banner .act-evidence-item.good strong{color:var(--green)}
 .action-banner .act-evidence-item.warn strong{color:var(--amber)}
 .action-banner .act-evidence-item.bad strong{color:var(--red)}
@@ -112,6 +117,14 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner.wait .act-badge{background:transparent;color:var(--amber);border:1px solid var(--amber)}
 .action-banner.no{border-left-color:var(--red)}
 .action-banner.no .act-badge{background:transparent;color:var(--red);border:1px solid var(--red)}
+@media(min-width:851px){
+  .action-banner .act-evidence.act-readings{grid-template-rows:repeat(4,auto)}
+  .action-banner .act-evidence.act-readings>.act-evidence-item{display:grid;grid-row:1/5;grid-template-rows:subgrid}
+  .action-banner .act-evidence.act-readings>.act-evidence-item>span{grid-row:1}
+  .action-banner .act-evidence.act-readings>.act-evidence-item>strong{grid-row:2}
+  .action-banner .act-evidence.act-readings>.act-evidence-item>small:not(.act-impact){grid-row:3}
+  .action-banner .act-evidence.act-readings>.act-evidence-item>.act-impact{grid-row:4}
+}
 /* ============ PRICE CHART ============ */
 .price-chart-panel{background:var(--panel);border:1px solid var(--line);border-radius:0;padding:10px 12px 7px;margin-bottom:12px}
 .price-chart-panel[hidden]{display:none}
@@ -612,6 +625,16 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .iv-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
   .iv-metric:nth-child(3){border-right:0}
   .iv-metric:nth-child(-n+3){border-bottom:1px solid var(--line2)}
+  .action-banner .act-evidence{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .action-banner .act-evidence-item{border-bottom:1px solid var(--line2)}
+  .action-banner .act-evidence-item:nth-child(2n){border-right:0}
+  .action-banner .act-evidence-item:nth-last-child(-n+2){border-bottom:0}
+  .action-banner .act-evidence.act-readings{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .action-banner .act-evidence.act-readings .act-evidence-item:nth-last-child(2){border-bottom:1px solid var(--line2)}
+  .action-banner .act-evidence.act-readings .act-evidence-item:last-child{grid-column:1/-1;border-bottom:0}
+  .action-banner .act-evidence.act-steps{grid-template-columns:1fr}
+  .action-banner .act-evidence.act-steps .act-evidence-item{border-right:0;border-bottom:1px solid var(--line2)}
+  .action-banner .act-evidence.act-steps .act-evidence-item:last-child{border-bottom:0}
   .owner-track-row{grid-template-columns:1.1fr 1fr 1fr}
   .owner-track-actions{justify-content:flex-start}
 }
@@ -640,10 +663,6 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .action-banner .act-badge{font-size:.62rem}
   .action-banner .act-logic-head{display:block}
   .action-banner .act-model{margin-top:4px;text-align:left}
-  .action-banner .act-evidence{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .action-banner .act-evidence-item{border-bottom:1px solid var(--line2)}
-  .action-banner .act-evidence-item:nth-child(2n){border-right:0}
-  .action-banner .act-evidence-item:last-child{grid-column:1/-1;border-bottom:0}
   .price-chart-panel{padding:8px 8px 5px}
   .price-chart-head{display:block;margin:0 3px 5px}
   .timeframe-switch{display:flex;width:100%;margin-top:7px}
@@ -1017,27 +1036,74 @@ const STRINGS={
     candleCount:"根 K 线",timeframeLabel:"K 线周期",
     quoteExpired:"报价已过期",quoteExpiredReason:"报价超过 120 秒，只能查看，不能据此决策。",
     dataUnavailable:"数据不可用",dataUnavailableReason:"最新期权链加载失败，旧报价已清空，不能据此决策。",
-    timingLogic:"波动率溢价怎么读",timingDvol:"当前 DVOL",timingVrp:"VRP = DVOL − 30D RV",
+    timingReadings:"波动率溢价怎么读",timingReadingsModel:"先看高不高 → 再看贵不贵 → 最后看是否开始回落",timingReadingsUnavailable:"暂无可比波动率读数",
+    sellPutJudgement:"SELL PUT 定性判断",sellPutJudgementModel:"波动率位置 → 市场级价差 → 卖出时点",
+    volPositionStep:"01 · 波动率处在什么位置？",premiumStep:"02 · 市场有没有多付波动率？",entryTimingStep:"03 · 卖出时点是否开始改善？",
+    qualitativeUnavailable:"暂时无法判断",qualitativeIncomplete:"证据不完整，暂不下完整结论",
+    volPositionEvidence:"当前 DVOL {dvol}，过去一年百分位 {percentile}。{meaning}",
+    volPositionHighMeaning:"也就是过去一年约 {percentile} 的观测低于现在。波动率处在相对高位，可能有较大的回落空间，但不等于适合卖 Put。",
+    volPositionMiddleMeaning:"也就是过去一年约 {percentile} 的观测低于现在。波动率处在常态区间，回落空间没有高位时清楚。",
+    volPositionLowMeaning:"也就是过去一年约 {percentile} 的观测低于现在。波动率处在相对低位，继续压缩的空间可能有限。",
+    premiumEvidence:"DVOL {dvol} − 30D RV {rv} = {vrp}。这是市场未来约 30 天的波动定价与过去 30 天实际波动的差，不等于某张 Put 的收益。",
+    positivePremium:"市场定价高于近期实际波动",nonPositivePremium:"没有看到正的市场级价差",
+    entryTimingImproving:"卖出时点开始改善",entryTimingWarming:"卖出时点仍需等待",entryTimingUnconfirmed:"卖出时点尚未确认",
+    entryTimingEvidence:"DVOL 4h {change4h}，1d {change1d}。{meaning}",
+    entryTimingCoolingMeaning:"两个周期都在回落，波动率扩张暂时放缓，对卖方路径相对友好；这不代表标的已经止跌。",
+    entryTimingWarmingMeaning:"两个周期都在上升。现在卖出后，隐含波动率仍可能继续升高，期权可能变得更贵。",
+    entryTimingMixedMeaning:"两个周期方向不同，还不能确认波动率正在持续回落。",
+    sellPutQualitativeRule:"三步按顺序判断，不打分，也不能互相抵消；任一步缺少关键数据，都不算完成判断。",
+    sellPutQualitativeBoundary:"这里判断市场环境是否值得进入具体合约筛选；某张 Put 是否值得卖，仍需另看 Strike、到期日、可成交 Bid、深度和成本。",
+    timingLogic:"定性判断",timingDvol:"当前 DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL 过去一年位置",timingRv:"30D RV（30天实现波动率）",timingDvolMove:"DVOL 短期变化",
-    sellPutModel:"先看高不高 → 再看贵不贵 → 最后看是否开始回落",
-    sellPutRule:"这里只分析波动率溢价，不再使用黑箱总分。相对位置仅作展示分档：≥75% 为高位，≤25% 为低位；这不是开仓阈值。时间价值与具体收益留在下方合约报价中判断。",
-    sellPutBoundary:"DVOL 是约 30 天的市场整体隐含波动率，不等于某个 Strike 的 IV；最终仍需核对具体合约 IV、Bid、深度、期限、接货价和资金。",
-    volContextLabel:"波动率溢价观察",volDataUnavailable:"波动率数据不足，暂时不能判断相对位置与溢价。",volPositionUnavailable:"一年历史样本不足，暂时不能判断 DVOL 的相对位置",volDataStale:"波动率数据已经过期，下面只展示旧数值，不能据此判断。",
+    sellPutModel:"多付多少 → 补偿什么 → 能否兑现 → 扣成本后是否值得",
+    sellPutRule:"四问按证据逐层收窄，不使用总分，也不能互相抵消；任何关键字段缺失都不算通过。",
+    sellPutBoundary:"在没有同期限 Forecast RV、具体 Put skew、期限结构、事件与预期赔付模型前，这里只能展示风险溢价证据，不能确认某张 Put 被高估。",
+    volContextLabel:"风险溢价证据",volDataUnavailable:"缺少 DVOL 或同日 30D RV，不能把“未看到”写成“没有”。",volPositionUnavailable:"一年历史样本不足，暂时不能判断 DVOL 的相对位置",volDataStale:"波动率数据已经过期，下面只展示旧数值，不能据此判断。",volHistoryInsufficient:"{asset} 还没有可比的 DVOL 历史；当前 ATM IV 与短期 RV 的口径不同，只展示期权链，不判断风险溢价。",
+    premiumPaidQuestion:"01 · 市场多付了多少？",premiumSourceQuestion:"02 · 在补偿什么风险？",
+    premiumHarvestQuestion:"03 · 现在能开始收吗？",premiumNetQuestion:"04 · 扣完后值得吗？",
+    premiumMarketProxy:"市场级粗代理",premiumProxyNote:"DVOL {dvol} − 30D RV {rv}。这是约 30D ATM 市场代理，不是具体 Put 可赚的美元。",
+    premiumProxyMissing:"缺少 DVOL 或同日 30D RV，不能估算市场级代理。",
+    premiumSourceUnknown:"来源未拆清",premiumSourceNote:"DVOL 位于过去一年 {value} 百分位；但缺少 Put skew、期限结构和事件信息，不能区分保险需求、事件补偿与失序尾部重定价。",
+    premiumSourceMissingNote:"缺少可信的一年位置、Put skew、期限结构和事件信息，暂时不能解释溢价来源。",
+    premiumHarvestPartial:"部分出现",premiumHarvestNotYet:"尚未出现",premiumHarvestMixed:"尚未确认",premiumHarvestUnavailable:"无法判断",
+    premiumHarvestCoolingNote:"4h {change4h} / 1d {change1d}，DVOL 同时回落；但缺少现货止跌、RV 加速度和事件信息，只能算部分证据。",
+    premiumHarvestRisingNote:"4h {change4h} / 1d {change1d}，DVOL 同时上升；高溢价仍可能继续变高，风险路径尚未稳定。",
+    premiumHarvestMixedNote:"4h {change4h} / 1d {change1d} 的方向不同，暂时不能确认波动率持续回落。",
+    premiumHarvestMissingNote:"缺少 4 小时或 1 日 DVOL 变化，不能判断风险路径是否稳定。",
+    premiumNetPending:"等待具体合约",premiumNetNote:"需先选定到期日与 Strike，再扣预期赔付、手续费、滑点和 8% 资金机会成本，并并列检查 CVaR；条件年化不是答案。",
+    premiumNoEdge:"没有看到正的市场级波动率溢价",premiumNoEdgeReason:"DVOL − 30D RV 为 {value}，市场并没有把未来波动定得高于近期实际波动。",
+    premiumLowVol:"有正价差，但波动率处在低位",premiumLowVolReason:"市场级价差为 {value}，但 DVOL 只处在过去一年 {percentile} 百分位，波动率压缩空间可能有限。",
+    premiumWorsening:"溢价存在，但波动率仍在升温",premiumWorseningReason:"市场级价差为 {value}，但 4h 与 1d DVOL 同时上升；卖出时点仍需等待。",
+    premiumWaiting:"溢价存在，卖出时点尚未确认",premiumWaitingReason:"市场级价差为 {value}，但 4h 与 1d DVOL 方向不同；继续观察。",
+    premiumMiddleCooling:"价差存在且开始降温，但波动率只在常态区间",premiumMiddleCoolingReason:"市场级价差为 {value}，DVOL 开始回落，但过去一年位置只有 {percentile} 百分位。",
+    premiumReview:"波动率溢价环境较完整，进入具体合约筛选",premiumReviewReason:"DVOL 位于过去一年相对高位，市场级价差为 {value}，且 4h 与 1d DVOL 同时回落；这仍不是开仓许可。",
     dvolHigh:"相对高位",dvolMiddle:"中间位置",dvolLow:"相对低位",
     dvolHighSummary:"DVOL 处在过去一年相对高位",dvolMiddleSummary:"DVOL 处在过去一年中间位置",dvolLowSummary:"DVOL 处在过去一年相对低位",
-    dvolNote:"市场预计未来约 30 天的年化波动约 {value}。",
+    optionPriceImpact:"对期权价格",
+    dvolNote:"市场当前为未来约 30 天计入约 {value} 的年化隐含波动率。DVOL 代表市场整体，不等于每张合约的 IV。",
+    dvolImpact:"在到期日、行权价和标的价格等条件相近时，较高 IV 通常对应更高的期权价格。",
     ivRankHighNote:"高于过去一年约 {value} 的观测，属于相对高位；这不是涨跌概率。",
     ivRankMiddleNote:"高于过去一年约 {value} 的观测，处在中间位置；这不是涨跌概率。",
     ivRankLowNote:"只高于过去一年约 {value} 的观测，处在相对低位；这不是涨跌概率。",
+    ivRankHighImpact:"百分位本身不进入期权定价；若具体合约 IV 也在高位，权利金通常相对更贵。",
+    ivRankMiddleImpact:"百分位本身不进入期权定价；它只说明当前波动率大致处于历史常态。",
+    ivRankLowImpact:"百分位本身不进入期权定价；若具体合约 IV 也偏低，权利金通常相对便宜，继续压缩的空间可能较小。",
     rvNote:"RV 是实现波动率：过去 30 天标的真实价格波动折算成年化后约为 {value}。",
+    rvImpact:"它是回看指标，不直接决定期权价格；只有当它改变市场对未来波动的判断并带动 IV 时，才会间接影响权利金。",
     vrpPositive:"隐含波动高于近期实际波动",vrpNegative:"隐含波动低于近期实际波动",vrpFlat:"隐含与实际波动接近",
-    vrpPositiveNote:"市场给出的未来波动定价比过去 30 天实际波动高 {value} 个波动率点。卖方收到的权利金里包含这部分额外定价，但它不是确定收益。",
+    vrpPositiveNote:"市场给出的未来波动定价比过去 30 天实际波动高 {value} 个波动率点。",
     vrpNegativeNote:"市场给出的未来波动定价比过去 30 天实际波动低 {value} 个波动率点。这项 IV − 30D RV 对比没有显示正溢价。",
     vrpFlatNote:"市场给出的未来波动定价与过去 30 天实际波动接近，额外补偿不明显。",
+    vrpPositiveImpact:"这项市场级对比显示未来波动定价高于近期 RV。若具体合约 IV 也偏高，其期权价格通常更高；但不能只凭 VRP 判断某张 Put 贵或便宜。",
+    vrpNegativeImpact:"这项市场级对比没有显示相对近期 RV 的额外定价；但不能只凭 VRP 判断某张 Put 贵或便宜。",
+    vrpFlatImpact:"这项市场级对比显示未来定价与近期 RV 接近；但不能只凭 VRP 判断某张 Put 贵或便宜。",
     volRising:"波动率仍在上升",volCooling:"波动率正在回落",volMixed:"短期变化不一致",
-    volRisingNote:"4 小时和 1 日 DVOL 都在上升。如果现在卖 Put，之后隐含波动继续升高，期权价格可能上涨，提前买回会更贵。",
-    volCoolingNote:"4 小时和 1 日 DVOL 都在下降。如果其他条件不变，期权价格会得到波动率回落的帮助；标的价格下跌风险仍然存在。",
+    volRisingNote:"4 小时和 1 日 DVOL 都在上升，波动率还没有开始回落。",
+    volCoolingNote:"4 小时和 1 日 DVOL 都在下降，波动率正在降温。",
     volMixedNote:"4 小时与 1 日 DVOL 的变化方向不同，还不能确认波动率正在持续回落。",
+    volRisingImpact:"如果现在卖 Put，之后隐含波动继续升高，期权价格可能上涨，提前买回会更贵。",
+    volCoolingImpact:"如果其他条件不变，期权价格会得到波动率回落的帮助；标的价格下跌风险仍然存在。",
+    volMixedImpact:"在方向统一前，波动率这一项对期权价格是助力还是压力仍不清楚。",
     volSummaryRising:"但市场给期权的波动定价还在上升，尚未看到回落",volSummaryCooling:"而且市场给期权的波动定价正在下降，卖方开始受益于波动率回落",volSummaryMixed:"但 4 小时和 1 日变化方向不同，回落尚未确认",
     fearAux:"辅助情绪：Fear & Greed {value}，3 日变化 {change}。只描述全市场情绪，不参与上述结论。",
     entryReview:"进入开仓复核",coveredTimingLabel:"等待卖出窗口",
@@ -1116,27 +1182,74 @@ const STRINGS={
     candleCount:"candles",timeframeLabel:"Candle interval",
     quoteExpired:"Quote expired",quoteExpiredReason:"Quote is older than 120 seconds; view only, do not act on it.",
     dataUnavailable:"Data unavailable",dataUnavailableReason:"The latest option chain failed to load. Old quotes were cleared and must not be used for a decision.",
-    timingLogic:"How to read volatility premium",timingDvol:"Current DVOL",timingVrp:"VRP = DVOL − 30D RV",
+    timingReadings:"How to read volatility premium",timingReadingsModel:"Is it high? → Is it rich? → Has it started to fall?",timingReadingsUnavailable:"No comparable volatility readings",
+    sellPutJudgement:"SELL PUT QUALITATIVE CHECK",sellPutJudgementModel:"Volatility position → Market-level spread → Entry timing",
+    volPositionStep:"01 · Where is volatility now?",premiumStep:"02 · Is the market paying extra for volatility?",entryTimingStep:"03 · Is the entry timing improving?",
+    qualitativeUnavailable:"Not enough evidence",qualitativeIncomplete:"Evidence is incomplete; no full conclusion",
+    volPositionEvidence:"Current DVOL is {dvol}, at the {percentile} percentile of the past year. {meaning}",
+    volPositionHighMeaning:"About {percentile} of the past year's observations were lower. Volatility is relatively high and may have more room to fall, but this alone does not make a Put attractive.",
+    volPositionMiddleMeaning:"About {percentile} of the past year's observations were lower. Volatility is in its normal range, so compression potential is less clear than at a high reading.",
+    volPositionLowMeaning:"About {percentile} of the past year's observations were lower. Volatility is relatively low, so further compression may be limited.",
+    premiumEvidence:"DVOL {dvol} − 30D RV {rv} = {vrp}. This compares the market's roughly 30-day volatility price with the past 30 days of realized volatility; it is not the return on one Put.",
+    positivePremium:"Market pricing is above recent realized volatility",nonPositivePremium:"No positive market-level spread",
+    entryTimingImproving:"Entry timing is improving",entryTimingWarming:"Entry timing still calls for patience",entryTimingUnconfirmed:"Entry timing is unconfirmed",
+    entryTimingEvidence:"DVOL 4h {change4h}, 1d {change1d}. {meaning}",
+    entryTimingCoolingMeaning:"Both horizons are falling, so volatility expansion is easing and the path is becoming friendlier for a seller; this does not mean the underlying has stopped falling.",
+    entryTimingWarmingMeaning:"Both horizons are rising. Implied volatility may keep rising after entry and make the option more expensive.",
+    entryTimingMixedMeaning:"The two horizons disagree, so a sustained decline in volatility is not confirmed.",
+    sellPutQualitativeRule:"The three gates are read in order. There is no score and failed evidence cannot be offset; missing a key input leaves the check incomplete.",
+    sellPutQualitativeBoundary:"This judges whether the market environment merits contract screening. Whether one Put is worth selling still depends on strike, expiry, executable Bid, depth, and costs.",
+    timingLogic:"Qualitative check",timingDvol:"Current DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL one-year position",timingRv:"30D RV (realized volatility)",timingDvolMove:"Short-term DVOL move",
-    sellPutModel:"Is volatility high? → Is it rich? → Has it started to fall?",
-    sellPutRule:"This section explains volatility premium without an opaque score. Position bands are descriptive only: ≥75% is high and ≤25% is low; they are not entry thresholds. Time value and contract yield remain in the option quotes below.",
-    sellPutBoundary:"DVOL is a roughly 30-day market-wide implied-volatility index, not the IV of one strike. Verify contract IV, bid, depth, tenor, acquisition price, and funding before any trade.",
-    volContextLabel:"Volatility premium",volDataUnavailable:"There is not enough volatility data to judge relative position or premium.",volPositionUnavailable:"There is not enough one-year history to judge DVOL's relative position",volDataStale:"The volatility data is stale. Old values are shown for context only and must not be used for a decision.",
+    sellPutModel:"Extra pay → Risk source → Harvestability → Net value",
+    sellPutRule:"The four questions narrow the evidence in sequence. There is no blended score, no offsetting of failed gates, and missing data never counts as a pass.",
+    sellPutBoundary:"Without same-horizon forecast RV, contract Put skew, term structure, events, and an expected-loss model, this section can show only risk-premium evidence. It cannot confirm that a Put is overpriced.",
+    volContextLabel:"Risk-premium evidence",volDataUnavailable:"DVOL or same-date 30D RV is missing. Missing evidence must not be described as no premium.",volPositionUnavailable:"There is not enough one-year history to judge DVOL's relative position",volDataStale:"The volatility data is stale. Old values are shown for context only and must not be used for a decision.",volHistoryInsufficient:"{asset} does not yet have comparable DVOL history. Current ATM IV and short-term RV use different horizons, so the option chain is shown without a risk-premium conclusion.",
+    premiumPaidQuestion:"01 · How much extra is offered?",premiumSourceQuestion:"02 · What risk is it paying for?",
+    premiumHarvestQuestion:"03 · Can it be harvested now?",premiumNetQuestion:"04 · Is it worthwhile after costs?",
+    premiumMarketProxy:"market-level proxy",premiumProxyNote:"DVOL {dvol} minus 30D RV {rv}. This is a roughly 30D ATM market proxy, not the dollars available from one Put.",
+    premiumProxyMissing:"DVOL or same-date 30D RV is missing, so the market-level proxy cannot be estimated.",
+    premiumSourceUnknown:"Source unresolved",premiumSourceNote:"DVOL is at the {value} percentile of the past year. Put skew, term structure, and event data are still missing, so insurance demand cannot be separated from event compensation or disorderly tail repricing.",
+    premiumSourceMissingNote:"Trusted one-year position, Put skew, term structure, and event data are missing, so the source of the premium cannot be explained.",
+    premiumHarvestPartial:"Partial evidence",premiumHarvestNotYet:"Not yet",premiumHarvestMixed:"Unconfirmed",premiumHarvestUnavailable:"Unavailable",
+    premiumHarvestCoolingNote:"4h {change4h} / 1d {change1d}; DVOL is falling on both horizons. Without spot stabilization, RV acceleration, and event data, this is only partial evidence.",
+    premiumHarvestRisingNote:"4h {change4h} / 1d {change1d}; DVOL is rising on both horizons. A rich premium can become richer while the risk path remains unstable.",
+    premiumHarvestMixedNote:"4h {change4h} / 1d {change1d} disagree, so a sustained decline in volatility is not confirmed.",
+    premiumHarvestMissingNote:"The 4-hour or 1-day DVOL move is missing, so risk-path stabilization cannot be judged.",
+    premiumNetPending:"Select a contract",premiumNetNote:"Select an expiry and strike, then deduct expected loss, fees, slippage, and the 8% capital opportunity cost and inspect CVaR alongside them. Conditional APR is not the answer.",
+    premiumNoEdge:"No positive market-level volatility premium",premiumNoEdgeReason:"DVOL minus 30D RV is {value}; the market is not pricing future volatility above recent realized volatility.",
+    premiumLowVol:"Positive spread, but volatility is relatively low",premiumLowVolReason:"The market-level spread is {value}, but DVOL is only at the {percentile} percentile of the past year, so compression potential may be limited.",
+    premiumWorsening:"Premium exists, but volatility is still warming",premiumWorseningReason:"The market-level spread is {value}, but both 4h and 1d DVOL are rising; entry timing still calls for patience.",
+    premiumWaiting:"Premium exists, but entry timing is unconfirmed",premiumWaitingReason:"The market-level spread is {value}, but 4h and 1d DVOL disagree; keep watching.",
+    premiumMiddleCooling:"Spread exists and volatility is cooling, but only from its normal range",premiumMiddleCoolingReason:"The market-level spread is {value} and DVOL is cooling, but its one-year position is only the {percentile} percentile.",
+    premiumReview:"Volatility-premium setup is relatively complete; screen contracts",premiumReviewReason:"DVOL is relatively high, the market-level spread is {value}, and both 4h and 1d DVOL are falling. This is still not permission to open a position.",
     dvolHigh:"Relatively high",dvolMiddle:"Middle range",dvolLow:"Relatively low",
     dvolHighSummary:"DVOL is relatively high versus the past year",dvolMiddleSummary:"DVOL is in the middle of its one-year range",dvolLowSummary:"DVOL is relatively low versus the past year",
-    dvolNote:"The market is pricing roughly {value} annualized volatility over the next 30 days.",
+    optionPriceImpact:"Effect on option price",
+    dvolNote:"The market currently prices about {value} annualized implied volatility for the next 30 days. DVOL is market-level and is not every contract's IV.",
+    dvolImpact:"With expiry, strike, and the underlying price held comparable, higher IV usually means a higher option price.",
     ivRankHighNote:"Higher than about {value} of the past year's observations; this is not a probability of price direction.",
     ivRankMiddleNote:"Higher than about {value} of the past year's observations; this is not a probability of price direction.",
     ivRankLowNote:"Higher than only about {value} of the past year's observations; this is not a probability of price direction.",
+    ivRankHighImpact:"The percentile is not an option-pricing input; if a contract's own IV is also elevated, its premium is usually relatively richer.",
+    ivRankMiddleImpact:"The percentile is not an option-pricing input; it only says volatility is near its historical norm.",
+    ivRankLowImpact:"The percentile is not an option-pricing input; if the contract's own IV is also low, its premium is usually cheaper and has less room to compress.",
     rvNote:"RV means realized volatility: the underlying's actual price moves over the past 30 days annualize to about {value}.",
+    rvImpact:"It is backward-looking and does not directly set option prices; it affects premium indirectly when it changes expectations for future volatility and moves IV.",
     vrpPositive:"Implied volatility is above recent realized volatility",vrpNegative:"Implied volatility is below recent realized volatility",vrpFlat:"Implied and realized volatility are close",
-    vrpPositiveNote:"The market's forward volatility price is {value} points above the past 30 days of realized volatility. Option premium includes this extra pricing, but it is not guaranteed profit.",
-    vrpNegativeNote:"The market's forward volatility price is {value} points below the past 30 days of realized volatility. This IV minus 30D RV comparison does not show a positive premium.",
+    vrpPositiveNote:"The market's forward volatility price is {value} points above the past 30 days of realized volatility.",
+    vrpNegativeNote:"The market's forward volatility price is {value} points below the past 30 days of realized volatility. This IV minus 30D RV comparison shows no positive premium.",
     vrpFlatNote:"The market's forward volatility price is close to the past 30 days of realized volatility, so extra compensation is limited.",
+    vrpPositiveImpact:"This market-level comparison shows that future volatility is priced above recent RV. If the contract's own IV is also elevated, its option price is usually higher, but VRP alone cannot tell whether a specific Put is rich or cheap.",
+    vrpNegativeImpact:"This market-level comparison shows that future volatility is not priced above recent RV, but VRP alone cannot tell whether a specific Put is rich or cheap.",
+    vrpFlatImpact:"This market-level comparison shows that future volatility is priced close to recent RV, but VRP alone cannot tell whether a specific Put is rich or cheap.",
     volRising:"Volatility is still rising",volCooling:"Volatility is falling",volMixed:"Short-term moves disagree",
-    volRisingNote:"Both 4-hour and 1-day DVOL are rising. If implied volatility keeps rising after selling the Put, the option can become more expensive to buy back.",
-    volCoolingNote:"Both 4-hour and 1-day DVOL are falling. If other conditions stay unchanged, falling volatility helps reduce the option price; downside price risk remains.",
+    volRisingNote:"Both 4-hour and 1-day DVOL are rising, so volatility has not started to fall.",
+    volCoolingNote:"Both 4-hour and 1-day DVOL are falling, so volatility is cooling.",
     volMixedNote:"The 4-hour and 1-day DVOL moves point in different directions, so a sustained decline is not yet confirmed.",
+    volRisingImpact:"If implied volatility keeps rising after selling the Put, the option can become more expensive to buy back.",
+    volCoolingImpact:"If other conditions stay unchanged, falling volatility helps reduce the option price; downside price risk remains.",
+    volMixedImpact:"Until the two horizons agree, volatility's effect on the option price remains unclear.",
     volSummaryRising:"but the market's volatility price is still rising and has not started to fall",volSummaryCooling:"and the market's volatility price is falling, which starts to help the seller",volSummaryMixed:"but the 4-hour and 1-day moves disagree, so a decline is unconfirmed",
     fearAux:"Sentiment context: Fear & Greed {value}, 3-day change {change}. It describes broad crypto sentiment and does not affect the conclusion above.",
     entryReview:"Enter opening review",coveredTimingLabel:"Wait for a sell window",
@@ -1939,6 +2052,7 @@ function timingValue(value,digits=1,suffix="",signed=false){
 function actionEvidenceItem(item){
   const node=document.createElement("div");
   node.className=`act-evidence-item${item.tone?` ${item.tone}`:""}`;
+  node.setAttribute("role","listitem");
   const label=document.createElement("span");
   label.textContent=String(item.label||"");
   const value=document.createElement("strong");
@@ -1948,6 +2062,14 @@ function actionEvidenceItem(item){
     const note=document.createElement("small");
     note.textContent=String(item.note);
     node.append(note);
+  }
+  if(item.impact){
+    const impact=document.createElement("small");
+    impact.className="act-impact";
+    const impactLabel=document.createElement("b");
+    impactLabel.textContent=t("optionPriceImpact");
+    impact.append(impactLabel,document.createTextNode(String(item.impact)));
+    node.append(impact);
   }
   return node;
 }
@@ -1969,13 +2091,13 @@ function dvolPosition(percentile){
   const value=timingNumber(percentile);
   if(value===null) return null;
   if(value>=75) return {
-    label:t("dvolHigh"),summary:t("dvolHighSummary"),tone:"warn",note:t("ivRankHighNote")
+    code:"high",label:t("dvolHigh"),summary:t("dvolHighSummary"),tone:"warn",note:t("ivRankHighNote"),impact:t("ivRankHighImpact")
   };
   if(value<=25) return {
-    label:t("dvolLow"),summary:t("dvolLowSummary"),tone:"bad",note:t("ivRankLowNote")
+    code:"low",label:t("dvolLow"),summary:t("dvolLowSummary"),tone:"bad",note:t("ivRankLowNote"),impact:t("ivRankLowImpact")
   };
   return {
-    label:t("dvolMiddle"),summary:t("dvolMiddleSummary"),tone:"",note:t("ivRankMiddleNote")
+    code:"middle",label:t("dvolMiddle"),summary:t("dvolMiddleSummary"),tone:"",note:t("ivRankMiddleNote"),impact:t("ivRankMiddleImpact")
   };
 }
 
@@ -1983,12 +2105,12 @@ function vrpReading(vrp){
   const value=timingNumber(vrp);
   if(value===null) return null;
   if(value>0) return {
-    label:t("vrpPositive"),tone:"good",note:t("vrpPositiveNote")
+    label:t("vrpPositive"),tone:"good",note:t("vrpPositiveNote"),impact:t("vrpPositiveImpact")
   };
   if(value<0) return {
-    label:t("vrpNegative"),tone:"bad",note:t("vrpNegativeNote")
+    label:t("vrpNegative"),tone:"bad",note:t("vrpNegativeNote"),impact:t("vrpNegativeImpact")
   };
-  return {label:t("vrpFlat"),tone:"warn",note:t("vrpFlatNote")};
+  return {label:t("vrpFlat"),tone:"warn",note:t("vrpFlatNote"),impact:t("vrpFlatImpact")};
 }
 
 function dvolDirection(change4h,change1d){
@@ -1996,13 +2118,13 @@ function dvolDirection(change4h,change1d){
   const dayMove=timingNumber(change1d);
   if(shortMove===null||dayMove===null) return null;
   if(shortMove>0&&dayMove>0) return {
-    label:t("volRising"),summary:t("volSummaryRising"),tone:"bad",note:t("volRisingNote")
+    label:t("volRising"),summary:t("volSummaryRising"),tone:"bad",note:t("volRisingNote"),impact:t("volRisingImpact")
   };
   if(shortMove<0&&dayMove<0) return {
-    label:t("volCooling"),summary:t("volSummaryCooling"),tone:"good",note:t("volCoolingNote")
+    label:t("volCooling"),summary:t("volSummaryCooling"),tone:"good",note:t("volCoolingNote"),impact:t("volCoolingImpact")
   };
   return {
-    label:t("volMixed"),summary:t("volSummaryMixed"),tone:"warn",note:t("volMixedNote")
+    label:t("volMixed"),summary:t("volSummaryMixed"),tone:"warn",note:t("volMixedNote"),impact:t("volMixedImpact")
   };
 }
 
@@ -2017,12 +2139,13 @@ function sellPutLogic(action){
     metrics.dvol_change_1d??LAST_IV_HISTORY?.change_1d_pct
   );
   const position=dvolPosition(percentile);
-  const premium=vrpReading(vrp);
+  const marketProxyReady=[dvol,rv,vrp].every(value=>value!==null);
+  const premium=marketProxyReady?vrpReading(vrp):null;
   const direction=dvolDirection(change4h,change1d);
-  const coreComplete=[dvol,rv,vrp,change4h,change1d].every(value=>value!==null)
-    &&premium&&direction;
+  const positionReady=dvol!==null&&position;
+  const coreComplete=positionReady&&marketProxyReady&&direction;
   const percentileValue=timingValue(percentile,1,"%");
-  const vrpMagnitude=timingValue(Math.abs(vrp),1);
+  const vrpValue=timingValue(vrp,1," pp",true);
   const fngValue=timingNumber(metrics.fng);
   const fngMoveValue=timingNumber(metrics.fng_drop_3d);
   const fng=fngValue!==null
@@ -2031,62 +2154,156 @@ function sellPutLogic(action){
   const fngMove=fngMoveValue!==null
     ?timingValue(fngMoveValue,0,"",true)
     :null;
-  const blocked=action?.action_code==="stale"||action?.blocked;
-  const reason=blocked
+  const stale=action?.action_code==="stale";
+  const insufficientHistory=action?.action_code==="insufficient_history";
+  const blocked=stale||action?.blocked;
+  const blockedReason=stale
     ?t("volDataStale")
+    :insufficientHistory
+      ?fillCopy(t("volHistoryInsufficient"),{asset:currentAsset})
+      :t("volDataUnavailable");
+  const status=blocked
+    ?{
+      action:"no",label:t("qualitativeIncomplete"),reason:blockedReason
+    }
     :!coreComplete
-      ?t("volDataUnavailable")
-      :!position
-        ?_lang==="zh"
-          ?`${t("volPositionUnavailable")}；${premium.label}，${direction.summary}。`
-          :`${t("volPositionUnavailable")}; ${premium.label}; ${direction.summary}.`
-        :_lang==="zh"
-          ?`${position.summary}；${premium.label}，${direction.summary}。`
-          :`${position.summary}; ${premium.label}; ${direction.summary}.`;
-  const evidence=[];
+      ?{action:"no",label:t("qualitativeIncomplete"),reason:positionReady?t("volDataUnavailable"):t("volPositionUnavailable")}
+      :vrp<=0
+        ?{action:"no",label:t("premiumNoEdge"),reason:fillCopy(t("premiumNoEdgeReason"),{value:vrpValue})}
+        :position.code==="low"
+          ?{action:"wait",label:t("premiumLowVol"),reason:fillCopy(t("premiumLowVolReason"),{value:vrpValue,percentile:percentileValue})}
+          :direction.tone==="bad"
+            ?{action:"wait",label:t("premiumWorsening"),reason:fillCopy(t("premiumWorseningReason"),{value:vrpValue})}
+            :direction.tone==="warn"
+              ?{action:"wait",label:t("premiumWaiting"),reason:fillCopy(t("premiumWaitingReason"),{value:vrpValue})}
+              :position.code==="middle"
+                ?{action:"wait",label:t("premiumMiddleCooling"),reason:fillCopy(t("premiumMiddleCoolingReason"),{value:vrpValue,percentile:percentileValue})}
+                :{action:"wait",label:t("premiumReview"),reason:fillCopy(t("premiumReviewReason"),{value:vrpValue})};
+  const moveValues={
+    change4h:timingValue(change4h,2,"%",true),
+    change1d:timingValue(change1d,2,"%",true)
+  };
+  const readings=[];
   if(dvol!==null){
-    evidence.push({
+    readings.push({
       label:t("timingDvol"),value:timingValue(dvol,1,"%"),
-      note:fillCopy(t("dvolNote"),{value:timingValue(dvol,1,"%")})
+      note:fillCopy(t("dvolNote"),{value:timingValue(dvol,1,"%")}),
+      impact:t("dvolImpact")
     });
   }
   if(position){
-    evidence.push({
+    readings.push({
       label:t("timingIvRank"),value:`${percentileValue} · ${position.label}`,
-      tone:position.tone,note:fillCopy(position.note,{value:percentileValue})
-    });
-  }
-  if(rv!==null){
-    evidence.push({
-      label:t("timingRv"),value:timingValue(rv,1,"%"),
-      note:fillCopy(t("rvNote"),{value:timingValue(rv,1,"%")})
-    });
-  }
-  if(premium){
-    evidence.push({
-      label:t("timingVrp"),value:`${timingValue(vrp,1," pp",true)} · ${premium.label}`,
-      tone:premium.tone,note:fillCopy(premium.note,{value:vrpMagnitude})
+      tone:position.tone,note:fillCopy(position.note,{value:percentileValue}),
+      impact:position.impact
     });
   }
   if(direction){
-    evidence.push({
+    readings.push({
       label:t("timingDvolMove"),
-      value:`4h ${timingValue(change4h,2,"%",true)} / 1d ${timingValue(change1d,2,"%",true)} · ${direction.label}`,
-      tone:direction.tone,note:direction.note
+      value:`4h ${moveValues.change4h} / 1d ${moveValues.change1d} · ${direction.label}`,
+      tone:direction.tone,note:direction.note,impact:direction.impact
     });
+  }
+  if(marketProxyReady){
+    readings.push({
+      label:t("timingRv"),value:timingValue(rv,1,"%"),
+      note:fillCopy(t("rvNote"),{value:timingValue(rv,1,"%")}),
+      impact:t("rvImpact")
+    });
+    readings.push({
+      label:t("timingVrp"),value:`${vrpValue} · ${premium.label}`,
+      tone:premium.tone,
+      note:fillCopy(premium.note,{value:timingValue(Math.abs(vrp),1)}),
+      impact:premium.impact
+    });
+  }
+  if(!readings.length){
+    readings.push({
+      label:t("timingReadingsUnavailable"),value:"—",tone:"bad",
+      note:blockedReason
+    });
+  }
+  const unavailableStep=(label,note)=>({
+    label,value:t("qualitativeUnavailable"),tone:"bad",note
+  });
+  let steps;
+  if(blocked){
+    steps=[t("volPositionStep"),t("premiumStep"),t("entryTimingStep")]
+      .map(label=>unavailableStep(label,blockedReason));
+  }else{
+    const positionMeaning=position
+      ?fillCopy(t({
+        high:"volPositionHighMeaning",
+        middle:"volPositionMiddleMeaning",
+        low:"volPositionLowMeaning"
+      }[position.code]),{percentile:percentileValue})
+      :"";
+    const timingMeaning=direction
+      ?t(direction.tone==="good"
+        ?"entryTimingCoolingMeaning"
+        :direction.tone==="bad"
+          ?"entryTimingWarmingMeaning"
+          :"entryTimingMixedMeaning")
+      :"";
+    steps=[
+      positionReady
+        ?{
+          label:t("volPositionStep"),value:position.label,tone:position.tone,
+          note:fillCopy(t("volPositionEvidence"),{
+            dvol:timingValue(dvol,1,"%"),percentile:percentileValue,meaning:positionMeaning
+          })
+        }
+        :unavailableStep(t("volPositionStep"),t("volPositionUnavailable")),
+      marketProxyReady
+        ?{
+          label:t("premiumStep"),
+          value:t(vrp>0?"positivePremium":"nonPositivePremium"),
+          tone:vrp>0?"good":"bad",
+          note:fillCopy(t("premiumEvidence"),{
+            dvol:timingValue(dvol,1,"%"),rv:timingValue(rv,1,"%"),vrp:vrpValue
+          })
+        }
+        :unavailableStep(t("premiumStep"),t("premiumProxyMissing")),
+      direction
+        ?{
+          label:t("entryTimingStep"),
+          value:t(direction.tone==="good"
+            ?"entryTimingImproving"
+            :direction.tone==="bad"
+              ?"entryTimingWarming"
+              :"entryTimingUnconfirmed"),
+          tone:direction.tone,
+          note:fillCopy(t("entryTimingEvidence"),{
+            ...moveValues,meaning:timingMeaning
+          })
+        }
+        :unavailableStep(t("entryTimingStep"),t("premiumHarvestMissingNote"))
+    ];
   }
   return {
     action:{
       ...action,
-      action:"wait",
-      action_code:"volatility_context",
-      action_label:t("volContextLabel"),
-      action_reason:reason
+      action:status.action,
+      action_code:blocked&&action?.action_code?action.action_code:"volatility_context",
+      action_label:status.label,
+      action_reason:status.reason
     },
-    model:t("sellPutModel"),
-    evidence,
-    rule:t("sellPutRule"),
-    boundary:t("sellPutBoundary"),
+    groups:[
+      {
+        title:t("timingReadings"),model:t("timingReadingsModel"),
+        evidence:readings,kind:"act-readings"
+      },
+      {
+        title:t("sellPutJudgement"),model:t("sellPutJudgementModel"),
+        evidence:steps,kind:"act-steps"
+      }
+    ],
+    model:t("sellPutJudgementModel"),
+    readings,
+    evidence:steps,
+    rule:t("sellPutQualitativeRule"),
+    boundary:t("sellPutQualitativeBoundary"),
     auxiliary:fng&&fngMove
       ?fillCopy(t("fearAux"),{value:fng,change:fngMove})
       :""
@@ -2120,22 +2337,36 @@ function coveredCallLogic(action){
   };
 }
 
-function actionLogicNode(logic){
-  const node=document.createElement("div");
-  node.className="act-logic";
+function actionEvidenceGroup(group){
+  const node=document.createElement("section");
+  node.className="act-group";
   const head=document.createElement("div");
   head.className="act-logic-head";
   const title=document.createElement("div");
   title.className="act-logic-title";
-  title.textContent=t("timingLogic");
+  title.textContent=String(group.title||t("timingLogic"));
   const model=document.createElement("div");
   model.className="act-model";
-  model.textContent=String(logic.model||"");
+  model.textContent=String(group.model||"");
   head.append(title,model);
   const evidence=document.createElement("div");
-  evidence.className="act-evidence";
-  evidence.append(...logic.evidence.map(actionEvidenceItem));
+  evidence.className=`act-evidence ${group.kind||"act-questions"}`;
+  evidence.setAttribute("role","list");
+  evidence.append(...(group.evidence||[]).map(actionEvidenceItem));
   node.append(head,evidence);
+  return node;
+}
+
+function actionLogicNode(logic){
+  const node=document.createElement("div");
+  node.className="act-logic";
+  const groups=Array.isArray(logic.groups)&&logic.groups.length
+    ?logic.groups
+    :[{
+      title:t("timingLogic"),model:logic.model,evidence:logic.evidence,
+      kind:(logic.evidence||[]).length===5?"act-readings":"act-questions"
+    }];
+  node.append(...groups.map(actionEvidenceGroup));
   if(logic.rule){
     const rule=document.createElement("p");
     rule.className="act-rule";
@@ -2166,6 +2397,18 @@ function sellPutBannerAction(action,decisionBlocked){
     action_label:t("quoteExpired"),
     action_reason:t("quoteExpiredReason"),
     blocked:true
+  };
+}
+
+function timingUnavailableAction(){
+  return {
+    asset:currentAsset,
+    action:"no",
+    action_code:"volatility_unavailable",
+    action_label:t("volContextLabel"),
+    action_reason:t("volDataUnavailable"),
+    blocked:true,
+    metrics:{}
   };
 }
 
@@ -2749,9 +2992,9 @@ async function loadData(){
       ||signal.aborted
       ||(DATA?.symbol||DATA?.asset)!==symbol
     ) return;
-    LAST_TIMING=timing;
+    LAST_TIMING=timing||timingUnavailableAction();
     LAST_HISTORY=history;
-    renderAction(timing);
+    renderAction(LAST_TIMING);
     if(LAST_IV_HISTORY)renderHistory(history,LAST_IV_HISTORY);
     emitMarketData("context");
   }catch(error){
