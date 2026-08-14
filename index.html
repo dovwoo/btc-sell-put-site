@@ -111,12 +111,30 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner .act-rule,.action-banner .act-boundary{margin-top:7px;font-size:.6rem;line-height:1.5;color:var(--text2)}
 .action-banner .act-boundary{padding-left:8px;border-left:1px solid var(--amber);color:var(--muted)}
 .action-banner .act-auxiliary{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);font-family:var(--mono);font-size:.56rem;line-height:1.45;color:var(--faint)}
+.action-banner .act-verdict{display:grid;grid-template-columns:112px minmax(0,1fr);gap:7px 14px;margin-top:10px;padding:10px 11px;border:1px solid var(--line2);border-left:2px solid var(--amber)}
+.action-banner .act-verdict.sell{border-left-color:var(--green)}
+.action-banner .act-verdict.no{border-left-color:var(--red)}
+.action-banner .act-verdict-label span,.action-banner .act-verdict-label strong{display:block;font-family:var(--mono)}
+.action-banner .act-verdict-label span{font-size:.52rem;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+.action-banner .act-verdict-label strong{margin-top:3px;color:var(--amber);font-size:1.02rem;font-weight:600}
+.action-banner .act-verdict.sell .act-verdict-label strong{color:var(--green)}
+.action-banner .act-verdict.no .act-verdict-label strong{color:var(--red)}
+.action-banner .act-verdict-reason{align-self:end;color:var(--text2);font-size:.61rem;line-height:1.5}
+.action-banner .act-verdict-gates{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 18px;padding-top:7px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:.54rem;color:var(--muted)}
+.action-banner .act-verdict-gate b{color:var(--text2);font-weight:500}
+.action-banner .act-verdict-gate.good b{color:var(--green)}
+.action-banner .act-verdict-gate.warn b{color:var(--amber)}
+.action-banner .act-verdict-gate.bad b{color:var(--red)}
+.action-banner .act-verdict-note{grid-column:1/-1;color:var(--faint);font-family:var(--mono);font-size:.52rem;line-height:1.45}
 .action-banner.sell{border-left-color:var(--green)}
 .action-banner.sell .act-badge{background:transparent;color:var(--green);border:1px solid var(--green)}
 .action-banner.wait{border-left-color:var(--amber)}
 .action-banner.wait .act-badge{background:transparent;color:var(--amber);border:1px solid var(--amber)}
 .action-banner.no{border-left-color:var(--red)}
 .action-banner.no .act-badge{background:transparent;color:var(--red);border:1px solid var(--red)}
+.action-banner.action-verdict-shell{padding:0;border:0;background:transparent}
+.action-verdict-shell .act-verdict{margin-top:0}
+.action-analysis{margin-top:0}
 @media(min-width:851px){
   .action-banner .act-evidence.act-readings{grid-template-rows:repeat(4,auto)}
   .action-banner .act-evidence.act-readings>.act-evidence-item{display:grid;grid-row:1/5;grid-template-rows:subgrid}
@@ -635,6 +653,8 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .action-banner .act-evidence.act-steps{grid-template-columns:1fr}
   .action-banner .act-evidence.act-steps .act-evidence-item{border-right:0;border-bottom:1px solid var(--line2)}
   .action-banner .act-evidence.act-steps .act-evidence-item:last-child{border-bottom:0}
+  .action-banner .act-verdict{grid-template-columns:1fr}
+  .action-banner .act-verdict-gates,.action-banner .act-verdict-note{grid-column:1}
   .owner-track-row{grid-template-columns:1.1fr 1fr 1fr}
   .owner-track-actions{justify-content:flex-start}
 }
@@ -863,6 +883,8 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
     </div>
   </section>
 
+  <section class="action-banner action-analysis" id="actionAnalysis" style="display:none"></section>
+
   <section class="context-charts" id="contextCharts" aria-labelledby="ivContextTitle">
     <header class="context-head">
       <div>
@@ -967,6 +989,7 @@ const MAX_QUOTE_DEPTH_CONCURRENCY=3;
 let quoteDepthGeneration=0;
 let quoteDepthState=null;
 let liveQuoteRenderTimer=null;
+let sellPutQuoteExpiryTimer=null;
 let activeHoverTip=null;
 let _lang="zh";
 
@@ -1053,6 +1076,14 @@ const STRINGS={
     entryTimingMixedMeaning:"两个周期方向不同，还不能确认波动率正在持续回落。",
     sellPutQualitativeRule:"三步按顺序判断，不打分，也不能互相抵消；任一步缺少关键数据，都不算完成判断。",
     sellPutQualitativeBoundary:"这里判断市场环境是否值得进入具体合约筛选；某张 Put 是否值得卖，仍需另看 Strike、到期日、可成交 Bid、深度和成本。",
+    finalConclusion:"最终结论 · 波动率条件",suitableToOpen:"适合开仓",waitAndWatch:"观望",waitForEvidence:"观望 · 证据不足",notSuitableToOpen:"不适合开仓",
+    suitableToOpenReason:"波动率处在相对高位，市场存在正的波动率价差，且 4h 与 1d DVOL 同时回落。波动率环境已通过，可以继续复核具体合约。",
+    waitAndWatchReason:"市场存在正的波动率价差，但波动率位置或卖出时点尚未同时通过，继续等待更完整的环境。",
+    waitForEvidenceReason:"关键波动率证据不足或报价已经过期，当前只能观望，不能据此开仓。",
+    notSuitableToOpenReason:"DVOL 没有高于 30D RV，当前没有看到正的市场级波动率价差。",
+    verdictPositionGate:"波动率位置",verdictPremiumGate:"市场级价差",verdictTimingGate:"卖出时点",
+    gatePassed:"通过",gateWaiting:"等待",gateFailed:"未通过",gateUnavailable:"不可判断",
+    verdictScope:"这里只判断波动率环境。下单前仍需复核 Strike、到期日、可成交 Bid、深度、手续费、滑点、8% 资金机会成本和 CVaR。",
     timingLogic:"定性判断",timingDvol:"当前 DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL 过去一年位置",timingRv:"30D RV（30天实现波动率）",timingDvolMove:"DVOL 短期变化",
     sellPutModel:"多付多少 → 补偿什么 → 能否兑现 → 扣成本后是否值得",
@@ -1199,6 +1230,14 @@ const STRINGS={
     entryTimingMixedMeaning:"The two horizons disagree, so a sustained decline in volatility is not confirmed.",
     sellPutQualitativeRule:"The three gates are read in order. There is no score and failed evidence cannot be offset; missing a key input leaves the check incomplete.",
     sellPutQualitativeBoundary:"This judges whether the market environment merits contract screening. Whether one Put is worth selling still depends on strike, expiry, executable Bid, depth, and costs.",
+    finalConclusion:"FINAL VERDICT · VOLATILITY CONDITIONS",suitableToOpen:"Suitable to open",waitAndWatch:"Wait",waitForEvidence:"Wait · insufficient evidence",notSuitableToOpen:"Not suitable to open",
+    suitableToOpenReason:"Volatility is relatively high, the market shows a positive volatility spread, and both 4h and 1d DVOL are falling. The volatility environment passes; review the specific contract next.",
+    waitAndWatchReason:"The market shows a positive volatility spread, but volatility position or entry timing has not passed at the same time. Wait for a more complete setup.",
+    waitForEvidenceReason:"Key volatility evidence is missing or the quote has expired. Wait; do not open a position from this evidence.",
+    notSuitableToOpenReason:"DVOL is not above 30D RV, so there is no positive market-level volatility spread at present.",
+    verdictPositionGate:"Volatility position",verdictPremiumGate:"Market-level spread",verdictTimingGate:"Entry timing",
+    gatePassed:"Pass",gateWaiting:"Wait",gateFailed:"Fail",gateUnavailable:"Unavailable",
+    verdictScope:"This judges only the volatility environment. Before trading, still review strike, expiry, executable Bid, depth, fees, slippage, the 8% capital opportunity cost, and CVaR.",
     timingLogic:"Qualitative check",timingDvol:"Current DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL one-year position",timingRv:"30D RV (realized volatility)",timingDvolMove:"Short-term DVOL move",
     sellPutModel:"Extra pay → Risk source → Harvestability → Net value",
@@ -1542,17 +1581,37 @@ function setStrategyChrome(){
   coveredCallLink.textContent=t("coveredCallNav");
   renderBuyCallRisk();
   if(isBuyCall()){
-    $("actionBanner").style.display="none";
+    setActionSectionsVisible(false);
     clearCharts();
   }
 }
 
-function buyCallQuoteBlocked(){
-  if(!isCallMode()||!DATA) return false;
-  if(DATA.decision_blocked) return true;
+function currentQuoteAgeSeconds(){
+  if(!DATA) return null;
   const initialAge=finiteNumber(DATA.quote_age_seconds)??0;
   const elapsed=DATA_RECEIVED_AT?Math.max(0,(Date.now()-DATA_RECEIVED_AT)/1000):0;
-  return initialAge+elapsed>120;
+  return initialAge+elapsed;
+}
+
+function buyCallQuoteBlocked(){
+  if(!isCallMode()||!DATA) return false;
+  return DATA.decision_blocked||currentQuoteAgeSeconds()>120;
+}
+
+function sellPutQuoteBlocked(){
+  if(isCallMode()||isStockMode()||!DATA) return false;
+  return DATA.decision_blocked||currentQuoteAgeSeconds()>120;
+}
+
+function scheduleSellPutQuoteExpiry(){
+  clearTimeout(sellPutQuoteExpiryTimer);
+  sellPutQuoteExpiryTimer=null;
+  if(isCallMode()||isStockMode()||!DATA||sellPutQuoteBlocked()) return;
+  const remainingSeconds=Math.max(0,120-currentQuoteAgeSeconds());
+  sellPutQuoteExpiryTimer=setTimeout(()=>{
+    sellPutQuoteExpiryTimer=null;
+    renderAction(LAST_TIMING);
+  },Math.ceil(remainingSeconds*1000)+50);
 }
 
 function renderBuyCallRisk(){
@@ -1857,6 +1916,8 @@ function resetIvContext(){
 function clearAssetView(){
   ivRequestVersion++;
   if(ivRequestController) ivRequestController.abort();
+  clearTimeout(sellPutQuoteExpiryTimer);
+  sellPutQuoteExpiryTimer=null;
   DATA=null;
   LAST_TIMING=null;
   LAST_HISTORY=null;
@@ -1866,7 +1927,7 @@ function clearAssetView(){
   $("spotLabel").textContent=isStockMode()?`${currentStockSymbol} ${t("stockSpot")}`:`${currentAsset} Spot`;
   $("marketMeta").textContent="";
   $("marketMeta").className="market-meta";
-  $("actionBanner").style.display="none";
+  setActionSectionsVisible(false);
   $("snapshot").innerHTML="";
   $("content").className="state";
   $("content").textContent=loadingCopy();
@@ -2128,7 +2189,64 @@ function dvolDirection(change4h,change1d){
   };
 }
 
-function sellPutLogic(action){
+function sellPutFinalConclusion({
+  blocked=false,coreComplete=false,position=null,vrp=null,direction=null
+}={}){
+  const unavailableGate=(label)=>({label,status:t("gateUnavailable"),tone:""});
+  const gates=blocked
+    ?[
+      unavailableGate(t("verdictPositionGate")),
+      unavailableGate(t("verdictPremiumGate")),
+      unavailableGate(t("verdictTimingGate"))
+    ]
+    :[
+      position
+        ?{
+          label:t("verdictPositionGate"),
+          status:t(position.code==="high"?"gatePassed":"gateWaiting"),
+          tone:position.code==="high"?"good":"warn"
+        }
+        :unavailableGate(t("verdictPositionGate")),
+      vrp!==null
+        ?{
+          label:t("verdictPremiumGate"),
+          status:t(vrp>0?"gatePassed":"gateFailed"),
+          tone:vrp>0?"good":"bad"
+        }
+        :unavailableGate(t("verdictPremiumGate")),
+      direction
+        ?{
+          label:t("verdictTimingGate"),
+          status:t(direction.tone==="good"?"gatePassed":"gateWaiting"),
+          tone:direction.tone==="good"?"good":"warn"
+        }
+        :unavailableGate(t("verdictTimingGate"))
+    ];
+  if(blocked||!coreComplete){
+    return {
+      state:"wait",label:t("waitForEvidence"),reason:t("waitForEvidenceReason"),
+      gates,note:t("verdictScope")
+    };
+  }
+  if(vrp<=0){
+    return {
+      state:"no",label:t("notSuitableToOpen"),reason:t("notSuitableToOpenReason"),
+      gates,note:t("verdictScope")
+    };
+  }
+  if(position.code==="high"&&direction.tone==="good"){
+    return {
+      state:"sell",label:t("suitableToOpen"),reason:t("suitableToOpenReason"),
+      gates,note:t("verdictScope")
+    };
+  }
+  return {
+    state:"wait",label:t("waitAndWatch"),reason:t("waitAndWatchReason"),
+    gates,note:t("verdictScope")
+  };
+}
+
+function sellPutLogic(action,{decisionBlocked=false}={}){
   const metrics=action?.metrics||{};
   const dvol=timingNumber(metrics.dvol);
   const rv=timingNumber(metrics.rv);
@@ -2156,8 +2274,10 @@ function sellPutLogic(action){
     :null;
   const stale=action?.action_code==="stale";
   const insufficientHistory=action?.action_code==="insufficient_history";
-  const blocked=stale||action?.blocked;
-  const blockedReason=stale
+  const blocked=decisionBlocked||stale||action?.blocked;
+  const blockedReason=decisionBlocked
+    ?t("quoteExpiredReason")
+    :stale
     ?t("volDataStale")
     :insufficientHistory
       ?fillCopy(t("volHistoryInsufficient"),{asset:currentAsset})
@@ -2281,6 +2401,9 @@ function sellPutLogic(action){
         :unavailableStep(t("entryTimingStep"),t("premiumHarvestMissingNote"))
     ];
   }
+  const conclusion=sellPutFinalConclusion({
+    blocked,coreComplete,position,vrp,direction
+  });
   return {
     action:{
       ...action,
@@ -2302,6 +2425,7 @@ function sellPutLogic(action){
     model:t("sellPutJudgementModel"),
     readings,
     evidence:steps,
+    conclusion,
     rule:t("sellPutQualitativeRule"),
     boundary:t("sellPutQualitativeBoundary"),
     auxiliary:fng&&fngMove
@@ -2357,6 +2481,49 @@ function actionEvidenceGroup(group){
   return node;
 }
 
+function actionConclusionNode(conclusion){
+  if(!conclusion) return null;
+  const node=document.createElement("section");
+  const state=["sell","wait","no"].includes(conclusion.state)
+    ?conclusion.state
+    :"wait";
+  node.className=`act-verdict ${state}`;
+  const label=document.createElement("div");
+  label.className="act-verdict-label";
+  const eyebrow=document.createElement("span");
+  eyebrow.textContent=t("finalConclusion");
+  const verdict=document.createElement("strong");
+  verdict.textContent=String(conclusion.label||"—");
+  label.append(eyebrow,verdict);
+  const reason=document.createElement("div");
+  reason.className="act-verdict-reason";
+  reason.textContent=String(conclusion.reason||"");
+  node.append(label,reason);
+  const gates=document.createElement("div");
+  gates.className="act-verdict-gates";
+  gates.setAttribute("role","list");
+  for(const gate of conclusion.gates||[]){
+    const item=document.createElement("span");
+    item.className=`act-verdict-gate${gate.tone?` ${gate.tone}`:""}`;
+    item.setAttribute("role","listitem");
+    item.append(
+      document.createTextNode(`${String(gate.label||"")} `),
+      Object.assign(document.createElement("b"),{
+        textContent:String(gate.status||"—")
+      })
+    );
+    gates.append(item);
+  }
+  node.append(gates);
+  if(conclusion.note){
+    const note=document.createElement("div");
+    note.className="act-verdict-note";
+    note.textContent=String(conclusion.note);
+    node.append(note);
+  }
+  return node;
+}
+
 function actionLogicNode(logic){
   const node=document.createElement("div");
   node.className="act-logic";
@@ -2388,6 +2555,12 @@ function actionLogicNode(logic){
   return node;
 }
 
+function setActionSectionsVisible(visible){
+  const display=visible?"block":"none";
+  $("actionBanner").style.display=display;
+  $("actionAnalysis").style.display=display;
+}
+
 function sellPutBannerAction(action,decisionBlocked){
   if(!decisionBlocked) return action;
   return {
@@ -2414,21 +2587,25 @@ function timingUnavailableAction(){
 
 function renderAction(action){
   const banner=$("actionBanner");
+  const analysis=$("actionAnalysis");
   if(isCallMode()||isStockMode()){
-    banner.style.display="none";
+    clearTimeout(sellPutQuoteExpiryTimer);
+    sellPutQuoteExpiryTimer=null;
+    setActionSectionsVisible(false);
     return;
   }
   let logic;
   action=localizedAction(action);
-  const decisionBlocked=DATA?.decision_blocked===true;
+  const decisionBlocked=sellPutQuoteBlocked();
   if(!action?.action&&!decisionBlocked){
-    banner.style.display="none";
+    setActionSectionsVisible(false);
     return;
   }
-  logic=logic||sellPutLogic(action);
+  logic=logic||sellPutLogic(action,{decisionBlocked});
   action=sellPutBannerAction(logic.action||action,decisionBlocked);
-  const tone=["sell","wait","no"].includes(action.action)
-    ?action.action
+  const finalTone=logic.conclusion?.state||action.action;
+  const tone=["sell","wait","no"].includes(finalTone)
+    ?finalTone
     :"wait";
   const badge=document.createElement("div");
   badge.className="act-badge";
@@ -2439,9 +2616,13 @@ function renderAction(action){
   const summary=document.createElement("div");
   summary.className="act-summary";
   summary.append(badge,reason);
-  banner.className="action-banner "+tone;
-  banner.replaceChildren(summary,actionLogicNode(logic));
-  banner.style.display="block";
+  const conclusion=actionConclusionNode(logic.conclusion);
+  banner.className=`action-banner action-verdict-shell ${tone}`;
+  banner.replaceChildren(conclusion||summary.cloneNode(true));
+  analysis.className=`action-banner action-analysis ${tone}`;
+  analysis.replaceChildren(summary,actionLogicNode(logic));
+  setActionSectionsVisible(true);
+  scheduleSellPutQuoteExpiry();
 }
 
 function renderMarketMeta(){
@@ -2917,6 +3098,9 @@ async function loadData(){
   const key=selectionKey();
   const version=++requestVersion;
   resetQuoteDepthLoading();
+  clearTimeout(sellPutQuoteExpiryTimer);
+  sellPutQuoteExpiryTimer=null;
+  if(!isCallMode()&&!isStockMode()) setActionSectionsVisible(false);
   if(requestController) requestController.abort();
   requestController=new AbortController();
   const controller=requestController;
