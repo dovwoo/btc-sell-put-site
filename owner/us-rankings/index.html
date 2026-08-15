@@ -2715,13 +2715,13 @@ function coveredCallLogic(action,{decisionBlocked=false}={}){
   const normal20Value=timingValue(path?.normal20,1,"%");
   const sma20Value=priceContext?.sma20===undefined
     ?"—"
-    :formatUsd(priceContext.sma20);
+    :formatPrice(priceContext.sma20);
   const sma50Value=priceContext?.sma50===undefined
     ?"—"
-    :formatUsd(priceContext.sma50);
+    :formatPrice(priceContext.sma50);
   const latestPriceValue=priceContext?.latestPrice===undefined
     ?"—"
-    :formatUsd(priceContext.latestPrice);
+    :formatPrice(priceContext.latestPrice);
   const unavailable=(label,note=blockedReason)=>({
     label,value:"—",tone:"bad",note
   });
@@ -3122,13 +3122,13 @@ async function loadIvRange(){
       ||days!==currentIvRange||signal.aborted
     )return;
     LAST_IV_HISTORY=payload;
-    renderAction(LAST_TIMING);
+    if(LAST_TIMING||sellerQuoteBlocked())renderAction(LAST_TIMING);
     renderHistory(LAST_HISTORY,payload);
     emitMarketData("context");
   }catch(error){
     if(error.name==="AbortError"||version!==ivRequestVersion)return;
     LAST_IV_HISTORY=null;
-    renderAction(LAST_TIMING);
+    if(LAST_TIMING||sellerQuoteBlocked())renderAction(LAST_TIMING);
     renderHistory(LAST_HISTORY,null);
     emitMarketData("context");
   }
