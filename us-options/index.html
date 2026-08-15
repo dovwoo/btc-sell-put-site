@@ -1020,7 +1020,7 @@ const MAX_QUOTE_DEPTH_CONCURRENCY=3;
 let quoteDepthGeneration=0;
 let quoteDepthState=null;
 let liveQuoteRenderTimer=null;
-let sellPutQuoteExpiryTimer=null;
+let sellerQuoteExpiryTimer=null;
 let activeHoverTip=null;
 let _lang="zh";
 
@@ -1168,15 +1168,45 @@ const STRINGS={
     volMixedImpact:"在方向统一前，波动率这一项对期权价格是助力还是压力仍不清楚。",
     volSummaryRising:"但市场给期权的波动定价还在上升，尚未看到回落",volSummaryCooling:"而且市场给期权的波动定价正在下降，卖方开始受益于波动率回落",volSummaryMixed:"但 4 小时和 1 日变化方向不同，回落尚未确认",
     fearAux:"辅助情绪：Fear & Greed {value}，3 日变化 {change}。只描述全市场情绪，不参与上述结论。",
-    entryReview:"进入开仓复核",coveredTimingLabel:"等待卖出窗口",
-    coveredTimingReason:"Covered Call 不复用 Sell Put 总分。可卖仓位、Strike、趋势衰竭与相对继续持有的机会成本必须逐项通过。",
-    coveredModel:"高 IV 不能单独放行；健康上涨或突破为硬否决",
-    coveredRule:"流程：先验证仓位与 Strike，再判断趋势是否衰竭，再比较相对持有 EV，最后刷新盘口。任一项未通过就继续等待。",
-    coveredPosition:"仓位 / Strike",coveredPositionValue:"未验证",coveredPositionNote:"仅 Harvest / 减仓批次，且 Strike 在批准卖出带；核心仓不覆盖",
-    coveredTrend:"趋势门",coveredTrendValue:"未验证",coveredTrendNote:"需上涨延伸后减速或失败突破",
-    coveredRelative:"机会成本",coveredRelativeValue:"未验证",coveredRelativeNote:"需优于继续持有，扣除放弃上涨、费用与税务",
-    coveredVol:"波动率补偿",coveredVolNote:"VRP 只作上下文，不构成开仓许可",
-    coveredQuote:"报价",coveredQuoteFresh:"待实盘核对",coveredQuoteFreshNote:"链已加载；仍需刷新盘口并核对 Bid 深度",
+    entryReview:"进入开仓复核",
+    coveredFinalConclusion:"最终结论 · Covered Call 条件",
+    coveredEnterReview:"进入 Covered Call 合约复核",coveredWait:"观望",
+    coveredWaitEvidence:"观望 · 证据不足",coveredNotSuitable:"当前不适合卖 Covered Call",
+    coveredEnterReviewReason:"现货处于横盘，或上涨结构已经转弱并开始降温；市场级波动率补偿通过，且 7 日 DVOL 不再上升。可以继续筛选具体 Call，但这还不是开仓许可。",
+    coveredWaitReason:"现货路径、波动率补偿或卖方时点尚未同时通过，继续等待更完整的窗口。",
+    coveredWaitEvidenceReason:"日线、波动率历史或报价证据不足，当前不能据此卖出 Covered Call。",
+    coveredUptrendReason:"现价仍高于 SMA20，SMA20 也高于 SMA50，健康上涨结构尚未破坏。现在卖 Call 容易用有限权利金换掉更大的现货上涨空间。",
+    coveredNoPremiumReason:"DVOL 没有高于 30D RV，当前没有看到正的市场级波动率补偿。",
+    coveredPathGate:"现货路径",coveredPremiumGate:"波动率补偿",coveredTimingGate:"卖方时点",
+    coveredScope:"这里只判断是否值得打开 Call 链继续筛选。真正卖出前仍需确认现货覆盖数量、可减仓批次、可接受的最低卖出价、具体 Strike、Bid 与深度、手续费、税务及放弃上涨后的相对收益。",
+    coveredPriceReadings:"现货路径怎么读",coveredPriceReadingsModel:"先用 30D RV 判断涨跌是否超出常态 → 再看 SMA20 / SMA50 结构 → 最后看是否开始降温",
+    coveredReturn20:"现货 20 日变化",coveredReturn5:"现货 5 日变化",coveredDistanceHigh:"距 20 日高点",
+    coveredReturn20Note:"现货过去 20 个日级观测累计变化 {value}；按当前 30D RV 换算，20 日常态波动约为 ±{range20}。",
+    coveredReturn20Impact:"上涨越多，卖 Call 放弃后续上涨的机会成本通常越大；只有上涨开始降温后才值得继续复核。",
+    coveredReturn5Note:"现货最近 5 个日级观测变化 {value}；按当前 30D RV 换算，5 日常态波动约为 ±{range5}。",
+    coveredReturn5Impact:"短期继续上涨时，Call 更容易因 Delta 上升而变贵；短期停止上涨只代表路径开始降温。",
+    coveredDistanceHighNote:"现价较最近 20 个日级观测的最高收盘价低 {value}；SMA20 为 {sma20}，SMA50 为 {sma50}。",
+    coveredDistanceHighImpact:"越接近阶段高点，卖 Call 的封顶风险越需要结合趋势是否继续上升来判断。",
+    coveredVolReadings:"波动率补偿怎么读",coveredVolReadingsModel:"先看高不高 → 再看有没有正价差 → 最后看一周内是否停止上升",
+    coveredDvol7d:"DVOL 7 日变化",coveredDvol7dNote:"DVOL 较 7 日前变化 {value}。研究版把“不再上升”作为卖方时点代理。",
+    coveredDvol7dImpact:"卖出后 IV 若继续升高，Call 价格可能继续上涨，提前买回会更贵；回落才开始帮助卖方。",
+    coveredVrpPositiveImpact:"这项市场级对比显示未来波动定价高于近期 RV。若具体 Call 的 IV 也偏高，其权利金通常更高；但不能只凭 VRP 判断某张 Call 值不值得卖。",
+    coveredVrpNegativeImpact:"这项市场级对比没有显示相对近期 RV 的额外定价；但不能只凭 VRP 判断某张 Call 值不值得卖。",
+    coveredVrpFlatImpact:"这项市场级对比显示未来定价与近期 RV 接近；但不能只凭 VRP 判断某张 Call 值不值得卖。",
+    coveredJudgement:"COVERED CALL 定性判断",coveredJudgementModel:"现货路径 → 市场补偿 → 卖方时点",
+    coveredPathStep:"01 · 现在值得牺牲上涨空间吗？",coveredPremiumStep:"02 · 市场付的补偿够不够？",coveredTimingStep:"03 · 卖方时点开始改善了吗？",
+    coveredPathCooling:"上涨结构转弱后开始降温",coveredPathSideways:"处于常态横盘",coveredPathFalling:"下跌仍未稳定",coveredPathRising:"健康上涨结构仍完整",coveredPathWaiting:"现货路径尚未确认",coveredPathUnavailable:"日线证据不足",
+    coveredPathCoolingNote:"20 日变化 {return20}，超过半个 20 日常态波动；最近 5 日变化 {return5}，且健康上涨均线结构已不再完整。现货路径可以进入复核。",
+    coveredPathSidewaysNote:"20 日变化 {return20}，仍在半个 20 日常态波动范围内。现货更接近横盘，封顶的机会成本相对健康上涨阶段较低。",
+    coveredPathFallingNote:"现价已低于 SMA20，最近 5 日变化 {return5}，跌幅超过约 {range5} 的常态波动。权利金缓冲有限，先等待下跌稳定。",
+    coveredPathRisingNote:"现价 {price} > SMA20 {sma20} > SMA50 {sma50}，且 20 日涨幅 {return20} 已超出半个常态波动。健康上涨结构仍完整，当前不应急着封顶。",
+    coveredPathWaitingNote:"20 日变化 {return20}、5 日变化 {return5}；当前既不是清晰横盘，也未确认上涨结构转弱后的降温，继续等待。",
+    coveredPremiumGood:"市场级补偿较完整",coveredPremiumWeak:"有正价差，但波动率不在高位",coveredPremiumNone:"没有看到正的市场级补偿",
+    coveredPremiumEvidence:"DVOL 一年百分位 {percentile}，VRP 为 {vrp}。研究代理要求分位至少 70% 且 VRP 为正；它仍不能证明某张 OTM Call 的 Bid 足够好。",
+    coveredTimingGood:"卖方时点开始改善",coveredTimingWaiting:"波动率仍在升温",coveredTimingUnavailable:"一周变化不可用",
+    coveredTimingEvidence:"DVOL 7 日变化 {change7d}。不再上升才算卖方时点开始改善；这不代表现货不会继续上涨。",
+    coveredRule:"三步按顺序判断，不打分，也不能互相抵消。现货路径用 30D RV 换算 5 日与 20 日常态波动，并以现价、SMA20、SMA50 判断健康上涨结构；其后再要求 DVOL 一年分位至少 70%、VRP 为正、7 日 DVOL 不再上升。",
+    coveredBoundary:"该代理尚未证明是跨资产通用开仓规则。健康上涨仍完整时数量应为 0；核心仓、未进入批准卖出带的 Strike，以及相对继续持有不划算的合约都不能放行。",
     coveredQuoteBlocked:"禁止判断",coveredQuoteBlockedNote:"报价过期、延迟或不可用"
   },
   en:{
@@ -1322,15 +1352,45 @@ const STRINGS={
     volMixedImpact:"Until the two horizons agree, volatility's effect on the option price remains unclear.",
     volSummaryRising:"but the market's volatility price is still rising and has not started to fall",volSummaryCooling:"and the market's volatility price is falling, which starts to help the seller",volSummaryMixed:"but the 4-hour and 1-day moves disagree, so a decline is unconfirmed",
     fearAux:"Sentiment context: Fear & Greed {value}, 3-day change {change}. It describes broad crypto sentiment and does not affect the conclusion above.",
-    entryReview:"Enter opening review",coveredTimingLabel:"Wait for a sell window",
-    coveredTimingReason:"Covered Call does not reuse the Sell Put score. Sellable inventory, strike, trend exhaustion, and relative value versus holding must each pass.",
-    coveredModel:"High IV cannot pass alone; a healthy uptrend or breakout is a hard veto",
-    coveredRule:"Sequence: verify inventory and strike, test for trend exhaustion, compare relative EV versus holding, then refresh the live book. Any failed gate means wait.",
-    coveredPosition:"Inventory / Strike",coveredPositionValue:"Unverified",coveredPositionNote:"Harvest / reduction tranche only, with strike inside the approved sell band; do not cover core holdings",
-    coveredTrend:"Trend gate",coveredTrendValue:"Unverified",coveredTrendNote:"Requires post-extension deceleration or a failed breakout",
-    coveredRelative:"Opportunity cost",coveredRelativeValue:"Unverified",coveredRelativeNote:"Must beat holding after forgone upside, fees, and tax",
-    coveredVol:"Vol compensation",coveredVolNote:"VRP is context only, not opening permission",
-    coveredQuote:"Quote",coveredQuoteFresh:"Check live book",coveredQuoteFreshNote:"Chain loaded; refresh the book and verify bid depth",
+    entryReview:"Enter opening review",
+    coveredFinalConclusion:"Final conclusion · Covered Call conditions",
+    coveredEnterReview:"Enter Covered Call contract review",coveredWait:"Wait",
+    coveredWaitEvidence:"Wait · insufficient evidence",coveredNotSuitable:"Not suitable for a Covered Call now",
+    coveredEnterReviewReason:"The underlying is moving sideways, or its prior uptrend structure has weakened and begun to cool; market-level volatility compensation passes and 7-day DVOL is no longer rising. Specific Calls may now be reviewed; this is not opening permission.",
+    coveredWaitReason:"The price path, volatility compensation, and seller timing have not all passed. Wait for a more complete window.",
+    coveredWaitEvidenceReason:"Daily-price, volatility-history, or quote evidence is insufficient, so a Covered Call should not be sold from this reading.",
+    coveredUptrendReason:"Price remains above SMA20 and SMA20 remains above SMA50, so the healthy uptrend structure is still intact. Selling a Call now can exchange substantial upside for a limited premium.",
+    coveredNoPremiumReason:"DVOL is not above 30D RV, so no positive market-level volatility compensation is visible.",
+    coveredPathGate:"Price path",coveredPremiumGate:"Vol compensation",coveredTimingGate:"Seller timing",
+    coveredScope:"This only decides whether to open the Call chain for review. Before selling, verify covered inventory, the reduction tranche, minimum acceptable sale price, strike, executable bid and depth, fees, tax, and relative value after forgone upside.",
+    coveredPriceReadings:"How to read the price path",coveredPriceReadingsModel:"Use 30D RV to judge unusual moves → inspect SMA20 / SMA50 structure → check whether the path is cooling",
+    coveredReturn20:"Underlying 20-day move",coveredReturn5:"Underlying 5-day move",coveredDistanceHigh:"Below 20-day high",
+    coveredReturn20Note:"The underlying changed {value} over the past 20 daily observations; current 30D RV implies a normal 20-day move of about ±{range20}.",
+    coveredReturn20Impact:"The larger the rise, the greater the upside opportunity cost of selling a Call; review only after the rise starts cooling.",
+    coveredReturn5Note:"The underlying changed {value} over the latest 5 daily observations; current 30D RV implies a normal 5-day move of about ±{range5}.",
+    coveredReturn5Impact:"While the underlying keeps rising, Call Delta can increase and the Call can become more expensive; a pause only means the path has begun to cool.",
+    coveredDistanceHighNote:"Price is {value} below the highest close among the latest 20 daily observations; SMA20 is {sma20} and SMA50 is {sma50}.",
+    coveredDistanceHighImpact:"The closer price is to its recent high, the more the upside cap must be judged together with whether the trend is still advancing.",
+    coveredVolReadings:"How to read volatility compensation",coveredVolReadingsModel:"Check whether volatility is high → whether the spread is positive → whether it stopped rising over one week",
+    coveredDvol7d:"DVOL 7-day change",coveredDvol7dNote:"DVOL changed {value} versus 7 days ago. The research screen treats 'no longer rising' as a seller-timing proxy.",
+    coveredDvol7dImpact:"If IV keeps rising after the sale, the Call can become more expensive to buy back; falling volatility begins to help the seller.",
+    coveredVrpPositiveImpact:"This market-level comparison prices future volatility above recent RV. If a specific Call's IV is also elevated, its premium is usually higher, but VRP alone cannot show whether that Call is worth selling.",
+    coveredVrpNegativeImpact:"This market-level comparison shows no extra pricing above recent RV, but VRP alone cannot show whether a specific Call is worth selling.",
+    coveredVrpFlatImpact:"This market-level comparison prices future volatility close to recent RV, but VRP alone cannot show whether a specific Call is worth selling.",
+    coveredJudgement:"COVERED CALL qualitative screen",coveredJudgementModel:"Price path → market compensation → seller timing",
+    coveredPathStep:"01 · Is this a better time to give up upside?",coveredPremiumStep:"02 · Is market compensation sufficient?",coveredTimingStep:"03 · Is seller timing improving?",
+    coveredPathCooling:"Cooling after the uptrend structure weakened",coveredPathSideways:"Normal sideways range",coveredPathFalling:"The decline has not stabilized",coveredPathRising:"Healthy uptrend structure remains intact",coveredPathWaiting:"Price path is unconfirmed",coveredPathUnavailable:"Insufficient daily-price evidence",
+    coveredPathCoolingNote:"The 20-day move is {return20}, beyond half of a normal 20-day move; the 5-day move is {return5}, and the healthy moving-average structure is no longer intact. The price path can enter review.",
+    coveredPathSidewaysNote:"The 20-day move is {return20}, still within half of a normal 20-day move. The underlying is closer to a sideways range, so the upside cap costs less than during a healthy advance.",
+    coveredPathFallingNote:"Price is below SMA20 and the 5-day move is {return5}, a decline larger than the normal move of about {range5}. Premium offers only a thin buffer, so wait for stabilization.",
+    coveredPathRisingNote:"Price {price} > SMA20 {sma20} > SMA50 {sma50}, and the 20-day return of {return20} is beyond half a normal move. The healthy uptrend remains intact, so capping upside is premature.",
+    coveredPathWaitingNote:"The 20-day move is {return20} and the 5-day move is {return5}; the market is neither clearly sideways nor confirmed to be cooling after its uptrend structure weakened.",
+    coveredPremiumGood:"Market-level compensation is relatively complete",coveredPremiumWeak:"Positive spread, but volatility is not high",coveredPremiumNone:"No positive market-level compensation",
+    coveredPremiumEvidence:"DVOL is at the {percentile} one-year percentile and VRP is {vrp}. The research proxy requires at least the 70th percentile and positive VRP; this still cannot prove that a specific OTM Call bid is rich enough.",
+    coveredTimingGood:"Seller timing is improving",coveredTimingWaiting:"Volatility is still rising",coveredTimingUnavailable:"Weekly change unavailable",
+    coveredTimingEvidence:"DVOL changed {change7d} over 7 days. It must stop rising before seller timing improves; this does not mean the underlying cannot keep rising.",
+    coveredRule:"The three gates are sequential and cannot offset each other. The price-path gate converts 30D RV into normal 5-day and 20-day moves and checks price, SMA20, and SMA50 for an intact healthy uptrend; only then do we require at least the 70th DVOL percentile, positive VRP, and non-rising 7-day DVOL.",
+    coveredBoundary:"This proxy is not proven as a universal cross-asset opening rule. Position size should be zero during a healthy uptrend; core holdings, strikes outside the approved sale band, and contracts that lose to continued holding cannot pass.",
     coveredQuoteBlocked:"Blocked",coveredQuoteBlockedNote:"Quote is stale, delayed, or unavailable"
   }
 };
@@ -1625,34 +1685,35 @@ function currentQuoteAgeSeconds(){
 }
 
 function buyCallQuoteBlocked(){
-  if(!isCallMode()||!DATA) return false;
+  if(!isBuyCall()||!DATA) return false;
   return DATA.decision_blocked||currentQuoteAgeSeconds()>120;
 }
 
-function sellPutQuoteBlocked(){
-  if(isCallMode()||isStockMode()||!DATA) return false;
+function sellerQuoteBlocked(){
+  if(isBuyCall()||isStockMode()||!DATA) return false;
   return DATA.decision_blocked||currentQuoteAgeSeconds()>120;
 }
 
-function scheduleSellPutQuoteExpiry(){
-  clearTimeout(sellPutQuoteExpiryTimer);
-  sellPutQuoteExpiryTimer=null;
-  if(isCallMode()||isStockMode()||!DATA||sellPutQuoteBlocked()) return;
+function scheduleSellerQuoteExpiry(){
+  clearTimeout(sellerQuoteExpiryTimer);
+  sellerQuoteExpiryTimer=null;
+  if(isBuyCall()||isStockMode()||!DATA||sellerQuoteBlocked()) return;
   const remainingSeconds=Math.max(0,120-currentQuoteAgeSeconds());
-  sellPutQuoteExpiryTimer=setTimeout(()=>{
-    sellPutQuoteExpiryTimer=null;
+  sellerQuoteExpiryTimer=setTimeout(()=>{
+    sellerQuoteExpiryTimer=null;
     renderAction(LAST_TIMING);
   },Math.ceil(remainingSeconds*1000)+50);
 }
 
 function renderBuyCallRisk(){
   const note=$("buyCallRisk");
-  if(!isCallMode()){
+  const showCoveredRisk=isCoveredCall()&&isStockMode();
+  if(!isBuyCall()&&!showCoveredRisk){
     note.textContent="";
     note.style.display="none";
     return;
   }
-  const warnings=[t(isCoveredCall()?"coveredCallRisk":"buyCallRisk")];
+  const warnings=[t(showCoveredRisk?"coveredCallRisk":"buyCallRisk")];
   if(DATA&&isStockMode()&&DATA.decision_blocked){
     warnings.push(t("stockCallBlocked"));
   }else if(buyCallQuoteBlocked()){
@@ -1947,8 +2008,8 @@ function resetIvContext(){
 function clearAssetView(){
   ivRequestVersion++;
   if(ivRequestController) ivRequestController.abort();
-  clearTimeout(sellPutQuoteExpiryTimer);
-  sellPutQuoteExpiryTimer=null;
+  clearTimeout(sellerQuoteExpiryTimer);
+  sellerQuoteExpiryTimer=null;
   DATA=null;
   LAST_TIMING=null;
   LAST_HISTORY=null;
@@ -2465,30 +2526,371 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
   };
 }
 
-function coveredCallLogic(action){
+function coveredCallPriceContext(history=LAST_HISTORY){
+  const series=history?.price_history||history?.price||history?.btc_price;
+  const values=Array.isArray(series?.values)?series.values:[];
+  const timestamps=Array.isArray(series?.timestamps)?series.timestamps:[];
+  const dayMs=86_400_000;
+  const dailyByUtcDay=new Map();
+  values.forEach((value,index)=>{
+    const price=timingNumber(value);
+    const rawTimestamp=timingNumber(timestamps[index]);
+    if(price===null||price<=0||rawTimestamp===null||rawTimestamp<=0)return;
+    const timestamp=rawTimestamp<1e12?rawTimestamp*1000:rawTimestamp;
+    const dayIndex=Math.floor(timestamp/dayMs);
+    const existing=dailyByUtcDay.get(dayIndex);
+    if(!existing||timestamp>existing.timestamp){
+      dailyByUtcDay.set(dayIndex,{value:price,timestamp,dayIndex});
+    }
+  });
+  const points=[...dailyByUtcDay.values()]
+    .sort((left,right)=>left.timestamp-right.timestamp);
+  if(points.length<50)return null;
+  const recent50Points=points.slice(-50);
+  if(recent50Points.at(-1).dayIndex-recent50Points[0].dayIndex!==49)return null;
+  const dailyPoints=recent50Points;
+  const latest=dailyPoints.at(-1);
+  const fiveDaysAgo=dailyPoints.at(-6);
+  const twentyDaysAgo=dailyPoints.at(-21);
+  if(!latest||!fiveDaysAgo||!twentyDaysAgo)return null;
+  const recent20=dailyPoints.slice(-20).map(point=>point.value);
+  const recent50=dailyPoints.map(point=>point.value);
+  const high20=Math.max(...recent20);
+  const average=(numbers)=>numbers.reduce((sum,value)=>sum+value,0)/numbers.length;
+  return {
+    return5:(latest.value/fiveDaysAgo.value-1)*100,
+    return20:(latest.value/twentyDaysAgo.value-1)*100,
+    distance20High:(latest.value/high20-1)*100,
+    sma20:average(recent20),
+    sma50:average(recent50),
+    latestPrice:latest.value,
+    latestTimestamp:latest.timestamp,
+    sampleCount:dailyPoints.length,
+    stale:history?.price_stale===true
+  };
+}
+
+function coveredCallPathSignal(context,rv){
+  const realizedVol=timingNumber(rv);
+  if(!context||context.stale||realizedVol===null||realizedVol<=0)return null;
+  const normal5=realizedVol*Math.sqrt(5/365);
+  const normal20=realizedVol*Math.sqrt(20/365);
+  const extended=context.return20>normal20*.5;
+  const healthyUptrend=(
+    context.latestPrice>context.sma20
+    &&context.sma20>context.sma50
+    &&extended
+  );
+  const signalBase={normal5,normal20,healthyUptrend};
+  if(healthyUptrend){
+    return {...signalBase,code:"rising",tone:"bad"};
+  }
+  if(context.latestPrice<context.sma20&&context.return5<-normal5){
+    return {...signalBase,code:"falling",tone:"warn"};
+  }
+  if(Math.abs(context.return20)<=normal20*.5){
+    return {...signalBase,code:"sideways",tone:"good"};
+  }
+  if(
+    extended
+    &&context.return5<=0
+    &&Math.abs(context.distance20High)<=normal5
+  ){
+    return {...signalBase,code:"cooling",tone:"good"};
+  }
+  return {...signalBase,code:"waiting",tone:"warn"};
+}
+
+function coveredCallPremiumSignal(percentile,vrp){
+  const rank=timingNumber(percentile);
+  const spread=timingNumber(vrp);
+  if(rank===null||spread===null)return null;
+  if(spread<=0)return {code:"none",tone:"bad"};
+  if(rank>=70)return {code:"good",tone:"good"};
+  return {code:"weak",tone:"warn"};
+}
+
+function coveredCallTimingSignal(change7d){
+  const change=timingNumber(change7d);
+  if(change===null)return null;
+  return change<=0
+    ?{code:"cooling",tone:"good"}
+    :{code:"rising",tone:"warn"};
+}
+
+function coveredCallFinalConclusion({
+  blocked=false,coreComplete=false,path=null,premium=null,timing=null
+}={}){
+  const unavailableGate=(label)=>({label,status:t("gateUnavailable"),tone:""});
+  const gate=(label,signal)=>signal
+    ?{
+      label,
+      status:t(signal.tone==="good"
+        ?"gatePassed"
+        :signal.tone==="bad"
+          ?"gateFailed"
+          :"gateWaiting"),
+      tone:signal.tone
+    }
+    :unavailableGate(label);
+  const gates=blocked
+    ?[
+      unavailableGate(t("coveredPathGate")),
+      unavailableGate(t("coveredPremiumGate")),
+      unavailableGate(t("coveredTimingGate"))
+    ]
+    :[
+      gate(t("coveredPathGate"),path),
+      gate(t("coveredPremiumGate"),premium),
+      gate(t("coveredTimingGate"),timing)
+    ];
+  if(blocked||!coreComplete){
+    return {
+      title:t("coveredFinalConclusion"),state:"wait",
+      label:t("coveredWaitEvidence"),reason:t("coveredWaitEvidenceReason"),
+      gates,note:t("coveredScope")
+    };
+  }
+  if(path.code==="rising"){
+    return {
+      title:t("coveredFinalConclusion"),state:"no",
+      label:t("coveredNotSuitable"),reason:t("coveredUptrendReason"),
+      gates,note:t("coveredScope")
+    };
+  }
+  if(premium.code==="none"){
+    return {
+      title:t("coveredFinalConclusion"),state:"no",
+      label:t("coveredNotSuitable"),reason:t("coveredNoPremiumReason"),
+      gates,note:t("coveredScope")
+    };
+  }
+  if(path.tone==="good"&&premium.tone==="good"&&timing.tone==="good"){
+    return {
+      title:t("coveredFinalConclusion"),state:"sell",
+      label:t("coveredEnterReview"),reason:t("coveredEnterReviewReason"),
+      gates,note:t("coveredScope")
+    };
+  }
+  return {
+    title:t("coveredFinalConclusion"),state:"wait",
+    label:t("coveredWait"),reason:t("coveredWaitReason"),
+    gates,note:t("coveredScope")
+  };
+}
+
+function coveredCallLogic(action,{decisionBlocked=false}={}){
   const metrics=action?.metrics||{};
-  const quoteBlocked=!DATA||isStockMode()||DATA.decision_blocked||buyCallQuoteBlocked();
+  const dvol=timingNumber(metrics.dvol);
+  const rv=timingNumber(metrics.rv);
+  const vrp=timingNumber(metrics.vrp);
+  const percentile=trustedIvPercentile(LAST_IV_HISTORY,"days_365",365);
+  const change7d=timingNumber(LAST_IV_HISTORY?.change_7d_pct);
+  const priceContext=coveredCallPriceContext();
+  const path=coveredCallPathSignal(priceContext,rv);
+  const premium=coveredCallPremiumSignal(percentile,vrp);
+  const timing=coveredCallTimingSignal(change7d);
+  const marketProxyReady=[dvol,rv,vrp].every(value=>value!==null);
+  const stale=action?.action_code==="stale"||priceContext?.stale;
+  const insufficientHistory=action?.action_code==="insufficient_history";
+  const blocked=decisionBlocked||stale||insufficientHistory||action?.blocked;
+  const blockedReason=decisionBlocked
+    ?t("quoteExpiredReason")
+    :stale
+      ?t("volDataStale")
+      :insufficientHistory
+        ?fillCopy(t("volHistoryInsufficient"),{asset:currentAsset})
+        :t("coveredWaitEvidenceReason");
+  const coreComplete=Boolean(
+    priceContext&&path&&marketProxyReady&&percentile!==null&&premium&&timing
+  );
+  const return5=timingValue(priceContext?.return5,1,"%",true);
+  const return20=timingValue(priceContext?.return20,1,"%",true);
+  const distance20High=timingValue(priceContext?.distance20High,1,"%",true);
+  const percentileValue=timingValue(percentile,1,"%");
+  const percentilePosition=dvolPosition(percentile);
+  const vrpValue=timingValue(vrp,1," pp",true);
+  const change7dValue=timingValue(change7d,2,"%",true);
+  const normal5Value=timingValue(path?.normal5,1,"%");
+  const normal20Value=timingValue(path?.normal20,1,"%");
+  const sma20Value=priceContext?.sma20===undefined
+    ?"—"
+    :formatUsd(priceContext.sma20);
+  const sma50Value=priceContext?.sma50===undefined
+    ?"—"
+    :formatUsd(priceContext.sma50);
+  const latestPriceValue=priceContext?.latestPrice===undefined
+    ?"—"
+    :formatUsd(priceContext.latestPrice);
+  const unavailable=(label,note=blockedReason)=>({
+    label,value:"—",tone:"bad",note
+  });
+  const priceReadings=priceContext
+    ?[
+      {
+        label:t("coveredReturn20"),value:return20,
+        tone:path?.code==="rising"?"bad":path?.tone==="good"?"good":"",
+        note:fillCopy(t("coveredReturn20Note"),{
+          value:return20,range20:normal20Value
+        }),
+        impact:t("coveredReturn20Impact")
+      },
+      {
+        label:t("coveredReturn5"),value:return5,
+        tone:priceContext.return5<=0?"good":"warn",
+        note:fillCopy(t("coveredReturn5Note"),{
+          value:return5,range5:normal5Value
+        }),
+        impact:t("coveredReturn5Impact")
+      },
+      {
+        label:t("coveredDistanceHigh"),value:distance20High,
+        note:fillCopy(t("coveredDistanceHighNote"),{
+          value:timingValue(Math.abs(priceContext.distance20High),1,"%"),
+          sma20:sma20Value,sma50:sma50Value
+        }),
+        impact:t("coveredDistanceHighImpact")
+      }
+    ]
+    :[
+      unavailable(t("coveredReturn20"),t("coveredPathUnavailable")),
+      unavailable(t("coveredReturn5"),t("coveredPathUnavailable")),
+      unavailable(t("coveredDistanceHigh"),t("coveredPathUnavailable"))
+    ];
+  const volReadings=[
+    dvol!==null
+      ?{
+        label:t("timingDvol"),value:timingValue(dvol,1,"%"),
+        note:fillCopy(t("dvolNote"),{value:timingValue(dvol,1,"%")}),
+        impact:t("dvolImpact")
+      }
+      :unavailable(t("timingDvol")),
+    percentile!==null
+      ?{
+        label:t("timingIvRank"),
+        value:`${percentileValue} · ${t(percentile>=70?"gatePassed":"gateWaiting")}`,
+        tone:percentile>=70?"good":"warn",
+        note:fillCopy(percentilePosition?.note||t("volPositionUnavailable"),{
+          value:percentileValue
+        }),
+        impact:percentilePosition?.impact||""
+      }
+      :unavailable(t("timingIvRank"),t("volPositionUnavailable")),
+    change7d!==null
+      ?{
+        label:t("coveredDvol7d"),value:change7dValue,
+        tone:change7d<=0?"good":"warn",
+        note:fillCopy(t("coveredDvol7dNote"),{value:change7dValue}),
+        impact:t("coveredDvol7dImpact")
+      }
+      :unavailable(t("coveredDvol7d"),t("coveredTimingUnavailable")),
+    rv!==null
+      ?{
+        label:t("timingRv"),value:timingValue(rv,1,"%"),
+        note:fillCopy(t("rvNote"),{value:timingValue(rv,1,"%")} ),
+        impact:t("rvImpact")
+      }
+      :unavailable(t("timingRv")),
+    marketProxyReady
+      ?{
+        label:t("timingVrp"),value:`${vrpValue} · ${vrpReading(vrp).label}`,
+        tone:vrpReading(vrp).tone,
+        note:fillCopy(vrpReading(vrp).note,{value:timingValue(Math.abs(vrp),1)}),
+        impact:t(vrp>0
+          ?"coveredVrpPositiveImpact"
+          :vrp<0
+            ?"coveredVrpNegativeImpact"
+            :"coveredVrpFlatImpact")
+      }
+      :unavailable(t("timingVrp"))
+  ];
+  const stepUnavailable=(label,note)=>({
+    label,value:t("qualitativeUnavailable"),tone:"bad",note
+  });
+  const steps=blocked
+    ?[t("coveredPathStep"),t("coveredPremiumStep"),t("coveredTimingStep")]
+      .map(label=>stepUnavailable(label,blockedReason))
+    :[
+      path
+        ?{
+          label:t("coveredPathStep"),
+          value:t(path.code==="cooling"
+            ?"coveredPathCooling"
+            :path.code==="sideways"
+              ?"coveredPathSideways"
+              :path.code==="falling"
+                ?"coveredPathFalling"
+            :path.code==="rising"
+              ?"coveredPathRising"
+              :"coveredPathWaiting"),
+          tone:path.tone,
+          note:fillCopy(t(path.code==="cooling"
+            ?"coveredPathCoolingNote"
+            :path.code==="sideways"
+              ?"coveredPathSidewaysNote"
+              :path.code==="falling"
+                ?"coveredPathFallingNote"
+            :path.code==="rising"
+              ?"coveredPathRisingNote"
+              :"coveredPathWaitingNote"),{
+            return20,return5,range5:normal5Value,range20:normal20Value,
+            price:latestPriceValue,sma20:sma20Value,sma50:sma50Value
+          })
+        }
+        :stepUnavailable(t("coveredPathStep"),t("coveredPathUnavailable")),
+      premium
+        ?{
+          label:t("coveredPremiumStep"),
+          value:t(premium.code==="good"
+            ?"coveredPremiumGood"
+            :premium.code==="none"
+              ?"coveredPremiumNone"
+              :"coveredPremiumWeak"),
+          tone:premium.tone,
+          note:fillCopy(t("coveredPremiumEvidence"),{
+            percentile:percentileValue,vrp:vrpValue
+          })
+        }
+        :stepUnavailable(t("coveredPremiumStep"),t("premiumProxyMissing")),
+      timing
+        ?{
+          label:t("coveredTimingStep"),
+          value:t(timing.code==="cooling"?"coveredTimingGood":"coveredTimingWaiting"),
+          tone:timing.tone,
+          note:fillCopy(t("coveredTimingEvidence"),{change7d:change7dValue})
+        }
+        :stepUnavailable(t("coveredTimingStep"),t("coveredTimingUnavailable"))
+    ];
+  const conclusion=coveredCallFinalConclusion({
+    blocked,coreComplete,path,premium,timing
+  });
   return {
     action:{
-      action:quoteBlocked?"no":"wait",
-      action_code:"covered_call_review",
-      action_label:quoteBlocked?t("coveredQuoteBlocked"):t("coveredTimingLabel"),
-      action_reason:quoteBlocked?t("coveredQuoteBlockedNote"):t("coveredTimingReason")
+      ...action,
+      action:conclusion.state,
+      action_code:blocked&&action?.action_code?action.action_code:"covered_call_context",
+      action_label:conclusion.label,
+      action_reason:conclusion.reason
     },
-    model:t("coveredModel"),
-    evidence:[
-      {label:t("coveredPosition"),value:t("coveredPositionValue"),note:t("coveredPositionNote")},
-      {label:t("coveredTrend"),value:t("coveredTrendValue"),note:t("coveredTrendNote")},
-      {label:t("coveredRelative"),value:t("coveredRelativeValue"),note:t("coveredRelativeNote")},
-      {label:t("coveredVol"),value:timingValue(metrics.vrp,1," pp",true),note:t("coveredVolNote")},
+    groups:[
       {
-        label:t("coveredQuote"),
-        value:t(quoteBlocked?"coveredQuoteBlocked":"coveredQuoteFresh"),
-        note:t(quoteBlocked?"coveredQuoteBlockedNote":"coveredQuoteFreshNote")
+        title:t("coveredPriceReadings"),model:t("coveredPriceReadingsModel"),
+        evidence:priceReadings,kind:"act-steps"
+      },
+      {
+        title:t("coveredVolReadings"),model:t("coveredVolReadingsModel"),
+        evidence:volReadings,kind:"act-readings"
+      },
+      {
+        title:t("coveredJudgement"),model:t("coveredJudgementModel"),
+        evidence:steps,kind:"act-steps"
       }
     ],
+    model:t("coveredJudgementModel"),
+    evidence:steps,
+    conclusion,
     rule:t("coveredRule"),
-    boundary:""
+    boundary:t("coveredBoundary")
   };
 }
 
@@ -2522,7 +2924,7 @@ function actionConclusionNode(conclusion){
   const label=document.createElement("div");
   label.className="act-verdict-label";
   const eyebrow=document.createElement("span");
-  eyebrow.textContent=t("finalConclusion");
+  eyebrow.textContent=String(conclusion.title||t("finalConclusion"));
   const verdict=document.createElement("strong");
   verdict.textContent=String(conclusion.label||"—");
   label.append(eyebrow,verdict);
@@ -2592,7 +2994,7 @@ function setActionSectionsVisible(visible){
   $("actionAnalysis").style.display=display;
 }
 
-function sellPutBannerAction(action,decisionBlocked){
+function sellerBannerAction(action,decisionBlocked){
   if(!decisionBlocked) return action;
   return {
     ...action,
@@ -2619,21 +3021,23 @@ function timingUnavailableAction(){
 function renderAction(action){
   const banner=$("actionBanner");
   const analysis=$("actionAnalysis");
-  if(isCallMode()||isStockMode()){
-    clearTimeout(sellPutQuoteExpiryTimer);
-    sellPutQuoteExpiryTimer=null;
+  if(isBuyCall()||isStockMode()){
+    clearTimeout(sellerQuoteExpiryTimer);
+    sellerQuoteExpiryTimer=null;
     setActionSectionsVisible(false);
     return;
   }
   let logic;
   action=localizedAction(action);
-  const decisionBlocked=sellPutQuoteBlocked();
+  const decisionBlocked=sellerQuoteBlocked();
   if(!action?.action&&!decisionBlocked){
     setActionSectionsVisible(false);
     return;
   }
-  logic=logic||sellPutLogic(action,{decisionBlocked});
-  action=sellPutBannerAction(logic.action||action,decisionBlocked);
+  logic=isCoveredCall()
+    ?coveredCallLogic(action,{decisionBlocked})
+    :sellPutLogic(action,{decisionBlocked});
+  action=sellerBannerAction(logic.action||action,decisionBlocked);
   const finalTone=logic.conclusion?.state||action.action;
   const tone=["sell","wait","no"].includes(finalTone)
     ?finalTone
@@ -2653,7 +3057,7 @@ function renderAction(action){
   analysis.className=`action-banner action-analysis ${tone}`;
   analysis.replaceChildren(summary,actionLogicNode(logic));
   setActionSectionsVisible(true);
-  scheduleSellPutQuoteExpiry();
+  scheduleSellerQuoteExpiry();
 }
 
 function renderMarketMeta(){
@@ -3129,9 +3533,9 @@ async function loadData(){
   const key=selectionKey();
   const version=++requestVersion;
   resetQuoteDepthLoading();
-  clearTimeout(sellPutQuoteExpiryTimer);
-  sellPutQuoteExpiryTimer=null;
-  if(!isCallMode()&&!isStockMode()) setActionSectionsVisible(false);
+  clearTimeout(sellerQuoteExpiryTimer);
+  sellerQuoteExpiryTimer=null;
+  if(!isBuyCall()&&!isStockMode()) setActionSectionsVisible(false);
   if(requestController) requestController.abort();
   requestController=new AbortController();
   const controller=requestController;
@@ -3150,7 +3554,7 @@ async function loadData(){
       :(market==="us_stock"
         ?`${publicApiPath("/api/us-stocks/options")}?ticker=${encodeURIComponent(symbol)}`
         :apiUrl("/api/options",symbol));
-    const needsSellerTiming=market==="crypto"&&!isCallMode();
+    const needsSellerTiming=market==="crypto"&&!isBuyCall();
     const timingPromise=needsSellerTiming
       ?optionalJson(apiUrl("/api/timing",symbol),signal)
       :Promise.resolve(null);
