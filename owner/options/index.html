@@ -120,11 +120,15 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner .act-verdict.sell .act-verdict-label strong{color:var(--green)}
 .action-banner .act-verdict.no .act-verdict-label strong{color:var(--red)}
 .action-banner .act-verdict-reason{align-self:end;color:var(--text2);font-size:.61rem;line-height:1.5}
-.action-banner .act-verdict-gates{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 18px;padding-top:7px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:.54rem;color:var(--muted)}
+.action-banner .act-verdict-gates{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding-top:8px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:.54rem;color:var(--muted)}
+.action-banner .act-verdict-gate{display:block;min-width:0;padding-right:12px}
+.action-banner .act-verdict-gate+.act-verdict-gate{padding-left:12px;border-left:1px solid var(--line)}
+.action-banner .act-verdict-gate-head{display:flex;align-items:baseline;gap:7px}
 .action-banner .act-verdict-gate b{color:var(--text2);font-weight:500}
 .action-banner .act-verdict-gate.good b{color:var(--green)}
 .action-banner .act-verdict-gate.warn b{color:var(--amber)}
 .action-banner .act-verdict-gate.bad b{color:var(--red)}
+.action-banner .act-verdict-gate small{display:block;margin-top:5px;color:var(--text2);font-family:var(--sans);font-size:.56rem;line-height:1.5}
 .action-banner .act-verdict-note{grid-column:1/-1;color:var(--faint);font-family:var(--mono);font-size:.52rem;line-height:1.45}
 .action-banner.sell{border-left-color:var(--green)}
 .action-banner.sell .act-badge{background:transparent;color:var(--green);border:1px solid var(--green)}
@@ -655,6 +659,9 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .action-banner .act-evidence.act-steps .act-evidence-item:last-child{border-bottom:0}
   .action-banner .act-verdict{grid-template-columns:1fr}
   .action-banner .act-verdict-gates,.action-banner .act-verdict-note{grid-column:1}
+  .action-banner .act-verdict-gates{grid-template-columns:1fr}
+  .action-banner .act-verdict-gate{padding:0}
+  .action-banner .act-verdict-gate+.act-verdict-gate{margin-top:8px;padding:8px 0 0;border-top:1px solid var(--line);border-left:0}
   .owner-track-row{grid-template-columns:1.1fr 1fr 1fr}
   .owner-track-actions{justify-content:flex-start}
 }
@@ -1114,7 +1121,15 @@ const STRINGS={
     notSuitableToOpenReason:"DVOL 没有高于 30D RV，当前没有看到正的市场级波动率价差。",
     verdictPositionGate:"波动率位置",verdictPremiumGate:"市场级价差",verdictTimingGate:"卖出时点",
     gatePassed:"通过",gateWaiting:"等待",gateFailed:"未通过",gateUnavailable:"不可判断",
-    verdictScope:"这里只判断波动率环境。下单前仍需复核 Strike、到期日、可成交 Bid、深度、手续费、滑点、8% 资金机会成本和 CVaR。",
+    verdictPositionPassedDetail:"DVOL {dvol}，过去一年 {percentile} 分位，达到 75% 以上的相对高位。",
+    verdictPositionWaitingDetail:"DVOL {dvol}，过去一年 {percentile} 分位，尚未达到 75% 的相对高位。",
+    verdictPremiumPassedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}，市场给出的波动定价高于近期实际波动。",
+    verdictPremiumFailedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}，当前没有正的市场级价差。",
+    verdictTimingPassedDetail:"DVOL 4h {change4h}、1d {change1d}，两个周期都在回落。",
+    verdictTimingRisingDetail:"DVOL 4h {change4h}、1d {change1d}，两个周期都在上升。",
+    verdictTimingMixedDetail:"DVOL 4h {change4h}、1d {change1d}，方向不一致，尚未确认持续回落。",
+    verdictGateUnavailableDetail:"关键数据缺失或报价已失效，不能判断这一项。",
+    verdictScope:"三项同时通过才进入具体合约复核；这里不是下单许可。",
     timingLogic:"定性判断",timingDvol:"当前 DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL 过去一年位置",timingRv:"30D RV（30天实现波动率）",timingDvolMove:"DVOL 短期变化",
     sellPutModel:"多付多少 → 补偿什么 → 能否兑现 → 扣成本后是否值得",
@@ -1298,7 +1313,15 @@ const STRINGS={
     notSuitableToOpenReason:"DVOL is not above 30D RV, so there is no positive market-level volatility spread at present.",
     verdictPositionGate:"Volatility position",verdictPremiumGate:"Market-level spread",verdictTimingGate:"Entry timing",
     gatePassed:"Pass",gateWaiting:"Wait",gateFailed:"Fail",gateUnavailable:"Unavailable",
-    verdictScope:"This judges only the volatility environment. Before trading, still review strike, expiry, executable Bid, depth, fees, slippage, the 8% capital opportunity cost, and CVaR.",
+    verdictPositionPassedDetail:"DVOL is {dvol}, at the {percentile} percentile of the past year—above the 75% relative-high threshold.",
+    verdictPositionWaitingDetail:"DVOL is {dvol}, at the {percentile} percentile of the past year—still below the 75% relative-high threshold.",
+    verdictPremiumPassedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}; market volatility pricing is above recent realized volatility.",
+    verdictPremiumFailedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}; there is no positive market-level spread at present.",
+    verdictTimingPassedDetail:"DVOL is {change4h} over 4h and {change1d} over 1d; both horizons are falling.",
+    verdictTimingRisingDetail:"DVOL is {change4h} over 4h and {change1d} over 1d; both horizons are rising.",
+    verdictTimingMixedDetail:"DVOL is {change4h} over 4h and {change1d} over 1d; the horizons disagree, so a sustained decline is unconfirmed.",
+    verdictGateUnavailableDetail:"A key input is missing or the quote is invalid, so this gate cannot be judged.",
+    verdictScope:"All three gates must pass before contract review; this is not permission to trade.",
     timingLogic:"Qualitative check",timingDvol:"Current DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL one-year position",timingRv:"30D RV (realized volatility)",timingDvolMove:"Short-term DVOL move",
     sellPutModel:"Extra pay → Risk source → Harvestability → Net value",
@@ -2282,9 +2305,19 @@ function dvolDirection(change4h,change1d){
 }
 
 function sellPutFinalConclusion({
-  blocked=false,coreComplete=false,position=null,vrp=null,direction=null
+  blocked=false,coreComplete=false,position=null,vrp=null,direction=null,
+  dvol=null,rv=null,percentile=null,change4h=null,change1d=null
 }={}){
-  const unavailableGate=(label)=>({label,status:t("gateUnavailable"),tone:""});
+  const dvolValue=timingValue(dvol,1,"%");
+  const rvValue=timingValue(rv,1,"%");
+  const percentileValue=timingValue(percentile,1,"%");
+  const vrpValue=timingValue(vrp,1," pp",true);
+  const change4hValue=timingValue(change4h,2,"%",true);
+  const change1dValue=timingValue(change1d,2,"%",true);
+  const unavailableGate=(label)=>({
+    label,status:t("gateUnavailable"),tone:"",
+    note:t("verdictGateUnavailableDetail")
+  });
   const gates=blocked
     ?[
       unavailableGate(t("verdictPositionGate")),
@@ -2296,21 +2329,38 @@ function sellPutFinalConclusion({
         ?{
           label:t("verdictPositionGate"),
           status:t(position.code==="high"?"gatePassed":"gateWaiting"),
-          tone:position.code==="high"?"good":"warn"
+          tone:position.code==="high"?"good":"warn",
+          note:fillCopy(t(position.code==="high"
+            ?"verdictPositionPassedDetail"
+            :"verdictPositionWaitingDetail"),{
+            dvol:dvolValue,percentile:percentileValue
+          })
         }
         :unavailableGate(t("verdictPositionGate")),
       vrp!==null
         ?{
           label:t("verdictPremiumGate"),
           status:t(vrp>0?"gatePassed":"gateFailed"),
-          tone:vrp>0?"good":"bad"
+          tone:vrp>0?"good":"bad",
+          note:fillCopy(t(vrp>0
+            ?"verdictPremiumPassedDetail"
+            :"verdictPremiumFailedDetail"),{
+            dvol:dvolValue,rv:rvValue,vrp:vrpValue
+          })
         }
         :unavailableGate(t("verdictPremiumGate")),
       direction
         ?{
           label:t("verdictTimingGate"),
           status:t(direction.tone==="good"?"gatePassed":"gateWaiting"),
-          tone:direction.tone==="good"?"good":"warn"
+          tone:direction.tone==="good"?"good":"warn",
+          note:fillCopy(t(direction.tone==="good"
+            ?"verdictTimingPassedDetail"
+            :direction.tone==="bad"
+              ?"verdictTimingRisingDetail"
+              :"verdictTimingMixedDetail"),{
+            change4h:change4hValue,change1d:change1dValue
+          })
         }
         :unavailableGate(t("verdictTimingGate"))
     ];
@@ -2494,7 +2544,8 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
     ];
   }
   const conclusion=sellPutFinalConclusion({
-    blocked,coreComplete,position,vrp,direction
+    blocked,coreComplete,position,vrp,direction,
+    dvol,rv,percentile,change4h,change1d
   });
   return {
     action:{
@@ -2939,12 +2990,19 @@ function actionConclusionNode(conclusion){
     const item=document.createElement("span");
     item.className=`act-verdict-gate${gate.tone?` ${gate.tone}`:""}`;
     item.setAttribute("role","listitem");
-    item.append(
-      document.createTextNode(`${String(gate.label||"")} `),
-      Object.assign(document.createElement("b"),{
-        textContent:String(gate.status||"—")
-      })
-    );
+    const head=document.createElement("span");
+    head.className="act-verdict-gate-head";
+    const gateLabel=document.createElement("span");
+    gateLabel.textContent=String(gate.label||"");
+    const gateStatus=document.createElement("b");
+    gateStatus.textContent=String(gate.status||"—");
+    head.append(gateLabel,gateStatus);
+    item.append(head);
+    if(gate.note){
+      const gateNote=document.createElement("small");
+      gateNote.textContent=String(gate.note);
+      item.append(gateNote);
+    }
     gates.append(item);
   }
   node.append(gates);
