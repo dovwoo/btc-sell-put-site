@@ -239,6 +239,24 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
 .filters .range-field{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .filters .filter-range input{width:96px}
 .filters .delta-range input{width:76px}
+.comparison-panel{margin:0 0 14px;border:1px solid var(--line2);border-top:2px solid var(--amber-dim);background:var(--panel)}
+.comparison-panel[hidden]{display:none}
+.comparison-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:10px 12px;border-bottom:1px solid var(--line2)}
+.comparison-head h2{font-family:var(--mono);font-size:.72rem;color:var(--text);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.comparison-head p{margin-top:3px;color:var(--muted);font-family:var(--mono);font-size:.58rem;line-height:1.45}
+.comparison-actions{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.comparison-count{color:var(--amber);font-family:var(--mono);font-size:.62rem}
+.comparison-clear,.comparison-remove,.comparison-add{border:0;border-bottom:1px dotted var(--faint);background:transparent;color:var(--muted);font-family:var(--mono);font-size:.58rem;line-height:1.45;cursor:pointer}
+.comparison-clear:hover,.comparison-remove:hover,.comparison-add:hover{color:var(--amber);border-color:var(--amber)}
+.comparison-add.saved{color:var(--green);border-color:var(--green)}
+.comparison-empty{padding:12px;color:var(--muted);font-family:var(--mono);font-size:.62rem;line-height:1.5}
+.comparison-table th,.comparison-table td{padding-top:7px;padding-bottom:7px}
+.comparison-table td strong{display:block;color:var(--text);font-weight:600}
+.comparison-table td small{display:block;margin-top:2px;color:var(--faint);font-size:.54rem}
+.comparison-table .comparison-efficiency{color:var(--text);font-weight:650}
+.comparison-table .comparison-invalid{color:var(--red)}
+.comparison-warnings{display:grid;gap:3px;padding:8px 12px;border-top:1px solid var(--line2);color:var(--muted);font-family:var(--mono);font-size:.57rem;line-height:1.45}
+.comparison-warnings .warn{color:var(--amber)}
 .state{font-size:.72rem;color:var(--muted);padding:14px 0}
 .error{color:var(--red)}
 /* ============ EXPIRY GROUP HEADERS ============ */
@@ -704,6 +722,11 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .snapshot{padding:9px}
   .filters{gap:7px}
   .filter-range{gap:6px}
+  .comparison-head{align-items:flex-start;flex-direction:column;gap:8px;padding:9px}
+  .comparison-actions{width:100%;justify-content:space-between}
+  .comparison-empty,.comparison-warnings{padding-left:9px;padding-right:9px}
+  .comparison-table{min-width:980px}
+  .comparison-add{min-height:28px}
   .quote-detail-grid{grid-template-columns:repeat(2,minmax(90px,1fr))}
   .quote-detail-inner{position:sticky;left:0;width:min(560px,calc(100vw - 40px))}
   .quote-detail-toggle{min-height:28px}
@@ -944,6 +967,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
       </label>
     </div>
   </section>
+  <section class="comparison-panel" id="comparisonPanel" aria-live="polite" hidden></section>
   <section id="content" class="state" aria-live="polite">Loading data...</section>
 </main>
 <div class="hover-tooltip" id="hoverTooltip" role="tooltip" aria-hidden="true"></div>
@@ -1000,6 +1024,12 @@ let quoteDepthState=null;
 let liveQuoteRenderTimer=null;
 let sellerQuoteExpiryTimer=null;
 let activeHoverTip=null;
+const SELL_PUT_COMPARISON_KEY="mango.sell-put.compare.v1";
+const MAX_SELL_PUT_COMPARISONS=8;
+let comparisonRowRegistry=new Map();
+let comparisonRowSequence=0;
+let comparisonCandidateIds=new Set();
+let comparisonStatusKey="";
 let _lang="zh";
 
 const STRINGS={
@@ -1022,6 +1052,16 @@ const STRINGS={
     noOptions:"没有符合筛选条件的 Put",expiry:"到期日",days:"天数",bid:"Bid / 单位",
     yieldOtmEfficiency:"年化 / OTM",yieldOtmNearAtm:"OTM < 1%，不比较",
     yieldOtmEfficiencyTip:"条件年化 ÷ OTM 距离。例：20% 条件年化、10% OTM = 2.00×，表示每 1 个百分点接货折价对应 2 个百分点条件年化。只适合在相近 DTE、流动性和事件风险下比较；OTM 小于 1% 时分母过小，不计算该比例。",
+    compareAdd:"加入比较",compareUpdate:"更新快照",compareHeader:"Sell Put 跨资产比较",compareCount:"{count}/8 条",
+    compareIntro:"这里只保存你主动加入的合约快照，不自动抓全市场，也不自动选赢家。",
+    compareEmpty:"在下方 Sell Put 合约行点击“加入比较”，即可并排查看 BTC、ETH 或美股候选。",
+    compareClear:"清空",compareRemove:"移除",compareContract:"合约",compareQuote:"报价快照",compareAction:"操作",
+    compareBaseNote:"年化 / OTM 只适合在相近 DTE、流动性和事件风险下横向看，不是风险调整后收益。",
+    compareNeedMore:"再加入至少一个候选，才形成横向比较。",compareDaysMismatch:"候选 DTE 相差 {days} 天，不能直接按比例排优先级。",
+    compareDeltaMismatch:"候选 |Delta| 相差 {delta}，到期价内概率风险不在同一档，不能直接按比例排优先级。",
+    compareMixedMarkets:"Crypto 与美股的交易时段、结算和事件风险不同，这里只能做粗筛。",
+    compareStale:"包含已经失效或延迟的报价，请回到对应标的更新快照。",compareLimit:"最多保留 8 条候选，请先移除一条。",compareSaveFailed:"浏览器未能保存比较清单，请检查本地存储权限。",
+    compareCaptured:"保存于 {time}",compareDelayed:"延迟",compareExpired:"已失效",compareSpread:"Spread {value}",
     sellPutNav:"Sell Put",buyCallNav:"Buy Call",coveredCallNav:"Covered Call",
     buyCallRisk:"买入 Call 的全部权利金都可能损失；标的上涨也不保证盈利，只有到期价高于回本价才会有到期利润。以下回本价未计交易费；Ask 深度金额仅为当前快照，不保证实际成交。",
     coveredCallRisk:"Covered Call 使用 Call 顶档 Bid 估算权利金；它会限制标的上涨收益，并可能在美股到期前被提前行权。下表只展示报价，不判断你是否已持有足够现货。",
@@ -1216,6 +1256,16 @@ const STRINGS={
     noOptions:"No puts match the filters",expiry:"Expiry",days:"Days",bid:"Bid / unit",
     yieldOtmEfficiency:"APR / OTM",yieldOtmNearAtm:"OTM < 1%; not compared",
     yieldOtmEfficiencyTip:"Conditional APR divided by OTM distance. Example: 20% APR and 10% OTM = 2.00×, or 2 APR points per 1 percentage point of entry discount. Compare only across similar DTE, liquidity, and event risk; below 1% OTM, the denominator is too small, so the ratio is not calculated.",
+    compareAdd:"Add to compare",compareUpdate:"Update snapshot",compareHeader:"Cross-asset Sell Put comparison",compareCount:"{count}/8 items",
+    compareIntro:"Only contracts you add are saved as snapshots. The page does not scan every market or choose a winner.",
+    compareEmpty:"Click “Add to compare” on a Sell Put row below to compare BTC, ETH, or U.S. stock candidates side by side.",
+    compareClear:"Clear",compareRemove:"Remove",compareContract:"Contract",compareQuote:"Quote snapshot",compareAction:"Action",
+    compareBaseNote:"APR / OTM is comparable only across similar DTE, liquidity, and event risk. It is not a risk-adjusted return.",
+    compareNeedMore:"Add at least one more candidate to create a comparison.",compareDaysMismatch:"Candidate DTE differs by {days} days, so the ratio cannot be ranked directly.",
+    compareDeltaMismatch:"Candidate |Delta| differs by {delta}, so expiry-in-the-money risk is not in the same band and the ratio cannot be ranked directly.",
+    compareMixedMarkets:"Crypto and U.S. stocks have different sessions, settlement, and event risks. Treat this as a rough screen only.",
+    compareStale:"Some quotes are delayed or expired. Return to that symbol and update its snapshot.",compareLimit:"Up to 8 candidates can be saved. Remove one first.",compareSaveFailed:"The browser could not save the comparison list. Check local-storage permissions.",
+    compareCaptured:"Saved {time}",compareDelayed:"Delayed",compareExpired:"Expired",compareSpread:"Spread {value}",
     sellPutNav:"Sell Put",buyCallNav:"Buy Call",coveredCallNav:"Covered Call",
     buyCallRisk:"The entire Call premium can be lost. A rise in the underlying does not guarantee a profit; at expiry, price must exceed breakeven. Breakevens below exclude trading fees; ask depth value is a snapshot, not guaranteed execution.",
     coveredCallRisk:"Covered Call premium uses the top-of-book call bid. The strategy caps upside and U.S. contracts can be assigned early. This page shows quotes only and does not verify that you hold enough of the underlying.",
@@ -3787,6 +3837,318 @@ function formatYieldOtmEfficiency(row,spot=Number(DATA?.spot_price)){
   return `<span style="color:#b2b5be;font-weight:650">${efficiency.toFixed(2)}×</span>`;
 }
 
+function comparisonCandidateId(candidate){
+  return [candidate.market,candidate.symbol,candidate.expiry,candidate.strike].join("|");
+}
+
+function sanitizeComparisonCandidate(candidate){
+  if(!candidate||typeof candidate!=="object") return null;
+  const market=candidate.market==="us_stock"?"us_stock":candidate.market==="crypto"?"crypto":"";
+  const symbol=String(candidate.symbol||"").trim().toUpperCase();
+  const expiry=String(candidate.expiry||"");
+  const spot=finiteNumber(candidate.spot);
+  const strike=finiteNumber(candidate.strike);
+  const days=finiteNumber(candidate.days);
+  const bid=finiteNumber(candidate.bid);
+  const annualYield=finiteNumber(candidate.annualYield);
+  const otm=finiteNumber(candidate.otm);
+  const efficiency=finiteNumber(candidate.efficiency);
+  const delta=finiteNumber(candidate.delta);
+  const spreadPct=finiteNumber(candidate.spreadPct);
+  const capturedAt=finiteNumber(candidate.capturedAt);
+  const normalizeDecimals=(value,fallback)=>{
+    const parsed=finiteNumber(value);
+    return parsed===null?fallback:Math.max(0,Math.min(6,Math.round(parsed)));
+  };
+  if(
+    !market||!symbol||symbol.length>10
+    ||!/^[A-Z][A-Z0-9]*(?:[.-][A-Z0-9]+)?$/.test(symbol)
+    ||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(expiry)
+    ||spot===null||spot<=0||strike===null||strike<=0||strike>=spot
+    ||days===null||days<0||capturedAt===null||capturedAt<=0
+  ) return null;
+  const normalized={
+    market,symbol,expiry,spot,strike,days,
+    bid:bid!==null&&bid>=0?bid:null,
+    annualYield:annualYield!==null&&annualYield>=0?annualYield:null,
+    otm:otm!==null&&otm>0?otm:null,
+    efficiency:efficiency!==null&&efficiency>=0?efficiency:null,
+    delta:delta!==null&&delta>=-1&&delta<=1?delta:null,
+    spreadPct:spreadPct!==null&&spreadPct>=0?spreadPct:null,
+    capturedAt,
+    priceDecimals:normalizeDecimals(candidate.priceDecimals,market==="us_stock"?2:(spot>=100?0:2)),
+    strikeDecimals:normalizeDecimals(candidate.strikeDecimals,market==="us_stock"?2:(Number.isInteger(strike)&&strike>=100?0:2)),
+    quoteDecimals:normalizeDecimals(candidate.quoteDecimals,market==="us_stock"?2:(bid!==null&&bid<1?4:bid!==null&&bid<10?2:0)),
+    delayed:Boolean(candidate.delayed),
+    blocked:Boolean(candidate.blocked),
+    quoteTime:String(candidate.quoteTime||"").slice(0,80)
+  };
+  normalized.id=comparisonCandidateId(normalized);
+  return normalized;
+}
+
+function readComparisonCandidates(storage=window.localStorage){
+  try{
+    const parsed=JSON.parse(storage.getItem(SELL_PUT_COMPARISON_KEY)||"[]");
+    if(!Array.isArray(parsed)) return [];
+    const unique=new Map();
+    parsed.forEach(item=>{
+      const candidate=sanitizeComparisonCandidate(item);
+      if(candidate) unique.set(candidate.id,candidate);
+    });
+    return [...unique.values()].slice(-MAX_SELL_PUT_COMPARISONS);
+  }catch(_){
+    return [];
+  }
+}
+
+function writeComparisonCandidates(candidates,storage=window.localStorage){
+  try{
+    storage.setItem(SELL_PUT_COMPARISON_KEY,JSON.stringify(candidates));
+    return true;
+  }catch(_){
+    return false;
+  }
+}
+
+function upsertComparisonCandidate(candidate,storage=window.localStorage){
+  const normalized=sanitizeComparisonCandidate(candidate);
+  if(!normalized) return {saved:false,reason:"invalid"};
+  const candidates=readComparisonCandidates(storage);
+  const existing=candidates.findIndex(item=>item.id===normalized.id);
+  if(existing<0&&candidates.length>=MAX_SELL_PUT_COMPARISONS){
+    return {saved:false,reason:"limit"};
+  }
+  if(existing>=0)candidates.splice(existing,1);
+  candidates.push(normalized);
+  return writeComparisonCandidates(candidates,storage)
+    ?{saved:true,candidates}
+    :{saved:false,reason:"storage"};
+}
+
+function comparisonCandidateFromRow(row,expiry){
+  const spot=finiteNumber(DATA?.spot_price);
+  const capturedAt=Date.now();
+  return sanitizeComparisonCandidate({
+    market:currentMarket,
+    symbol:currentSymbol(),
+    expiry,
+    spot,
+    strike:row?.strike,
+    days:row?.days,
+    bid:row?.bid_usd,
+    annualYield:row?.ann_yield,
+    otm:sellPutOtmPct(row,spot),
+    efficiency:sellPutYieldOtmEfficiency(row,spot),
+    delta:row?.delta,
+    spreadPct:row?.spread_pct,
+    capturedAt,
+    priceDecimals:DATA?.price_decimals,
+    strikeDecimals:DATA?.strike_decimals,
+    quoteDecimals:DATA?.price_decimals===0?2:Math.min(4,(DATA?.price_decimals||2)+1),
+    delayed:isStockMode(),
+    blocked:Boolean(DATA?.decision_blocked||DATA?.stale||currentQuoteAgeSeconds()>120),
+    quoteTime:DATA?.provider_timestamp||DATA?.quoted_at||DATA?.updated||""
+  });
+}
+
+function beginComparisonRowRender(){
+  comparisonRowRegistry=new Map();
+  comparisonRowSequence=0;
+  comparisonCandidateIds=new Set(readComparisonCandidates().map(item=>item.id));
+}
+
+function comparisonAddButton(row,expiry){
+  const candidate=comparisonCandidateFromRow(row,expiry);
+  if(!candidate)return "—";
+  const key=`compare-${++comparisonRowSequence}`;
+  comparisonRowRegistry.set(key,candidate);
+  const saved=comparisonCandidateIds.has(candidate.id);
+  return `<button type="button" class="comparison-add${saved?" saved":""}" data-comparison-add="${key}">${t(saved?"compareUpdate":"compareAdd")}</button>`;
+}
+
+function comparisonPrice(value,decimals=2){
+  const number=finiteNumber(value);
+  if(number===null)return "—";
+  return "$"+number.toLocaleString(undefined,{
+    minimumFractionDigits:decimals,
+    maximumFractionDigits:decimals
+  });
+}
+
+function comparisonPercent(value,digits=1){
+  const number=finiteNumber(value);
+  return number===null?"—":`${number.toFixed(digits)}%`;
+}
+
+function comparisonTime(value){
+  const timestamp=finiteNumber(value);
+  if(timestamp===null)return "—";
+  return new Intl.DateTimeFormat(_lang==="zh"?"zh-CN":"en-US",{
+    month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false
+  }).format(new Date(timestamp));
+}
+
+function comparisonCell(row,text,className=""){
+  const cell=document.createElement("td");
+  if(className)cell.className=className;
+  cell.textContent=text;
+  row.append(cell);
+  return cell;
+}
+
+function comparisonRiskGaps(candidates){
+  const dayValues=candidates.map(item=>item.days).filter(Number.isFinite);
+  const deltaValues=candidates
+    .map(item=>finiteNumber(item.delta))
+    .filter(Number.isFinite)
+    .map(Math.abs);
+  return {
+    dayGap:dayValues.length?Math.max(...dayValues)-Math.min(...dayValues):0,
+    deltaGap:deltaValues.length?Math.max(...deltaValues)-Math.min(...deltaValues):0,
+    mixedMarkets:new Set(candidates.map(item=>item.market)).size>1,
+    stale:candidates.some(item=>item.blocked||item.delayed)
+  };
+}
+
+function renderComparisonPanel(){
+  const panel=$("comparisonPanel");
+  if(!panel)return;
+  if(isCallMode()){
+    panel.hidden=true;
+    panel.replaceChildren();
+    return;
+  }
+  const candidates=readComparisonCandidates().sort((a,b)=>(b.efficiency??-1)-(a.efficiency??-1));
+  panel.hidden=false;
+  panel.replaceChildren();
+  const head=document.createElement("header");
+  head.className="comparison-head";
+  const copy=document.createElement("div");
+  const title=document.createElement("h2");
+  title.textContent=t("compareHeader");
+  const intro=document.createElement("p");
+  intro.textContent=t("compareIntro");
+  copy.append(title,intro);
+  const actions=document.createElement("div");
+  actions.className="comparison-actions";
+  const count=document.createElement("span");
+  count.className="comparison-count";
+  count.textContent=t("compareCount").replace("{count}",String(candidates.length));
+  actions.append(count);
+  if(candidates.length){
+    const clear=document.createElement("button");
+    clear.type="button";
+    clear.className="comparison-clear";
+    clear.dataset.comparisonClear="1";
+    clear.textContent=t("compareClear");
+    actions.append(clear);
+  }
+  head.append(copy,actions);
+  panel.append(head);
+  if(!candidates.length){
+    const empty=document.createElement("p");
+    empty.className="comparison-empty";
+    empty.textContent=t("compareEmpty");
+    panel.append(empty);
+    return;
+  }
+  const scroll=document.createElement("div");
+  scroll.className="table-scroll";
+  scroll.dataset.scrollHint=t("scrollHint");
+  const table=document.createElement("table");
+  table.className="comparison-table";
+  const thead=document.createElement("thead");
+  const headerRow=document.createElement("tr");
+  ["compareContract","days","moneyness","bid","annualYield","yieldOtmEfficiency","Delta","compareQuote","compareAction"].forEach(key=>{
+    const th=document.createElement("th");
+    th.textContent=key==="Delta"?"Delta":t(key);
+    headerRow.append(th);
+  });
+  thead.append(headerRow);
+  const tbody=document.createElement("tbody");
+  candidates.forEach(candidate=>{
+    const row=document.createElement("tr");
+    const contract=document.createElement("td");
+    const contractName=document.createElement("strong");
+    contractName.textContent=`${candidate.symbol} ${comparisonPrice(candidate.strike,candidate.strikeDecimals)} Put`;
+    const contractMeta=document.createElement("small");
+    contractMeta.textContent=`${candidate.expiry} · Spot ${comparisonPrice(candidate.spot,candidate.priceDecimals)}`;
+    contract.append(contractName,contractMeta);
+    row.append(contract);
+    comparisonCell(row,`${Math.round(candidate.days)}d`);
+    comparisonCell(row,comparisonPercent(candidate.otm));
+    comparisonCell(row,comparisonPrice(candidate.bid,candidate.quoteDecimals));
+    comparisonCell(row,comparisonPercent(candidate.annualYield));
+    comparisonCell(row,candidate.efficiency===null?"—":`${candidate.efficiency.toFixed(2)}×`,candidate.efficiency===null?"comparison-invalid":"comparison-efficiency");
+    comparisonCell(row,candidate.delta===null?"—":candidate.delta.toFixed(2));
+    const quote=document.createElement("td");
+    const quoteState=document.createElement("strong");
+    quoteState.className=candidate.blocked?"comparison-invalid":"";
+    quoteState.textContent=candidate.blocked?t("compareExpired"):(candidate.delayed?t("compareDelayed"):t("compareCaptured").replace("{time}",comparisonTime(candidate.capturedAt)));
+    const quoteMeta=document.createElement("small");
+    const quoteParts=[];
+    if(candidate.delayed)quoteParts.push(t("compareCaptured").replace("{time}",comparisonTime(candidate.capturedAt)));
+    if(candidate.spreadPct!==null)quoteParts.push(t("compareSpread").replace("{value}",comparisonPercent(candidate.spreadPct)));
+    quoteMeta.textContent=quoteParts.join(" · ")||candidate.quoteTime||"—";
+    quote.append(quoteState,quoteMeta);
+    row.append(quote);
+    const action=document.createElement("td");
+    const remove=document.createElement("button");
+    remove.type="button";
+    remove.className="comparison-remove";
+    remove.dataset.comparisonRemove=candidate.id;
+    remove.textContent=t("compareRemove");
+    action.append(remove);
+    row.append(action);
+    tbody.append(row);
+  });
+  table.append(thead,tbody);
+  scroll.append(table);
+  panel.append(scroll);
+  const warnings=document.createElement("div");
+  warnings.className="comparison-warnings";
+  const addWarning=(text,warn=false)=>{
+    const line=document.createElement("p");
+    if(warn)line.className="warn";
+    line.textContent=text;
+    warnings.append(line);
+  };
+  addWarning(t("compareBaseNote"));
+  if(candidates.length<2)addWarning(t("compareNeedMore"),true);
+  const gaps=comparisonRiskGaps(candidates);
+  const dayGap=Math.round(gaps.dayGap);
+  if(dayGap>7)addWarning(t("compareDaysMismatch").replace("{days}",String(dayGap)),true);
+  if(gaps.deltaGap>.1)addWarning(t("compareDeltaMismatch").replace("{delta}",gaps.deltaGap.toFixed(2)),true);
+  if(gaps.mixedMarkets)addWarning(t("compareMixedMarkets"),true);
+  if(gaps.stale)addWarning(t("compareStale"),true);
+  if(comparisonStatusKey)addWarning(t(comparisonStatusKey),true);
+  panel.append(warnings);
+}
+
+function handleComparisonAdd(event){
+  const button=event.target.closest?.("[data-comparison-add]");
+  if(!button)return;
+  const candidate=comparisonRowRegistry.get(button.dataset.comparisonAdd);
+  if(!candidate)return;
+  const result=upsertComparisonCandidate(candidate);
+  comparisonStatusKey=result.saved?"":result.reason==="limit"?"compareLimit":"compareSaveFailed";
+  renderComparisonPanel();
+  render();
+}
+
+function handleComparisonPanelClick(event){
+  const remove=event.target.closest?.("[data-comparison-remove]");
+  const clear=event.target.closest?.("[data-comparison-clear]");
+  if(!remove&&!clear)return;
+  let candidates=readComparisonCandidates();
+  if(clear)candidates=[];
+  if(remove)candidates=candidates.filter(item=>item.id!==remove.dataset.comparisonRemove);
+  comparisonStatusKey=writeComparisonCandidates(candidates)?"":"compareSaveFailed";
+  renderComparisonPanel();
+  render();
+}
+
 function depthValueUsd(price,size,multiplier=1){
   const normalizedPrice=finiteNumber(price);
   const normalizedSize=finiteNumber(size);
@@ -4361,16 +4723,17 @@ function render(){
     $("content").textContent=t("noOptions");
     return;
   }
+  beginComparisonRowRender();
   const grouped={};
   rows.forEach(row=>(grouped[row.expiry]??=[]).push(row));
   let html="";
   Object.keys(grouped).sort().forEach(expiry=>{
     const expiryRows=grouped[expiry];
     html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${yieldOtmEfficiencyHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${yieldOtmEfficiencyHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th><th>${t("compareAction")}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     expiryRows.forEach(row=>{
       const otm=(spot-Number(row.strike))/spot*100;
-      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatYieldOtmEfficiency(row,spot)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatYieldOtmEfficiency(row,spot)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td><td>${comparisonAddButton(row,expiry)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div></section>";
   });
@@ -4611,6 +4974,7 @@ function applyLang(){
   $("ivContextTitle").textContent=t("ivHistoryTitle");
   $("ivContextSubtitle").textContent=`${symbol} · ${t("ivHistorySubtitle")}`;
   setIvRangeButtons();
+  renderComparisonPanel();
   if(!isStockMode()){
     setTimeframeButtons();
     renderPriceChartCopy();
@@ -4722,6 +5086,8 @@ $("refreshBtn").addEventListener("click",refreshDashboard);
   $(id).addEventListener("click",handleCallQuoteDetailToggle);
   $(id).addEventListener("click",handleQuoteDepthClick);
 });
+$("content").addEventListener("click",handleComparisonAdd);
+$("comparisonPanel").addEventListener("click",handleComparisonPanelClick);
 document.addEventListener("pointerover",event=>{
   const target=event.target.closest?.(".tip");
   if(
