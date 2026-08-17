@@ -1020,6 +1020,8 @@ const STRINGS={
     cash:"USDC 现金结算",bestBid:"顶档 Bid",contract:"合约乘数",minimum:"最小交易",obligation:"最小资金义务",
     snapshot:"各到期日年化收益",baseline:"基准 IV",noStrike:"这个 Strike 暂无报价",
     noOptions:"没有符合筛选条件的 Put",expiry:"到期日",days:"天数",bid:"Bid / 单位",
+    yieldOtmEfficiency:"年化 / OTM",yieldOtmNearAtm:"OTM < 1%，不比较",
+    yieldOtmEfficiencyTip:"条件年化 ÷ OTM 距离。例：20% 条件年化、10% OTM = 2.00×，表示每 1 个百分点接货折价对应 2 个百分点条件年化。只适合在相近 DTE、流动性和事件风险下比较；OTM 小于 1% 时分母过小，不计算该比例。",
     sellPutNav:"Sell Put",buyCallNav:"Buy Call",coveredCallNav:"Covered Call",
     buyCallRisk:"买入 Call 的全部权利金都可能损失；标的上涨也不保证盈利，只有到期价高于回本价才会有到期利润。以下回本价未计交易费；Ask 深度金额仅为当前快照，不保证实际成交。",
     coveredCallRisk:"Covered Call 使用 Call 顶档 Bid 估算权利金；它会限制标的上涨收益，并可能在美股到期前被提前行权。下表只展示报价，不判断你是否已持有足够现货。",
@@ -1212,6 +1214,8 @@ const STRINGS={
     cash:"USDC cash-settled",bestBid:"Top-of-book bid",contract:"Contract multiplier",minimum:"Minimum",obligation:"Min obligation",
     snapshot:"Annualized yield by expiry",baseline:"Baseline IV",noStrike:"No quote for this strike",
     noOptions:"No puts match the filters",expiry:"Expiry",days:"Days",bid:"Bid / unit",
+    yieldOtmEfficiency:"APR / OTM",yieldOtmNearAtm:"OTM < 1%; not compared",
+    yieldOtmEfficiencyTip:"Conditional APR divided by OTM distance. Example: 20% APR and 10% OTM = 2.00×, or 2 APR points per 1 percentage point of entry discount. Compare only across similar DTE, liquidity, and event risk; below 1% OTM, the denominator is too small, so the ratio is not calculated.",
     sellPutNav:"Sell Put",buyCallNav:"Buy Call",coveredCallNav:"Covered Call",
     buyCallRisk:"The entire Call premium can be lost. A rise in the underlying does not guarantee a profit; at expiry, price must exceed breakeven. Breakevens below exclude trading fees; ask depth value is a snapshot, not guaranteed execution.",
     coveredCallRisk:"Covered Call premium uses the top-of-book call bid. The strategy caps upside and U.S. contracts can be assigned early. This page shows quotes only and does not verify that you hold enough of the underlying.",
@@ -1579,6 +1583,10 @@ function yieldHeader(){
     ?"Premium divided by full strike obligation, annualized. It assumes the put expires out of the money; it is not strategy return."
     :"权利金 ÷ 完整 Strike 义务后年化；前提是 Put 到期价外，不等于策略真实收益。";
   return tip(t("annualYield"),copy);
+}
+
+function yieldOtmEfficiencyHeader(){
+  return tip(t("yieldOtmEfficiency"),t("yieldOtmEfficiencyTip"));
 }
 
 function bidLabel(){
@@ -3752,6 +3760,33 @@ function formatYield(row){
   return `<span style="color:${yieldColor(annualYield)};font-weight:650">${annualYield.toFixed(1)}%</span>`;
 }
 
+function sellPutOtmPct(row,spot=Number(DATA?.spot_price)){
+  const normalizedSpot=Number(spot);
+  const strike=Number(row?.strike);
+  if(
+    !Number.isFinite(normalizedSpot)||normalizedSpot<=0
+    ||!Number.isFinite(strike)||strike<=0||strike>=normalizedSpot
+  ) return null;
+  return (normalizedSpot-strike)/normalizedSpot*100;
+}
+
+function sellPutYieldOtmEfficiency(row,spot=Number(DATA?.spot_price)){
+  const annualYield=row?.ann_yield===null||row?.ann_yield===undefined
+    ?null
+    :Number(row.ann_yield);
+  const otm=sellPutOtmPct(row,spot);
+  if(!Number.isFinite(annualYield)||annualYield<0||otm===null||otm<1) return null;
+  return annualYield/otm;
+}
+
+function formatYieldOtmEfficiency(row,spot=Number(DATA?.spot_price)){
+  const efficiency=sellPutYieldOtmEfficiency(row,spot);
+  const otm=sellPutOtmPct(row,spot);
+  if(otm!==null&&otm<1) return `<span class="cell-note">${t("yieldOtmNearAtm")}</span>`;
+  if(efficiency===null) return "—";
+  return `<span style="color:#b2b5be;font-weight:650">${efficiency.toFixed(2)}×</span>`;
+}
+
 function depthValueUsd(price,size,multiplier=1){
   const normalizedPrice=finiteNumber(price);
   const normalizedSize=finiteNumber(size);
@@ -4182,9 +4217,9 @@ function renderSnapshot(){
   if(!selected.length){
     html+=`<div class="state">${t("noStrike")}</div>`;
   }else{
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>${t("expiry")}</th><th>${t("days")}</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${yieldOtmEfficiencyHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     selected.forEach(row=>{
-      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
+      html+=`<tr><td>${row.expiry}</td><td>${Math.round(row.days)}d</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatYieldOtmEfficiency(row,spot)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div>";
   }
@@ -4332,10 +4367,10 @@ function render(){
   Object.keys(grouped).sort().forEach(expiry=>{
     const expiryRows=grouped[expiry];
     html+=`<section style="margin-bottom:17px"><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">${expiry} <span style="color:#787b86;font-weight:400">(${Math.round(expiryRows[0].days)}d)</span></div>`;
-    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
+    html+=`<div class="table-scroll" data-scroll-hint="${t("scrollHint")}"><table><thead><tr><th>Strike</th><th>OTM%</th><th>${bidLabel()}</th><th>${depthHeader("bid")}</th><th>${yieldHeader()}</th><th>${yieldOtmEfficiencyHeader()}</th>${greeksHeaders()}<th>${ivHeader()}</th>${ownerChainHeader()}</tr></thead><tbody>`;
     expiryRows.forEach(row=>{
       const otm=(spot-Number(row.strike))/spot*100;
-      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
+      html+=`<tr><td>${formatStrike(row.strike)}</td><td style="color:#26a69a">${otm.toFixed(1)}%</td><td>${formatBid(row)}</td><td>${formatTopDepth(row,"bid")}</td><td>${formatYield(row)}</td><td>${formatYieldOtmEfficiency(row,spot)}</td>${greeksCells(row)}<td>${formatIv(row.iv)}</td>${ownerChainCell(row)}</tr>`;
     });
     html+="</tbody></table></div></section>";
   });
