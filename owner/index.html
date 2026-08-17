@@ -950,8 +950,10 @@ if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.locati
   <section class="filters" aria-label="Option filters">
     <label for="fYield" id="labelYield">Min Yield%</label>
     <input id="fYield" type="number" value="5" min="0" step="1">
+    <label for="fMinDays" id="labelMinDays">Min Days</label>
+    <input id="fMinDays" type="number" value="0" min="0" step="1" inputmode="numeric" placeholder="0=all">
     <label for="fDays" id="labelDays">Max Days</label>
-    <input id="fDays" type="number" value="0" min="0" placeholder="0=all">
+    <input id="fDays" type="number" value="0" min="0" step="1" inputmode="numeric" placeholder="0=all">
     <div class="filter-range strike-range" id="strikeRange">
       <label class="range-field" for="fMinStrike">
         <span id="labelMinStrike">最低 Strike</span>
@@ -1045,7 +1047,7 @@ const STRINGS={
     researchOnly:"研究用，不用于下单",physical:"美式行权 · 股票实物交割",
     perContract:"每张",sharesPerContract:"每张 {count} 股",bidPerShare:"Bid / 股",
     contractPremium:"每张权利金",
-    minYield:"最低年化%",maxDays:"最长天数",
+    minYield:"最低年化%",minDays:"最短天数",maxDays:"最长天数",daysUnlimited:"0=不限",
     cash:"USDC 现金结算",bestBid:"顶档 Bid",contract:"合约乘数",minimum:"最小交易",obligation:"最小资金义务",
     snapshot:"各到期日年化收益",baseline:"基准 IV",noStrike:"这个 Strike 暂无报价",
     noOptions:"没有符合筛选条件的 Put",expiry:"到期日",days:"天数",bid:"Bid / 单位",
@@ -1055,7 +1057,7 @@ const STRINGS={
     callQuoteBlocked:"报价已超过 120 秒，只能查看；请手动刷新后再判断。",
     stockCallBlocked:"美股为 Indicative 派生报价，不是 OPRA 可成交盘口；仅供研究。",
     maxPremium:"最小订单成本上限 $",minStrike:"最低 Strike",maxStrike:"最高 Strike",minDelta:"最低 Delta",maxDelta:"最高 Delta",
-    unlimited:"不限",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",invalidDeltaRange:"Delta 必须在 -1 到 1 之间，且最低不能高于最高",
+    unlimited:"不限",invalidDaysRange:"最短天数不能高于最长天数，且天数不能小于 0",invalidStrikeRange:"Strike 必须大于等于 0，且最低不能高于最高",invalidDeltaRange:"Delta 必须在 -1 到 1 之间，且最低不能高于最高",
     callSnapshot:"各到期日成本与回本点",noCalls:"没有符合筛选条件的 Call",
     coveredSnapshot:"各到期日权利金年化",coveredYield:"权利金条件年化",coverRequirement:"覆盖要求",
     ask:"Ask / 单位",askPerShare:"Ask / 股",bestAsk:"顶档 Ask",
@@ -1237,7 +1239,7 @@ const STRINGS={
     researchOnly:"Research only, not for trading",physical:"American exercise · physical share settlement",
     perContract:"per contract",sharesPerContract:"{count} shares per contract",bidPerShare:"Bid / share",
     contractPremium:"Premium per contract",
-    minYield:"Min Yield%",maxDays:"Max Days",
+    minYield:"Min Yield%",minDays:"Min Days",maxDays:"Max Days",daysUnlimited:"0=all",
     cash:"USDC cash-settled",bestBid:"Top-of-book bid",contract:"Contract multiplier",minimum:"Minimum",obligation:"Min obligation",
     snapshot:"Annualized yield by expiry",baseline:"Baseline IV",noStrike:"No quote for this strike",
     noOptions:"No puts match the filters",expiry:"Expiry",days:"Days",bid:"Bid / unit",
@@ -1247,7 +1249,7 @@ const STRINGS={
     callQuoteBlocked:"The quote is over 120 seconds old. View only; refresh manually before making a decision.",
     stockCallBlocked:"Indicative derivatives are not executable OPRA quotes; research only.",
     maxPremium:"Max minimum-order cost $",minStrike:"Min Strike",maxStrike:"Max Strike",minDelta:"Min Delta",maxDelta:"Max Delta",
-    unlimited:"No limit",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",invalidDeltaRange:"Delta must stay between -1 and 1, and minimum cannot exceed maximum",
+    unlimited:"No limit",invalidDaysRange:"Minimum days cannot exceed maximum days, and days cannot be negative",invalidStrikeRange:"Strikes must be non-negative, and minimum cannot exceed maximum",invalidDeltaRange:"Delta must stay between -1 and 1, and minimum cannot exceed maximum",
     callSnapshot:"Cost and breakeven by expiry",noCalls:"No calls match the filters",
     coveredSnapshot:"Premium APR by expiry",coveredYield:"Conditional premium APR",coverRequirement:"Cover required",
     ask:"Ask / unit",askPerShare:"Ask / share",bestAsk:"Top-of-book ask",
@@ -3887,14 +3889,40 @@ function getDeltaBounds(){
   };
 }
 
+function getDayBounds(){
+  const min=finiteNumber($("fMinDays").value);
+  const max=finiteNumber($("fDays").value);
+  return {
+    min,
+    max,
+    valid:(min===null||min>=0)
+      &&(max===null||max>=0)
+      &&(min===null||max===null||max===0||min<=max)
+  };
+}
+
 function getOptionFilterBounds(){
   return {strike:getStrikeBounds(),delta:getDeltaBounds()};
 }
 
-function filterValidationError(bounds){
+function filterValidationError(bounds,dayBounds=null){
+  if(dayBounds&&!dayBounds.valid) return t("invalidDaysRange");
   if(!bounds.strike.valid) return t("invalidStrikeRange");
   if(!bounds.delta.valid) return t("invalidDeltaRange");
   return "";
+}
+
+function filterRowsByDays(rows,bounds=getDayBounds()){
+  if(!bounds.valid) return [];
+  const min=bounds.min??0;
+  const max=bounds.max??0;
+  if(min===0&&max===0) return rows;
+  return rows.filter(row=>{
+    const days=finiteNumber(row.days);
+    return days!==null
+      &&(min===0||days>=min)
+      &&(max===0||days<=max);
+  });
 }
 
 function filterRowsByDelta(rows,bounds=getDeltaBounds()){
@@ -4202,23 +4230,25 @@ function renderSnapshot(){
 function renderBuyCall(){
   const spot=Number(DATA.spot_price);
   const maxPremium=Number($("fYield").value)||0;
-  const maxDays=Number($("fDays").value)||0;
+  const dayBounds=getDayBounds();
   const bounds=getOptionFilterBounds();
-  const validationError=filterValidationError(bounds);
+  const validationError=filterValidationError(bounds,dayBounds);
   if(validationError){
     $("content").className="state error";
     $("content").textContent=validationError;
     return;
   }
-  let rows=filterRowsByDelta(
-    filterCallRowsByStrike(optionRows(),bounds.strike),
-    bounds.delta
+  let rows=filterRowsByDays(
+    filterRowsByDelta(
+      filterCallRowsByStrike(optionRows(),bounds.strike),
+      bounds.delta
+    ),
+    dayBounds
   );
   if(maxPremium>0) rows=rows.filter(row=>{
     const cost=callCost(row);
     return cost!==null&&cost<=maxPremium;
   });
-  if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
   rows.sort((a,b)=>(callBreakevenMove(a)??Infinity)-(callBreakevenMove(b)??Infinity));
   if(!rows.length){
     $("content").className="state";
@@ -4252,20 +4282,22 @@ function renderBuyCall(){
 function renderCoveredCall(){
   const spot=Number(DATA.spot_price);
   const minYield=Number($("fYield").value)||0;
-  const maxDays=Number($("fDays").value)||0;
+  const dayBounds=getDayBounds();
   const bounds=getOptionFilterBounds();
-  const validationError=filterValidationError(bounds);
+  const validationError=filterValidationError(bounds,dayBounds);
   if(validationError){
     $("content").className="state error";
     $("content").textContent=validationError;
     return;
   }
-  let rows=filterRowsByDelta(
-    filterCallRowsByStrike(optionRows(),bounds.strike),
-    bounds.delta
+  let rows=filterRowsByDays(
+    filterRowsByDelta(
+      filterCallRowsByStrike(optionRows(),bounds.strike),
+      bounds.delta
+    ),
+    dayBounds
   )
     .filter(row=>Number(row.ann_yield)>=minYield);
-  if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
   rows.sort((a,b)=>b.ann_yield-a.ann_yield);
   if(!rows.length){
     $("content").className="state";
@@ -4303,20 +4335,22 @@ function render(){
   }
   const spot=Number(DATA.spot_price);
   const minYield=Number($("fYield").value)||0;
-  const maxDays=Number($("fDays").value)||0;
+  const dayBounds=getDayBounds();
   const bounds=getOptionFilterBounds();
-  const validationError=filterValidationError(bounds);
+  const validationError=filterValidationError(bounds,dayBounds);
   if(validationError){
     $("content").className="state error";
     $("content").textContent=validationError;
     return;
   }
-  let rows=filterRowsByDelta(
-    filterSellPutRowsByStrike(optionRows(),spot,bounds.strike),
-    bounds.delta
+  let rows=filterRowsByDays(
+    filterRowsByDelta(
+      filterSellPutRowsByStrike(optionRows(),spot,bounds.strike),
+      bounds.delta
+    ),
+    dayBounds
   )
     .filter(row=>Number(row.ann_yield)>=minYield);
-  if(maxDays>0) rows=rows.filter(row=>Number(row.days)<=maxDays);
   rows.sort((a,b)=>b.ann_yield-a.ann_yield);
   if(!rows.length){
     $("content").className="state";
@@ -4558,7 +4592,10 @@ function applyLang(){
   $("stockSymbolLabel").textContent=t("stockPlaceholder");
   $("stockSearchBtn").textContent=t("stockSearch");
   $("labelYield").textContent=isBuyCall()?t("maxPremium"):t("minYield");
+  $("labelMinDays").textContent=t("minDays");
   $("labelDays").textContent=t("maxDays");
+  $("fMinDays").placeholder=t("daysUnlimited");
+  $("fDays").placeholder=t("daysUnlimited");
   $("labelMinStrike").textContent=t("minStrike");
   $("labelMaxStrike").textContent=t("maxStrike");
   $("labelMinDelta").textContent=t("minDelta");
@@ -4657,7 +4694,7 @@ document.querySelectorAll("[data-iv-days]").forEach(button=>{
 });
 $("langBtn").addEventListener("click",toggleLang);
 $("refreshBtn").addEventListener("click",refreshDashboard);
-["fYield","fDays"].forEach(id=>{
+["fYield","fMinDays","fDays"].forEach(id=>{
   $(id).addEventListener("change",render);
   $(id).addEventListener("input",()=>{
     clearTimeout(window._renderTimer);
