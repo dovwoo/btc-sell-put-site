@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>期权策略向导 · V4.1 原型</title>
   <link rel="stylesheet" href="strategy-selector-v4.css">
+  <link rel="stylesheet" href="strategy-comparison-v1.css">
 </head>
 <body>
   <div class="shell">
@@ -23,6 +24,39 @@
         <span class="prototype-status">合成演示 · 不会下单</span>
       </div>
     </header>
+
+    <section class="market-compare" id="marketComparison" aria-labelledby="marketComparisonTitle">
+      <header class="compare-head">
+        <div>
+          <span class="section-index">00 / FIXED OTM SCAN</span>
+          <h2 id="marketComparisonTitle">同一 OTM 下比较三个资产</h2>
+          <p>先比较 BTC、ETH、HYPE 的平均条件年化，再进入行情页选择具体 Strike。</p>
+        </div>
+        <span class="compare-count" id="compareCount">0/3 个资产可比</span>
+      </header>
+      <div class="compare-controls">
+        <label class="compare-control">
+          <strong>DTE 区间</strong>
+          <input id="compareMinDays" type="number" min="0" step="1" value="7" inputmode="numeric" aria-label="最短天数">
+          <span class="compare-separator">–</span>
+          <input id="compareMaxDays" type="number" min="0" step="1" value="45" inputmode="numeric" aria-label="最长天数">
+        </label>
+        <label class="compare-control">
+          <strong>统一 OTM%</strong>
+          <input id="compareTargetOtm" type="number" min="0" max="99.5" step="0.5" value="10" inputmode="decimal">
+        </label>
+        <button class="compare-button primary" id="compareApply" type="button">应用条件</button>
+        <button class="compare-button" id="compareReload" type="button">重载报价</button>
+      </div>
+      <p class="compare-state" id="compareState" aria-live="polite">正在加载三个资产的期权链…</p>
+      <div class="compare-table-wrap" id="compareTableWrap" hidden>
+        <table class="compare-table">
+          <thead><tr><th>资产</th><th>样本</th><th>统一 OTM</th><th>估算平均条件年化</th><th>估算 |Delta|</th><th>估算 IV</th><th>状态</th><th>下一步</th></tr></thead>
+          <tbody id="compareRows"></tbody>
+        </table>
+      </div>
+      <p class="compare-note">每个到期日只在目标 OTM 两侧的相邻真实 Strike 间做线性插值，不向报价范围外推；随后对到期日等权。结果用于资产初筛，不是可成交报价。</p>
+    </section>
 
     <main>
       <section class="intro" aria-labelledby="pageTitle">
@@ -110,5 +144,6 @@
   </div>
 
   <script src="strategy-selector-v4.js"></script>
+  <script src="strategy-comparison-v1.js"></script>
 </body>
 </html>

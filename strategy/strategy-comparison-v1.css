@@ -1,0 +1,230 @@
+.market-compare {
+  margin-top: 20px;
+  border: 1px solid var(--line-strong);
+  border-top: 2px solid var(--amber);
+  background: var(--surface);
+}
+
+.compare-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare-head h2 {
+  margin: 5px 0 0;
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.compare-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.compare-count {
+  color: var(--amber);
+  font: 650 10px var(--mono);
+  white-space: nowrap;
+}
+
+.compare-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font: 10px var(--mono);
+  white-space: nowrap;
+}
+
+.compare-control strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.compare-control input {
+  width: 68px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  padding: 0 8px;
+  color: var(--text);
+  outline: 0;
+  font: 650 11px var(--mono);
+}
+
+.compare-control input:focus-visible {
+  border-color: var(--amber);
+  outline: 1px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.compare-separator {
+  color: var(--faint);
+}
+
+.compare-button {
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  padding: 0 13px;
+  color: var(--muted);
+  font: 650 10px var(--mono);
+}
+
+.compare-button.primary {
+  margin-left: auto;
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.compare-button:hover,
+.compare-button:focus-visible {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.compare-state {
+  margin: 0;
+  padding: 14px 20px;
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
+.compare-state.error {
+  color: var(--red);
+}
+
+.compare-table-wrap {
+  overflow-x: auto;
+}
+
+.compare-table {
+  width: 100%;
+  min-width: 890px;
+  border-collapse: collapse;
+  font: 11px var(--mono);
+}
+
+.compare-table th {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  color: var(--faint);
+  font-weight: 550;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.compare-table th:first-child,
+.compare-table th:nth-child(2),
+.compare-table th:nth-child(7),
+.compare-table th:last-child,
+.compare-table td:first-child,
+.compare-table td:nth-child(2),
+.compare-table td:nth-child(7),
+.compare-table td:last-child {
+  text-align: left;
+}
+
+.compare-table td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.compare-table td strong {
+  display: block;
+  font-size: 12px;
+}
+
+.compare-table td small {
+  display: block;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.compare-table a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--faint);
+}
+
+.compare-table a:hover,
+.compare-table a:focus-visible {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.compare-table .ready {
+  color: var(--green);
+}
+
+.compare-table .blocked,
+.compare-table .error {
+  color: var(--red);
+}
+
+.compare-note {
+  margin: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font: 10px/1.6 var(--mono);
+}
+
+@media (max-width: 620px) {
+  .compare-head {
+    display: block;
+    padding: 15px 13px;
+  }
+
+  .compare-count {
+    display: block;
+    margin-top: 9px;
+  }
+
+  .compare-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px 13px;
+  }
+
+  .compare-control {
+    justify-content: space-between;
+  }
+
+  .compare-control:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .compare-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .compare-button.primary {
+    margin-left: 0;
+  }
+
+  .compare-state,
+  .compare-note {
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+}
