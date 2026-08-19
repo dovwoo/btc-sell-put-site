@@ -1,231 +1,114 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<title>目标驱动策略选择器 · V3 原型</title>
-<style>
-*{box-sizing:border-box}
-:root{color-scheme:dark;--bg:#080a0d;--surface:#0d1015;--surface2:#12161d;--line:#252b35;--line2:#3a4350;--text:#d9dde3;--muted:#929aa6;--faint:#5c6572;--amber:#e0a629;--amber-soft:rgba(224,166,41,.16);--teal:#42b5aa;--teal-soft:rgba(66,181,170,.15);--rust:#c9644f;--green:#55b58b;--mono:"SF Mono","IBM Plex Mono","Menlo","Consolas",monospace;--sans:"Avenir Next","PingFang SC","Hiragino Sans GB",sans-serif}
-html{background:var(--bg);font-feature-settings:"tnum" 1,"lnum" 1;scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
-button,input{font:inherit;color:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:1px solid var(--amber);outline-offset:3px}
-.shell{width:min(1180px,calc(100% - 40px));margin:0 auto;padding-bottom:72px}.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.topbar{height:56px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:flex;align-items:center;gap:14px}.brand-mark{color:var(--amber);font:700 12px var(--mono);letter-spacing:.08em}.brand-title{color:var(--muted);font-size:12px}.topbar-right{display:flex;align-items:center;gap:15px}.prototype-nav{display:flex;border:1px solid var(--line2)}.prototype-nav a{min-width:52px;padding:5px 9px;border-right:1px solid var(--line2);color:var(--muted);font:650 9px var(--mono);text-align:center;text-decoration:none}.prototype-nav a:last-child{border-right:0}.prototype-nav a:hover{color:var(--text);background:var(--surface2)}.prototype-nav a.active{color:var(--amber);box-shadow:inset 0 -1px var(--amber)}.status{color:var(--amber);font:600 10px var(--mono);letter-spacing:.06em}
-.asset-strip{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;padding:24px 0 20px;border-bottom:1px solid var(--line)}.asset-tabs{display:flex}.asset-tab{min-width:68px;height:42px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:650 12px var(--mono)}.asset-tab+ .asset-tab{border-left:0}.asset-tab.active{border-color:var(--amber);background:var(--amber-soft);color:var(--amber)}.asset-context h1{margin:0;font-size:29px;line-height:1.2;letter-spacing:-.035em}.asset-context p{margin:5px 0 0;color:var(--muted);font-size:13px}.spot{text-align:right}.spot span{display:block;color:var(--faint);font:9px var(--mono);letter-spacing:.07em}.spot strong{display:block;margin-top:3px;font:650 25px var(--mono)}
-.flow{display:grid;grid-template-columns:48px minmax(0,1fr);border-bottom:1px solid var(--line)}.step-rail{padding-top:31px;border-right:1px solid var(--line);color:var(--faint);font:700 10px var(--mono)}.step-rail span{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--line2)}.step-rail.done span{border-color:var(--amber);color:var(--amber)}.step-body{padding:28px 0 30px 28px}.step-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:22px}.eyebrow{color:var(--muted);font:650 9px var(--mono);letter-spacing:.09em;text-transform:uppercase}.step-head h2{margin:4px 0 0;font-size:22px;letter-spacing:-.025em}.step-head p{margin:0;color:var(--muted);font-size:12px;text-align:right;max-width:420px}
-.goal-grid{display:grid;grid-template-columns:1.35fr .85fr;gap:26px}.control-block{border-top:1px solid var(--line2);padding-top:15px}.control-title{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:12px}.control-title label,.control-title span:first-child{font-weight:650}.control-title output{color:var(--amber);font:650 12px var(--mono)}.hint{margin-top:9px;color:var(--faint);font-size:11px}.segment{display:grid;grid-template-columns:repeat(5,1fr)}.segment button{min-height:42px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:600 11px var(--mono)}.segment button+button{border-left:0}.segment button.active{position:relative;z-index:1;border-color:var(--amber);background:var(--amber-soft);color:var(--amber)}
-.duo-values{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}.money-input{display:grid;grid-template-columns:auto 1fr;align-items:center;border:1px solid var(--line2);background:var(--surface);min-height:45px}.money-input span{padding-left:12px;color:var(--faint);font:12px var(--mono)}.money-input input{width:100%;border:0;background:transparent;padding:0 12px 0 5px;font:600 13px var(--mono);outline:0}.range-duo{--low:20%;--high:75%;position:relative;height:30px}.range-duo:before{content:"";position:absolute;left:0;right:0;top:13px;height:3px;background:linear-gradient(to right,var(--line2) 0 var(--low),var(--amber) var(--low) var(--high),var(--line2) var(--high) 100%)}.range-duo.short:before{background:linear-gradient(to right,var(--line2) 0 var(--low),var(--teal) var(--low) var(--high),var(--line2) var(--high) 100%)}.range-duo input{position:absolute;left:0;top:0;width:100%;height:30px;margin:0;background:none;pointer-events:none;appearance:none}.range-duo input::-webkit-slider-thumb{appearance:none;width:17px;height:17px;border:3px solid var(--bg);background:var(--amber);box-shadow:0 0 0 1px var(--amber);pointer-events:auto;cursor:ew-resize}.range-duo.short input::-webkit-slider-thumb{background:var(--teal);box-shadow:0 0 0 1px var(--teal)}.range-duo input::-moz-range-thumb{width:12px;height:12px;border:3px solid var(--bg);border-radius:0;background:var(--amber);pointer-events:auto;cursor:ew-resize}.range-duo.short input::-moz-range-thumb{background:var(--teal)}
-.holding{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{border:1px solid var(--line2);background:var(--surface);padding:10px 12px}.field label{display:block;color:var(--faint);font:9px var(--mono);letter-spacing:.05em}.field input{width:100%;border:0;background:transparent;margin-top:4px;padding:0;font:650 14px var(--mono);outline:0}.date-note{margin-top:13px;padding:11px 13px;border-left:2px solid var(--amber);background:var(--amber-soft);color:var(--muted);font-size:11px}.date-note strong{color:var(--text);font-family:var(--mono)}
-.portfolio-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:26px}.portfolio-source{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:48px;padding:8px 12px;border:1px solid var(--line2);border-bottom:0;background:var(--surface)}.portfolio-source span{display:block;color:var(--faint);font:9px var(--mono);letter-spacing:.05em}.portfolio-source strong{display:block;margin-top:2px;font:650 11px var(--mono)}.portfolio-source-actions{display:flex;align-items:center;gap:12px}.portfolio-source button,.portfolio-source a{border:0;background:transparent;padding:0;color:var(--teal);font:650 10px var(--mono);text-decoration:none}.portfolio-ledger{border-top:1px solid var(--line2)}.portfolio-head,.portfolio-row{display:grid;grid-template-columns:1.45fr .62fr .9fr;align-items:center}.portfolio-head{min-height:34px;color:var(--faint);font:9px var(--mono);letter-spacing:.05em}.portfolio-head span,.portfolio-row>div{padding:0 12px}.portfolio-row{min-height:64px;border-top:1px solid var(--line);background:var(--surface)}.portfolio-name strong{display:block;font:650 12px var(--mono)}.portfolio-name small{display:block;margin-top:3px;color:var(--muted);font-size:10px}.portfolio-qty{display:grid;grid-template-columns:auto 1fr;align-items:center;min-height:38px;border:1px solid var(--line2)}.portfolio-qty span{padding-left:9px;color:var(--faint);font:10px var(--mono)}.portfolio-qty input{width:100%;min-width:0;border:0;background:transparent;padding:0 9px 0 5px;outline:0;font:650 12px var(--mono)}.portfolio-total{min-height:38px;padding:6px 9px;border:1px solid var(--line2)}.portfolio-total b,.portfolio-total span{display:block;font-family:var(--mono)}.portfolio-total b{font-size:11px}.portfolio-total span{margin-top:1px;color:var(--faint);font-size:8px}.portfolio-impact{color:var(--muted);font-size:10px}.portfolio-impact b{display:block;color:var(--text);font:650 11px var(--mono)}.position-details{border-top:1px solid var(--line);background:#0a0d11}.position-contract{display:grid;grid-template-columns:1.2fr .9fr .7fr;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line)}.position-contract:last-child{border-bottom:0}.position-contract strong,.position-contract span,.position-contract small{display:block}.position-contract strong{font:650 10px var(--mono)}.position-contract span{color:var(--muted);font:9px var(--mono)}.position-contract small{margin-top:2px;color:var(--faint);font-size:9px}.position-contract .position-effect{text-align:right;color:var(--amber);font:650 10px var(--mono)}.position-contract.call .position-effect{color:var(--teal)}.position-empty{padding:11px 12px;color:var(--faint);font-size:10px}.exposure-range{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.exposure-range>div{padding:11px 12px;border:1px solid var(--line);background:var(--surface)}.exposure-range span{display:block;color:var(--faint);font:9px var(--mono)}.exposure-range strong{display:block;margin-top:4px;font:650 15px var(--mono)}.position-panel{border-top:1px solid var(--line2);padding-top:15px}.position-panel h3{margin:0;font-size:14px}.position-panel>p{margin:5px 0 14px;color:var(--muted);font-size:11px}.position-options{display:grid;gap:8px}.position-option{display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:start;min-height:56px;padding:11px 12px;border:1px solid var(--line2);background:transparent;text-align:left}.position-option i{display:block;width:12px;height:12px;margin-top:3px;border:1px solid var(--line2);font-style:normal}.position-option strong{display:block;font-size:12px}.position-option small{display:block;margin-top:3px;color:var(--muted);font-size:10px}.position-option.active{border-color:var(--amber);background:var(--amber-soft)}.position-option.active i{border:3px solid var(--bg);background:var(--amber);box-shadow:0 0 0 1px var(--amber)}.bias-note{margin-top:12px;padding:11px 12px;border-left:2px solid var(--teal);background:var(--teal-soft);color:var(--muted);font-size:11px}.bias-note strong{color:var(--text)}
-.window-grid{display:grid;grid-template-columns:.72fr 1.28fr;gap:26px}.range-limit{color:var(--faint);font:9px var(--mono)}.duration-input{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;width:min(250px,100%);min-height:52px;border:1px solid var(--line2);background:var(--surface)}.duration-input:focus-within{border-color:var(--teal)}.duration-input:has(input[aria-invalid="true"]){border-color:var(--rust)}.duration-input input{width:100%;border:0;background:transparent;padding:0 14px;outline:0;font:650 21px var(--mono)}.duration-input span{padding:0 14px;border-left:1px solid var(--line);color:var(--teal);font:650 12px var(--mono)}
-.map{position:relative;margin-top:24px;border:1px solid var(--line);background:var(--surface);padding:20px 20px 18px;overflow:hidden}.map-title{display:flex;justify-content:space-between;gap:16px;margin-bottom:24px}.map-title strong{font-size:13px}.map-title span{color:var(--faint);font:9px var(--mono)}.axis-wrap{position:relative;height:152px;margin-left:108px}.axis{position:absolute;left:0;right:0;top:108px;height:1px;background:var(--line2)}.axis:before{content:"";position:absolute;left:0;right:0;top:-5px;height:11px;background:repeating-linear-gradient(to right,var(--line2) 0 1px,transparent 1px 10%)}.band{position:absolute;height:31px;border:1px solid;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;font:650 10px var(--mono)}.band.long{top:4px;border-color:rgba(224,166,41,.55);background:var(--amber-soft);color:var(--amber)}.band.short{top:50px;border-color:rgba(66,181,170,.58);background:var(--teal-soft);color:var(--teal)}.band-label{position:absolute;left:-108px;width:98px;text-align:right;color:var(--muted);font:9px var(--mono)}.band-label.long{top:11px}.band-label.short{top:57px}.marker{position:absolute;top:93px;width:1px;height:45px;background:currentColor;color:var(--text)}.marker:before{content:"";position:absolute;left:-5px;top:-5px;width:11px;height:11px;background:currentColor;transform:rotate(45deg)}.marker span{position:absolute;top:49px;left:50%;transform:translateX(-50%);white-space:nowrap;font:650 9px var(--mono)}.ticks{position:absolute;left:0;right:0;top:119px;display:flex;justify-content:space-between;color:var(--faint);font:9px var(--mono)}
-.pool-definition{margin:-5px 0 18px;padding:11px 14px;border-left:2px solid var(--amber);background:var(--amber-soft);color:var(--muted);font-size:11px}.pool-definition strong{color:var(--text)}.authority-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.authority{border:1px solid var(--line);background:var(--surface);padding:17px 18px}.authority.put{border-top-color:var(--amber)}.authority.call{border-top-color:var(--teal)}.authority header{display:flex;justify-content:space-between;align-items:start;gap:16px;padding-bottom:13px;border-bottom:1px solid var(--line)}.authority h3{margin:0;font:650 15px var(--mono)}.authority header span{color:var(--muted);font-size:11px}.auth-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}.auth-field label{display:block;color:var(--faint);font:9px var(--mono);margin-bottom:5px}.auth-value{display:grid;grid-template-columns:auto 1fr;align-items:center;min-height:42px;border:1px solid var(--line2)}.auth-value span{padding-left:10px;color:var(--faint);font:11px var(--mono)}.auth-value input{width:100%;min-width:0;border:0;background:transparent;padding:0 10px 0 5px;outline:0;font:650 12px var(--mono)}.auth-field.deploy .auth-value{border-color:rgba(224,166,41,.55);background:var(--amber-soft)}.authority.call .auth-field.deploy .auth-value{border-color:rgba(66,181,170,.58);background:var(--teal-soft)}.auth-summary{margin:14px 0 0;color:var(--muted);font-size:11px}.auth-summary strong{color:var(--text);font-family:var(--mono)}.auth-summary .remain{color:var(--faint)}
-.result{margin-top:30px;border:1px solid var(--line2);background:var(--surface)}.result-lead{display:grid;grid-template-columns:1fr auto;align-items:center;gap:24px;padding:21px 22px;border-bottom:1px solid var(--line)}.result-kicker{color:var(--amber);font:650 9px var(--mono);letter-spacing:.08em}.result-lead h2{margin:4px 0 5px;font-size:26px;letter-spacing:-.03em}.result-lead p{margin:0;color:var(--muted);font-size:12px}.result-action{border-left:1px solid var(--line);padding-left:22px;text-align:right}.result-action span{display:block;color:var(--faint);font:9px var(--mono)}.result-action strong{display:block;margin-top:4px;color:var(--amber);font:650 16px var(--mono)}
-.strategy-head,.strategy-row{display:grid;grid-template-columns:1.05fr .75fr 1.4fr .8fr;align-items:center}.strategy-head{min-height:34px;background:var(--surface2);color:var(--faint);font:9px var(--mono);letter-spacing:.05em}.strategy-head span,.strategy-row>div{padding:0 15px}.strategy-row{min-height:70px;border-top:1px solid var(--line)}.strategy-row.primary-row{box-shadow:inset 3px 0 var(--amber);background:rgba(224,166,41,.025)}.strategy-name b{display:block;font:650 13px var(--mono)}.strategy-name small{display:block;margin-top:3px;color:var(--muted);font-size:10px}.fit{font:650 11px var(--mono)}.fit.good{color:var(--green)}.fit.warn{color:var(--amber)}.fit.muted{color:var(--faint)}.reason{color:var(--muted);font-size:11px}.action{font:650 11px var(--mono)}
-.contract-strip{display:grid;grid-template-columns:auto 1.2fr repeat(4,.72fr);align-items:center;border-top:1px solid var(--line2);min-height:72px}.contract-strip>div{padding:0 14px;border-left:1px solid var(--line)}.contract-strip>div:first-child{border:0}.contract-strip .flag{color:var(--amber);font:700 9px var(--mono);letter-spacing:.06em}.contract-strip span{display:block;color:var(--faint);font:8px var(--mono)}.contract-strip strong{display:block;margin-top:3px;font:650 11px var(--mono)}.contract-strip .contract-name{font-size:15px}.footnote{margin:17px 0 0;color:var(--faint);font:9px/1.6 var(--mono)}
-@media(max-width:860px){.goal-grid,.portfolio-grid,.window-grid{grid-template-columns:1fr}.axis-wrap{margin-left:86px}.band-label{left:-86px;width:76px}.authority-grid{grid-template-columns:1fr}.contract-strip{grid-template-columns:1fr 1fr 1fr}.contract-strip>div{min-height:64px;display:flex;flex-direction:column;justify-content:center}.contract-strip>div:nth-child(4){border-left:0;border-top:1px solid var(--line)}.contract-strip>div:nth-child(n+4){border-top:1px solid var(--line)}}
-@media(max-width:620px){.shell{width:calc(100% - 20px)}.topbar{height:50px}.brand{min-width:0}.brand-mark{white-space:nowrap;font-size:10px}.brand-title,.status{display:none}.topbar-right{gap:0}.prototype-nav a{min-width:43px;padding:5px 6px;font-size:8px}.asset-strip{grid-template-columns:1fr auto;gap:15px}.asset-context{grid-column:1/-1;grid-row:2}.asset-context h1{font-size:25px}.spot strong{font-size:18px}.flow{grid-template-columns:34px minmax(0,1fr)}.step-rail{padding-top:25px}.step-rail span{width:23px;height:23px}.step-body{min-width:0;padding:23px 0 25px 15px}.step-head{display:block}.step-head p{margin-top:7px;text-align:left}.segment{grid-template-columns:repeat(3,1fr)}.segment button:nth-child(n+4){border-top:0}.segment button:nth-child(4){border-left:1px solid var(--line2)}.duo-values,.holding,.auth-fields,.exposure-range{grid-template-columns:1fr}.portfolio-source{align-items:flex-start}.portfolio-source-actions{display:grid;justify-items:end;gap:4px}.portfolio-head{display:none}.portfolio-row{grid-template-columns:1fr 1fr;gap:9px;padding:12px 0}.portfolio-row>div{padding:0 11px}.portfolio-row .portfolio-name{grid-column:1/-1}.position-contract{grid-template-columns:1fr 1fr}.position-contract .position-effect{grid-column:1/-1;text-align:left}.map{padding:15px 12px 13px}.map-title{display:block}.map-title span{display:block;margin-top:5px}.axis-wrap{margin-left:0;height:184px}.band{font-size:0}.band-label{left:0;width:auto;text-align:left}.band-label.long{top:0}.band-label.short{top:54px}.band.long{top:20px}.band.short{top:74px}.axis{top:125px}.marker{top:110px}.ticks{top:137px}.result-lead{grid-template-columns:1fr}.result-action{border-left:0;border-top:1px solid var(--line);padding:13px 0 0;text-align:left}.strategy-head{display:none}.strategy-row{grid-template-columns:1fr 1fr;gap:8px;padding:13px 0}.strategy-row>div{padding:0 12px}.strategy-row .reason{grid-column:1/-1}.contract-strip{grid-template-columns:1fr 1fr}.contract-strip>div:nth-child(3){border-left:0;border-top:1px solid var(--line)}.contract-strip>div:nth-child(n+3){border-top:1px solid var(--line)}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>期权策略向导 · V4.1 原型</title>
+  <link rel="stylesheet" href="strategy-selector-v4.css">
 </head>
 <body>
-<div class="shell">
-  <header class="topbar">
-    <div class="brand"><span class="brand-mark">TARGET MAP / 04</span><span class="brand-title">期权目标驱动策略选择器</span></div>
-    <div class="topbar-right"><nav class="prototype-nav" aria-label="网站导航"><a href="/options/">行情</a><a href="/owner/">持仓</a><a href="/strategy/" class="active" aria-current="page">策略</a></nav><span class="status">合成演示 · 不会下单</span></div>
-  </header>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">DECISION DESK / V4.1</span>
+        <span class="brand-title">期权策略向导</span>
+      </div>
+      <div class="topbar-right">
+        <nav class="prototype-nav" aria-label="网站导航">
+          <a href="/options/">行情</a>
+          <a href="/owner/">持仓</a>
+          <a href="/strategy/" class="active" aria-current="page">策略</a>
+        </nav>
+        <span class="prototype-status">合成演示 · 不会下单</span>
+      </div>
+    </header>
 
-  <section class="asset-strip">
-    <div class="asset-tabs" role="tablist" aria-label="选择资产">
-      <button class="asset-tab active" data-asset="BTC" role="tab" aria-selected="true">BTC</button>
-      <button class="asset-tab" data-asset="ETH" role="tab" aria-selected="false">ETH</button>
-    </div>
-    <div class="asset-context"><h1>先定长期去向，再定这一笔怎么做</h1><p>长期目标决定方向，14–90 天区间决定择时，策略授权决定做多大。</p></div>
-    <div class="spot"><span id="spotLabel">BTC SPOT</span><strong id="spotValue">$64,806</strong></div>
-  </section>
+    <main>
+      <section class="intro" aria-labelledby="pageTitle">
+        <div>
+          <span class="eyebrow">先明确目标，再判断下一小笔</span>
+          <h1 id="pageTitle">今天下一小笔该做什么？</h1>
+          <p>系统读取长期目标、行情和持仓；你最多回答三个选择题。</p>
+        </div>
+        <details class="profile-summary">
+          <summary>长期目标设置</summary>
+          <div id="profileDetails"></div>
+        </details>
+      </section>
 
-  <main>
-    <section class="flow">
-      <aside class="step-rail done"><span>01</span></aside>
-      <div class="step-body">
-        <header class="step-head"><div><div class="eyebrow">Long-term anchor</div><h2>长期战略目标</h2></div><p>至少一年，默认 18 个月。这是你对资产未来价值的锚，不是今天必须到达的价格。</p></header>
-        <div class="goal-grid">
+      <section class="opportunity" aria-labelledby="opportunityTitle">
+        <header class="section-head">
           <div>
-            <div class="control-block">
-              <div class="control-title"><span>目标期限</span><output id="horizonOutput">18 个月</output></div>
-              <div class="segment" id="horizonSegment">
-                <button data-months="12">1 年</button><button class="active" data-months="18">18 个月</button><button data-months="24">2 年</button><button data-months="36">3 年</button><button data-months="60">5 年</button>
+            <span class="section-index">00 / MARKET SCAN</span>
+            <h2 id="opportunityTitle">先比较 BTC 和 ETH</h2>
+          </div>
+          <p id="marketScanSummary">系统正在比较两个资产…</p>
+        </header>
+
+        <div class="asset-comparison" id="assetComparison" role="tablist" aria-label="选择要研究的资产"></div>
+        <p class="data-note">原型使用合成行情与演示持仓，重点验证决策流程，不构成交易建议。</p>
+      </section>
+
+      <section class="decision-workspace">
+        <div class="questionnaire" aria-labelledby="questionnaireTitle">
+          <header class="questionnaire-head">
+            <span class="section-index">YOUR DECISIONS / 03</span>
+            <h2 id="questionnaireTitle">最多回答三件事</h2>
+            <p>不需要填写价格、期限、Strike 或 Greeks。</p>
+          </header>
+
+          <div class="decision-rail" id="decisionRail">
+            <section class="question active" data-step="1" aria-labelledby="questionOneTitle">
+              <div class="question-number">01</div>
+              <div class="question-content">
+                <p class="question-kicker">仓位方向</p>
+                <h3 id="questionOneTitle">你想把 <span data-asset-label>BTC</span> 仓位往哪边调？</h3>
+                <div class="choice-grid" id="directionChoices"></div>
               </div>
-              <p class="hint">期限可以很长，但系统会保留一个明确的复核日期，避免目标变成永不检查的口号。</p>
-            </div>
-            <div class="control-block" style="margin-top:22px">
-              <div class="control-title"><span>远期目标价格区间</span><output id="longOutput">$100,000 – $130,000</output></div>
-              <div class="duo-values"><label class="money-input"><span>$</span><input id="longLowNumber" inputmode="numeric" aria-label="长期目标下限"></label><label class="money-input"><span>$</span><input id="longHighNumber" inputmode="numeric" aria-label="长期目标上限"></label></div>
-              <div class="range-duo" id="longRange"><input id="longLow" type="range" aria-label="拖动长期目标下限"><input id="longHigh" type="range" aria-label="拖动长期目标上限"></div>
-            </div>
-          </div>
-          <div>
-            <div class="control-block">
-              <div class="control-title"><span>长期目标持仓</span><output id="holdingUnit">BTC</output></div>
-              <div class="holding"><div class="field"><label for="holdingLow">目标下限</label><input id="holdingLow" type="number" min="0" step="0.05" value="1.00"></div><div class="field"><label for="holdingHigh">目标上限</label><input id="holdingHigh" type="number" min="0" step="0.05" value="2.00"></div></div>
-              <div class="date-note">下次长期目标复核：<strong id="reviewDate">2028-02-10</strong><br>短期交易不会自动改写这个目标。</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+            </section>
 
-    <section class="flow">
-      <aside class="step-rail done"><span>02</span></aside>
-      <div class="step-body">
-        <header class="step-head"><div><div class="eyebrow">Position snapshot</div><h2>现有资产与仓位判断</h2></div><p>把现货和已开期权放在一起看，再决定当前是该继续积累、保持，还是开始回收仓位。</p></header>
-        <div class="portfolio-grid">
-          <div>
-            <div class="portfolio-source"><div><span>POSITION SOURCE</span><strong id="portfolioSyncStatus" aria-live="polite">正在匹配持仓…</strong></div><div class="portfolio-source-actions"><button type="button" id="portfolioSyncButton">刷新持仓</button><a href="/owner/" id="portfolioOwnerLink">管理持仓</a></div></div>
-            <div class="portfolio-ledger">
-              <div class="portfolio-head"><span>BTC 相关资产</span><span>数量</span><span>对现货仓位的影响</span></div>
-              <div class="portfolio-row"><div class="portfolio-name"><strong id="spotPositionName">BTC 现货</strong><small>现货账本尚未接入，目前仍需手动确认</small></div><div class="portfolio-qty"><span id="spotPositionUnit">BTC</span><input id="spotHolding" type="number" min="0" step="0.01" value="0.35" aria-label="现货持仓数量"></div><div class="portfolio-impact"><b id="spotImpact">当前 0.35 BTC</b>已经持有</div></div>
-              <div class="portfolio-row"><div class="portfolio-name"><strong id="openPutName">BTC 已卖 Put</strong><small id="openPutDetail">从 Owner 持仓自动匹配</small></div><div class="portfolio-total"><b id="openPutTotal">0 BTC</b><span id="openPutCount">0 笔合约</span></div><div class="portfolio-impact"><b id="putImpact">最多 +0 BTC</b>若全部被指派</div></div>
-              <div class="position-details" id="openPutPositions" aria-label="已卖 Put 持仓明细"></div>
-              <div class="portfolio-row"><div class="portfolio-name"><strong id="openCallName">BTC 已卖 Call</strong><small id="openCallDetail">从 Owner 持仓自动匹配</small></div><div class="portfolio-total"><b id="openCallTotal">0 BTC</b><span id="openCallCount">0 笔合约</span></div><div class="portfolio-impact"><b id="callImpact">最多 −0 BTC</b>若全部被行权</div></div>
-              <div class="position-details" id="openCallPositions" aria-label="已卖 Call 持仓明细"></div>
-            </div>
-            <div class="exposure-range"><div><span>当前现货</span><strong id="currentSpotHolding">0.35 BTC</strong></div><div><span>期权执行后可能范围</span><strong id="postOptionRange">0.30–0.45 BTC</strong></div></div>
-          </div>
-          <div class="position-panel">
-            <h3>相对长期目标，你怎么看当前仓位？</h3>
-            <p>系统会先按现有资产与目标区间提示，但最终由你选择。选择只改变策略偏向，不会下单。</p>
-            <div class="position-options" id="positionOptions">
-              <button class="position-option active" data-position="low"><i></i><span><strong>持仓不足</strong><small>优先继续积累；Sell Put 更积极，Covered Call 保护性更强。</small></span></button>
-              <button class="position-option" data-position="balanced"><i></i><span><strong>接近目标</strong><small>新增与卖出保持平衡，两边都只用小比例。</small></span></button>
-              <button class="position-option" data-position="high"><i></i><span><strong>仓位略高</strong><small>减少继续接货；Covered Call 可以更积极地回收仓位。</small></span></button>
-            </div>
-            <div class="bias-note" id="biasNote"><strong>当前偏向：</strong> Sell Put 建议 25%；Covered Call 建议 0%，避免核心仓位被 Call 走。</div>
-          </div>
-        </div>
-      </div>
-    </section>
+            <section class="question" data-step="2" aria-labelledby="questionTwoTitle">
+              <div class="question-number">02</div>
+              <div class="question-content">
+                <p class="question-kicker">真实意愿</p>
+                <h3 id="questionTwoTitle">到系统建议的价格，你真的愿意成交吗？</h3>
+                <div class="choice-grid" id="acceptanceChoices"></div>
+              </div>
+            </section>
 
-    <section class="flow">
-      <aside class="step-rail done"><span>03</span></aside>
-      <div class="step-body">
-        <header class="step-head"><div><div class="eyebrow">Trade window</div><h2>短期操作窗口</h2></div><p>填写这次交易的期限和可接受价格区间。合约 DTE 会优先贴近你输入的天数。</p></header>
-        <div class="window-grid">
-          <div class="control-block">
-            <div class="control-title"><label for="dteNumber">期限</label><span class="range-limit">允许 14–90 天</span></div>
-            <label class="duration-input"><input id="dteNumber" type="number" min="14" max="90" step="1" value="45" inputmode="numeric" aria-describedby="expiryHint"><span>天</span></label>
-            <p class="hint" id="expiryHint">直接填写整数；系统将优先查找约 45 DTE 的合约。</p>
+            <section class="question" data-step="3" aria-labelledby="questionThreeTitle">
+              <div class="question-number">03</div>
+              <div class="question-content">
+                <p class="question-kicker">本次分批</p>
+                <h3 id="questionThreeTitle">这次动用多少机动仓位？</h3>
+                <div class="choice-grid size-grid" id="sizeChoices"></div>
+                <p class="step-note" id="sizeStepNote" aria-live="polite"></p>
+              </div>
+            </section>
           </div>
-          <div class="control-block">
-            <div class="control-title"><span>短期可接受价格区间</span><output id="shortOutput">$60,000 – $75,000</output></div>
-            <div class="duo-values"><label class="money-input"><span>$</span><input id="shortLowNumber" inputmode="numeric" aria-label="短期区间下限"></label><label class="money-input"><span>$</span><input id="shortHighNumber" inputmode="numeric" aria-label="短期区间上限"></label></div>
-            <div class="range-duo short" id="shortRange"><input id="shortLow" type="range" aria-label="拖动短期区间下限"><input id="shortHigh" type="range" aria-label="拖动短期区间上限"></div>
-          </div>
+
+          <details class="term-control">
+            <summary>
+              <span>系统建议期限</span>
+              <strong id="termSummary">约 45 天</strong>
+            </summary>
+            <div class="term-options" id="termChoices" aria-label="调整期限"></div>
+          </details>
         </div>
 
-        <div class="map" aria-label="长短期目标价格地图">
-          <div class="map-title"><strong>目标价格地图</strong><span>所有区间与当前价格使用同一条价格轴</span></div>
-          <div class="axis-wrap" id="axisWrap">
-            <span class="band-label long">长期目标</span><div class="band long" id="longBand"></div>
-            <span class="band-label short">短期窗口</span><div class="band short" id="shortBand"></div>
-            <div class="axis"></div><div class="marker" id="spotMarker"><span id="spotMarkerText">当前 $64,806</span></div><div class="ticks" id="axisTicks"></div>
-          </div>
-        </div>
-      </div>
-    </section>
+        <aside class="recommendation" aria-labelledby="recommendationTitle" aria-live="polite">
+          <div id="recommendationContent"></div>
+        </aside>
+      </section>
+    </main>
 
-    <section class="flow">
-      <aside class="step-rail done"><span>04</span></aside>
-      <div class="step-body">
-        <header class="step-head"><div><div class="eyebrow">Strategy mandate</div><h2>机动仓位与本次分批</h2></div><p>先定义可以反复操作的总池子，再决定这一次只动用其中多少。</p></header>
-        <div class="pool-definition"><strong>机动仓位</strong>：长期核心仓位之外，你允许用于分批 Sell Put 或 Covered Call 的现金和可卖持仓。本次比例只决定这一批，剩余额度继续保留。</div>
-        <div class="authority-grid">
-          <article class="authority put"><header><div><h3>SELL PUT</h3><span>机动现金池，用于分批接货，不动长期核心仓位</span></div></header><div class="auth-fields">
-            <div class="auth-field"><label for="putCash">接货机动现金</label><div class="auth-value"><span>$</span><input id="putCash" type="number" min="0" step="1000" value="20000"></div></div>
-            <div class="auth-field"><label for="putQuantity">机动池最多接货</label><div class="auth-value"><span id="putUnit">BTC</span><input id="putQuantity" type="number" min="0" step="0.01" value="0.30"></div></div>
-            <div class="auth-field deploy"><label for="putDeploy">本次动用比例</label><div class="auth-value"><span>%</span><input id="putDeploy" type="number" min="0" max="100" step="5" value="10"></div></div>
-          </div><p class="auth-summary" id="putSummary">本次动用机动池的 <strong>10%</strong>：最多使用 <strong>$2,000</strong>，且接货不超过 <strong>0.03 BTC</strong>。<span class="remain">剩余 90% 留给后续分批。</span></p></article>
+    <footer class="page-footer">
+      <span>RESEARCH PROTOTYPE</span>
+      <p>系统只做筛选和解释；没有任何按钮会发送订单。</p>
+    </footer>
+  </div>
 
-          <article class="authority call"><header><div><h3>COVERED CALL</h3><span>只使用可卖机动持仓，不覆盖长期核心仓位</span></div></header><div class="auth-fields">
-            <div class="auth-field"><label for="callQuantity">可卖机动持仓</label><div class="auth-value"><span id="callUnit">BTC</span><input id="callQuantity" type="number" min="0" step="0.01" value="0.20"></div></div>
-            <div class="auth-field deploy"><label for="callDeploy">本次动用比例</label><div class="auth-value"><span>%</span><input id="callDeploy" type="number" min="0" max="100" step="5" value="10"></div></div>
-            <div class="auth-field"><label for="callFloor">最低接受卖出价</label><div class="auth-value"><span>$</span><input id="callFloor" type="number" min="0" step="1000" value="80000"></div></div>
-          </div><p class="auth-summary" id="callSummary">本次动用机动池的 <strong>10%</strong>：最多覆盖 <strong>0.02 BTC</strong>，且只在不低于 <strong>$80,000</strong> 被行权卖出。<span class="remain">剩余 90% 暂不卖。</span></p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="result" aria-live="polite">
-      <div class="result-lead"><div><div class="result-kicker">目标匹配结果</div><h2 id="resultTitle">当前优先 Sell Put，但只做小仓</h2><p id="resultReason">长期目标仍明显高于现价，短期下沿提供了可接受的净接货区间。</p></div><div class="result-action"><span>当前动作</span><strong id="resultAction">SELL PUT / SMALL</strong></div></div>
-      <div class="strategy-head"><span>策略</span><span>匹配度</span><span>与目标的关系</span><span>动作</span></div>
-      <div class="strategy-row primary-row" id="putRow"><div class="strategy-name"><b>Sell Put</b><small>低价接货</small></div><div class="fit good" id="putFit">最匹配</div><div class="reason" id="putReason">净接货价接近短期下沿，未破坏长期看涨目标。</div><div class="action" id="putAction">小仓</div></div>
-      <div class="strategy-row" id="callRow"><div class="strategy-name"><b>Covered Call</b><small>持仓收入</small></div><div class="fit warn" id="callFit">有冲突</div><div class="reason" id="callReason">最低卖出价低于长期目标下限，可能过早放弃上涨。</div><div class="action" id="callAction">等待</div></div>
-      <div class="strategy-row"><div class="strategy-name"><b>Wait</b><small>保留现金与持仓</small></div><div class="fit muted" id="waitFit">备选</div><div class="reason">如果合约流动性、权利金或压力测不达标，即使目标匹配也不开仓。</div><div class="action">保留</div></div>
-      <div class="contract-strip"><div><span class="flag" id="candidateFlag">合成候选</span></div><div><span id="candidatePrimaryLabel">系统优先</span><strong class="contract-name" id="candidateName">BTC $61,000 Put · 45天</strong></div><div><span id="candidateEntryLabel">净接货价</span><strong id="candidateEntry">$59,970</strong></div><div><span id="candidateQtyLabel">建议数量</span><strong id="candidateQty">0.30 BTC</strong></div><div><span id="candidateCashLabel">现金义务</span><strong id="candidateCash">$18,300</strong></div><div><span id="candidateGapLabel">长期目标差距</span><strong id="candidateGap">+66.7%</strong></div></div>
-    </section>
-    <p class="footnote">所有价格、合约和权利金均为交互演示。正式版会用真实行情生成候选，再用此处的目标和授权做筛选；不会自动下单。</p>
-  </main>
-</div>
-
-<script>
-const ASSETS={
-  BTC:{spot:64806,step:1000,axisMin:40000,axisMax:150000,long:[100000,130000],short:[60000,75000],holding:[1,2],spotHolding:.35,position:"low",putCash:20000,putQty:.30,callQty:.20,callFloor:80000},
-  ETH:{spot:3420,step:100,axisMin:1800,axisMax:9000,long:[5500,8000],short:[3000,4100],holding:[10,20],spotHolding:4,position:"low",putCash:12000,putQty:3,callQty:2,callFloor:4800}
-};
-const DEMO_POSITIONS=[
-  {id:"btc-put-1",asset:"BTC",kind:"sell_put",strike:60000,expiry:"2026-09-25",notional_btc:.1,open_premium_per_btc:1420,open_date:"2026-08-03"},
-  {id:"btc-put-2",asset:"BTC",kind:"sell_put",strike:58000,expiry:"2026-10-30",notional_btc:.2,open_premium_per_btc:1780,open_date:"2026-08-07"},
-  {id:"btc-call-1",asset:"BTC",kind:"covered_call",strike:85000,expiry:"2026-09-25",notional_btc:.1,open_premium_per_btc:760,open_date:"2026-08-05"},
-  {id:"eth-put-1",asset:"ETH",kind:"sell_put",strike:3000,expiry:"2026-09-25",notional_btc:1,open_premium_per_btc:92,open_date:"2026-08-04"}
-];
-const POSITION_STATES={
-  low:{put:25,call:0,note:"Sell Put 建议 25%；Covered Call 建议 0%，避免仍然稀缺的现货被 Call 走。"},
-  balanced:{put:10,call:10,note:"Sell Put 与 Covered Call 都建议 10%，以小比例维持双向弹性。"},
-  high:{put:5,call:25,note:"Sell Put 收缩到 5%；Covered Call 提高到 25%，优先回收略高的现货仓位。"}
-};
-let asset="BTC",months=18,dte=45,positionState="low",portfolioPositions=[];const $=id=>document.getElementById(id);const money=n=>"$"+Math.round(n).toLocaleString("en-US");const number=v=>Number(String(v).replace(/,/g,""))||0;const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
-const qtyText=n=>Number(n.toFixed(asset==="BTC"?3:2)).toLocaleString("en-US",{maximumFractionDigits:asset==="BTC"?3:2});
-const isPutPosition=row=>row?.kind==="sell_put";
-const isCallPosition=row=>["covered_call","sell_call"].includes(row?.kind);
-const positionQuantity=row=>Math.max(0,number(row?.notional_btc??row?.notional));
-const positionExpired=row=>Date.parse(`${row.expiry}T23:59:59Z`)<Date.now();
-function configRanges(){const a=ASSETS[asset];["longLow","longHigh","shortLow","shortHigh"].forEach(id=>{const el=$(id);el.min=a.axisMin;el.max=a.axisMax;el.step=a.step});$("callFloor").step=a.step}
-function setPositionState(state,applySuggestion=true){positionState=state;document.querySelectorAll(".position-option").forEach(button=>button.classList.toggle("active",button.dataset.position===state));const profile=POSITION_STATES[state];if(applySuggestion){$("putDeploy").value=profile.put;$("callDeploy").value=profile.call}$("biasNote").innerHTML=`<strong>当前偏向：</strong> ${profile.note}`}
-function syncAsset(){const a=ASSETS[asset];configRanges();$("spotLabel").textContent=`${asset} SPOT`;$("spotValue").textContent=money(a.spot);["holdingUnit","putUnit","callUnit","spotPositionUnit"].forEach(id=>$(id).textContent=asset);$("spotPositionName").textContent=`${asset} 现货`;$("openPutName").textContent=`${asset} 已卖 Put`;$("openCallName").textContent=`${asset} 已卖 Call`;$("longLow").value=a.long[0];$("longHigh").value=a.long[1];$("shortLow").value=a.short[0];$("shortHigh").value=a.short[1];$("holdingLow").value=a.holding[0];$("holdingHigh").value=a.holding[1];$("spotHolding").value=a.spotHolding;$("putCash").value=a.putCash;$("putQuantity").value=a.putQty;$("callQuantity").value=a.callQty;$("callFloor").value=a.callFloor;setPositionState(a.position,true);render()}
-function normalizePair(lowId,highId,gap){const low=$(lowId),high=$(highId);let l=number(low.value),h=number(high.value);if(l>h-gap){if(document.activeElement===low)l=h-gap;else h=l+gap}l=clamp(l,number(low.min),number(low.max)-gap);h=clamp(h,number(high.min)+gap,number(high.max));low.value=l;high.value=h;return[l,h]}
-function setDuoStyle(id,low,high,min,max){const el=$(id);el.style.setProperty("--low",`${(low-min)/(max-min)*100}%`);el.style.setProperty("--high",`${(high-min)/(max-min)*100}%`)}
-function readDte(commit=false){const el=$("dteNumber"),raw=Number(el.value);if(commit){dte=Math.round(clamp(Number.isFinite(raw)?raw:dte,14,90));el.value=dte;el.removeAttribute("aria-invalid")}else if(Number.isFinite(raw)&&raw>=14&&raw<=90){dte=Math.round(raw);el.removeAttribute("aria-invalid")}else{el.setAttribute("aria-invalid","true")}return dte}
-function targetDate(){const d=new Date(2026,7,10);d.setMonth(d.getMonth()+months);const pad=value=>String(value).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
-function renderMap(long,short){const a=ASSETS[asset],min=a.axisMin,max=a.axisMax,pct=v=>clamp((v-min)/(max-min)*100,0,100);const position=(el,left,right)=>{el.style.left=`${pct(left)}%`;el.style.width=`${Math.max(1,pct(right)-pct(left))}%`};position($("longBand"),long[0],long[1]);position($("shortBand"),short[0],short[1]);$("longBand").textContent=`${money(long[0])}–${money(long[1])}`;$("shortBand").textContent=`${money(short[0])}–${money(short[1])}`;$("spotMarker").style.left=`${pct(a.spot)}%`;$("spotMarkerText").textContent=`当前 ${money(a.spot)}`;const ticks=[];for(let i=0;i<6;i++)ticks.push(`<span>${money(min+(max-min)*i/5)}</span>`);$("axisTicks").innerHTML=ticks.join("")}
-function positionDetailHtml(row,type){const quantity=positionQuantity(row),expired=positionExpired(row),kind=type==="put"?"Put":"Call",effect=type==="put"?`+${qtyText(quantity)} ${asset}`:`−${qtyText(quantity)} ${asset}`;return `<div class="position-contract ${type==="call"?"call":""}"><div><strong>${asset} ${money(number(row.strike))} ${kind}</strong><small>${expired?"已到期 · 待核对":"到期 "+row.expiry}</small></div><div><span>${qtyText(quantity)} ${asset}</span><small>${row.open_date?`开仓 ${row.open_date}`:"开仓日未记录"} · 权利金 ${money(number(row.open_premium_per_btc))} / ${asset}</small></div><div class="position-effect">${effect}</div></div>`}
-function renderPositionList(rows,type){const node=$(type==="put"?"openPutPositions":"openCallPositions");if(rows.length){node.innerHTML=rows.map(row=>positionDetailHtml(row,type)).join("");return}const label=type==="put"?"Sell Put":"Covered Call";node.innerHTML=`<div class="position-empty">Owner 持仓当前没有记录 ${asset} ${label}；系统不会用手填汇总数替代。</div>`}
-function renderPortfolio(){const rows=portfolioPositions.filter(row=>row.asset===asset),puts=rows.filter(isPutPosition),calls=rows.filter(isCallPosition),put=puts.reduce((sum,row)=>sum+positionQuantity(row),0),call=calls.reduce((sum,row)=>sum+positionQuantity(row),0),spot=number($("spotHolding").value),low=Math.max(0,spot-call),high=spot+put,targetLow=number($("holdingLow").value),targetHigh=number($("holdingHigh").value);$("spotImpact").textContent=`当前 ${qtyText(spot)} ${asset}`;$("openPutTotal").textContent=`${qtyText(put)} ${asset}`;$("openPutCount").textContent=`${puts.length} 笔合约` ;$("openCallTotal").textContent=`${qtyText(call)} ${asset}`;$("openCallCount").textContent=`${calls.length} 笔合约`;$("putImpact").textContent=`最多 +${qtyText(put)} ${asset}`;$("callImpact").textContent=`最多 −${qtyText(call)} ${asset}`;renderPositionList(puts,"put");renderPositionList(calls,"call");$("currentSpotHolding").textContent=`${qtyText(spot)} ${asset}`;$("postOptionRange").textContent=`${qtyText(low)}–${qtyText(high)} ${asset}`;const inferred=high<targetLow?"按当前资产估算：即使 Put 全接货，仍低于长期目标下限。":low>targetHigh?"按当前资产估算：即使 Call 全被行权，仍高于长期目标上限。":"按当前资产估算：期权执行后可能进入长期目标区间。";$("biasNote").innerHTML=`<strong>${inferred}</strong><br>${POSITION_STATES[positionState].note}`}
-async function ownerConfig(){if(window.MANGO_OWNER_CONFIG?.anonKey)return window.MANGO_OWNER_CONFIG;const response=await fetch("/owner/",{cache:"no-store"});if(!response.ok)throw new Error("无法读取 Owner 配置");const html=await response.text(),match=html.match(/window\.MANGO_OWNER_CONFIG=Object\.freeze\((\{[\s\S]*?\})\);<\/script>/);if(!match)throw new Error("Owner 连接尚未配置");return JSON.parse(match[1])}
-function storedOwnerSession(){try{const value=JSON.parse(localStorage.getItem("mango.owner.session.v1")||"null");return value?.access_token&&value?.user?.id?value:null}catch(_){return null}}
-async function refreshPortfolio(){const status=$("portfolioSyncStatus"),button=$("portfolioSyncButton"),local=["localhost","127.0.0.1"].includes(location.hostname)||location.protocol==="file:";button.disabled=true;status.textContent="正在匹配持仓…";try{if(local){portfolioPositions=DEMO_POSITIONS;status.textContent=`本地演示持仓 · ${portfolioPositions.length} 笔`;render();return}const session=storedOwnerSession();if(!session){portfolioPositions=[];status.textContent="未连接 Owner 持仓 · 请先登录";render();return}const config=await ownerConfig(),base=String(config.url||"").replace(/\/$/,"");if(!base||!config.anonKey)throw new Error("Owner 连接尚未配置");const path=`positions?select=id,asset,kind,strike,expiry,notional_btc,open_premium_per_btc,open_date&owner_id=eq.${encodeURIComponent(session.user.id)}&order=expiry.asc`;const response=await fetch(`${base}/rest/v1/${path}`,{cache:"no-store",headers:{apikey:config.anonKey,Authorization:`Bearer ${session.access_token}`}});if(response.status===401)throw new Error("Owner 登录已过期，请重新登录");if(!response.ok)throw new Error(`持仓读取失败 (HTTP ${response.status})`);const rows=await response.json();portfolioPositions=Array.isArray(rows)?rows:[];status.textContent=`Owner 持仓已同步 · ${portfolioPositions.length} 笔 · ${new Date().toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"})}`;render()}catch(error){portfolioPositions=[];status.textContent=error.message||"持仓读取失败";render()}finally{button.disabled=false}}
-function render(){const a=ASSETS[asset],gap=a.step*2;const long=normalizePair("longLow","longHigh",gap),short=normalizePair("shortLow","shortHigh",gap);[[$("longLowNumber"),long[0]],[$("longHighNumber"),long[1]],[$("shortLowNumber"),short[0]],[$("shortHighNumber"),short[1]]].forEach(([el,v])=>{if(document.activeElement!==el)el.value=Math.round(v).toLocaleString("en-US")});setDuoStyle("longRange",long[0],long[1],a.axisMin,a.axisMax);setDuoStyle("shortRange",short[0],short[1],a.axisMin,a.axisMax);$("longOutput").textContent=`${money(long[0])} – ${money(long[1])}`;$("shortOutput").textContent=`${money(short[0])} – ${money(short[1])}`;$("horizonOutput").textContent=months===12?"1 年":months%12===0?`${months/12} 年`:`${months} 个月`;$("reviewDate").textContent=targetDate();const currentDte=readDte(),invalidDte=$("dteNumber").getAttribute("aria-invalid")==="true";$("expiryHint").textContent=invalidDte?`请输入 14–90 之间的整数；候选暂按 ${currentDte} 天保留。`:`直接填写整数；系统将优先查找约 ${currentDte} DTE 的合约。`;renderMap(long,short);renderPortfolio();
-  const percent=id=>{const el=$(id),value=clamp(number(el.value),0,100);if(number(el.value)!==value)el.value=value;return value},putCash=number($("putCash").value),putCap=number($("putQuantity").value),putDeploy=percent("putDeploy"),callCap=number($("callQuantity").value),callDeploy=percent("callDeploy"),callFloor=number($("callFloor").value),putCashThis=putCash*putDeploy/100,putCapThis=putCap*putDeploy/100,callCapThis=callCap*callDeploy/100;$("putSummary").innerHTML=`本次动用机动池的 <strong>${putDeploy}%</strong>：最多使用 <strong>${money(putCashThis)}</strong>，且接货不超过 <strong>${qtyText(putCapThis)} ${asset}</strong>。<span class="remain">剩余 ${100-putDeploy}% 留给后续分批。</span>`;$("callSummary").innerHTML=`本次动用机动池的 <strong>${callDeploy}%</strong>：最多覆盖 <strong>${qtyText(callCapThis)} ${asset}</strong>，且只在不低于 <strong>${money(callFloor)}</strong> 被行权卖出。<span class="remain">剩余 ${100-callDeploy}% 暂不卖。</span>`;
-  const strike=Math.round(short[0]/a.step)*a.step,premium=strike*.017,entry=strike-premium,qtyStep=asset==="BTC"?.01:.1,maxAffordable=putCashThis/strike,qty=Math.floor((Math.min(putCapThis,maxAffordable)+1e-9)/qtyStep)*qtyStep,cash=strike*qty,longBullish=long[0]>a.spot*1.08,putAllowed=qty>=qtyStep&&entry<=short[0]*1.02&&longBullish,callConflict=callFloor<long[0],callAllowed=callCapThis>=qtyStep&&!callConflict,gapPct=(long[0]/entry-1)*100,callUpside=(callFloor/a.spot-1)*100;
-  const setPutCandidate=()=>{$("candidateFlag").textContent="合成候选";$("candidatePrimaryLabel").textContent="系统优先";$("candidateName").textContent=`${asset} ${money(strike)} Put · ${currentDte}天`;$("candidateEntryLabel").textContent="净接货价";$("candidateEntry").textContent=money(entry);$("candidateQtyLabel").textContent="建议数量";$("candidateQty").textContent=`${qtyText(Math.max(0,qty))} ${asset}`;$("candidateCashLabel").textContent="现金义务";$("candidateCash").textContent=money(cash);$("candidateGapLabel").textContent="长期目标差距";$("candidateGap").textContent=`+${Math.max(0,gapPct).toFixed(1)}%`};
-  const setCallCandidate=()=>{$("candidateFlag").textContent="合成候选";$("candidatePrimaryLabel").textContent="系统优先";$("candidateName").textContent=`${asset} ${money(callFloor)} Call · ${currentDte}天`;$("candidateEntryLabel").textContent="最低卖出价";$("candidateEntry").textContent=money(callFloor);$("candidateQtyLabel").textContent="建议覆盖";$("candidateQty").textContent=`${qtyText(callCapThis)} ${asset}`;$("candidateCashLabel").textContent="本次动用";$("candidateCash").textContent=`${callDeploy}%`;$("candidateGapLabel").textContent="高于现价";$("candidateGap").textContent=`+${Math.max(0,callUpside).toFixed(1)}%`};
-  const setWaitCandidate=()=>{$("candidateFlag").textContent="暂不生成";$("candidatePrimaryLabel").textContent="等待条件";$("candidateName").textContent=positionState==="high"?`${money(long[0])}+ Call 进入可卖区`:`等待 Put 价格与额度匹配`;$("candidateEntryLabel").textContent=positionState==="high"?"当前最低卖价":"当前净接货价";$("candidateEntry").textContent=positionState==="high"?money(callFloor):money(entry);$("candidateQtyLabel").textContent="可用数量";$("candidateQty").textContent=`${qtyText(positionState==="high"?callCapThis:qty)} ${asset}`;$("candidateCashLabel").textContent="本次比例";$("candidateCash").textContent=`${positionState==="high"?callDeploy:putDeploy}%`;$("candidateGapLabel").textContent="状态";$("candidateGap").textContent="等待"};
-  $("putRow").classList.remove("primary-row");$("callRow").classList.remove("primary-row");
-  if(positionState==="low"){$("putFit").textContent=putAllowed?"优先积累":"未通过";$("putFit").className=putAllowed?"fit good":"fit muted";$("putReason").textContent="当前持仓不足，净接货价合格时可以更积极积累。";$("putAction").textContent=putAllowed?`本批 ${putDeploy}%`:"等待";$("callFit").textContent="保护核心";$("callFit").className="fit muted";$("callReason").textContent="现货仍不足，优先避免核心仓位被 Call 走。";$("callAction").textContent="暂停"}
-  if(positionState==="balanced"){$("putFit").textContent=putAllowed?"可考虑":"未通过";$("putFit").className=putAllowed?"fit good":"fit muted";$("putReason").textContent="仓位接近目标，只在价格与额度都合格时小批接货。";$("putAction").textContent=putAllowed?`本批 ${putDeploy}%`:"等待";$("callFit").textContent=callAllowed?"可考虑":callConflict?"有冲突":"未授权";$("callFit").className=callAllowed?"fit good":callConflict?"fit warn":"fit muted";$("callReason").textContent=callConflict?"最低卖出价低于长期目标下限，可能过早放弃上涨。":"可用小部分机动持仓换取收入。";$("callAction").textContent=callAllowed?`本批 ${callDeploy}%`:"等待"}
-  if(positionState==="high"){$("putFit").textContent="保守";$("putFit").className="fit muted";$("putReason").textContent="仓位略高，减少继续接货，只保留很小的价格型订单。";$("putAction").textContent=putAllowed?`上限 ${putDeploy}%`:"等待";$("callFit").textContent=callAllowed?"优先回收":callConflict?"等待价位":"未授权";$("callFit").className=callAllowed?"fit good":callConflict?"fit warn":"fit muted";$("callReason").textContent=callConflict?"方向适合 Covered Call，但最低卖出价仍低于长期目标下限。":"用机动持仓分批回收略高仓位。";$("callAction").textContent=callAllowed?`本批 ${callDeploy}%`:"等待"}
-  if(positionState==="high"&&callAllowed){$("resultTitle").textContent=`仓位略高，当前优先 Covered Call，本次覆盖机动持仓的 ${callDeploy}%`;$("resultReason").textContent="现货已经高于你希望的比例，且最低卖出价进入长期目标区；Sell Put 同时转为保守。";$("resultAction").textContent=`COVERED CALL / ${callDeploy}%`;$("callRow").classList.add("primary-row");setCallCandidate()}
-  else if(positionState!=="high"&&putAllowed){$("resultTitle").textContent=positionState==="low"?`持仓不足，当前优先 Sell Put，本次动用机动池的 ${putDeploy}%`:`仓位接近目标，Sell Put 只做 ${putDeploy}% 小批`;$("resultReason").textContent=positionState==="low"?`现货和潜在接货都低于长期目标下限；Covered Call 保持 0%，避免核心仓位被卖出。`:`价格与现金义务合格，但继续保留大部分机动额度。`;$("resultAction").textContent=`SELL PUT / ${putDeploy}%`;$("putRow").classList.add("primary-row");setPutCandidate()}
-  else{$("resultTitle").textContent=positionState==="high"?"仓位略高，但 Covered Call 卖出价还不合格":"当前先等待，仓位目标没有变，但这一笔不匹配";$("resultReason").textContent=positionState==="high"?"策略方向已经转向回收仓位；在最低卖出价进入长期目标区之前，不为了权利金过早卖出现货。":putDeploy<=0?"本次 Sell Put 动用比例为 0%。":qty<qtyStep?"本次分批额度不足以达到最小交易单位。":"价格区间尚未给出足够空间。";$("resultAction").textContent="WAIT";setWaitCandidate()}
-}
-document.querySelectorAll(".asset-tab").forEach(button=>button.addEventListener("click",()=>{asset=button.dataset.asset;document.querySelectorAll(".asset-tab").forEach(b=>{const active=b===button;b.classList.toggle("active",active);b.setAttribute("aria-selected",String(active))});syncAsset()}));
-$("horizonSegment").addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;months=number(button.dataset.months);$("horizonSegment").querySelectorAll("button").forEach(b=>b.classList.toggle("active",b===button));render()});
-$("positionOptions").addEventListener("click",event=>{const button=event.target.closest(".position-option");if(!button)return;setPositionState(button.dataset.position,true);render()});
-[["longLow","longHigh"],["shortLow","shortHigh"]].flat().forEach(id=>$(id).addEventListener("input",render));
-[["longLowNumber","longLow"],["longHighNumber","longHigh"],["shortLowNumber","shortLow"],["shortHighNumber","shortHigh"]].forEach(([numberId,rangeId])=>{$(numberId).addEventListener("change",()=>{$(rangeId).value=number($(numberId).value);render()})});
-["holdingLow","holdingHigh","spotHolding","putCash","putQuantity","putDeploy","callQuantity","callDeploy","callFloor"].forEach(id=>$(id).addEventListener("input",render));
-const dteInput=$("dteNumber"),commitDte=()=>{readDte(true);render()};dteInput.addEventListener("input",render);dteInput.addEventListener("change",commitDte);dteInput.addEventListener("blur",commitDte);dteInput.addEventListener("keydown",event=>{if(event.key==="Enter")commitDte()});
-$("portfolioSyncButton").addEventListener("click",refreshPortfolio);syncAsset();refreshPortfolio();
-</script>
+  <script src="strategy-selector-v4.js"></script>
 </body>
 </html>
