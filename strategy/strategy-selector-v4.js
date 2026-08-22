@@ -1,6 +1,17 @@
 "use strict";
 
 const SNAPSHOT_DATE = "2026-08-12";
+const SUPABASE_API_BASE = "https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";
+
+function browserApiBase(locationValue = null, override = undefined) {
+  if (override !== undefined) return String(override).replace(/\/$/, "");
+  const hostname = String(locationValue?.hostname || "").toLowerCase();
+  return ["localhost", "127.0.0.1"].includes(hostname) ? "" : SUPABASE_API_BASE;
+}
+
+function publicApiPath(path, locationValue = null, override = undefined) {
+  return `${browserApiBase(locationValue, override)}${path}`;
+}
 
 const TERMS = Object.freeze({
   short: { days: 21, label: "2–4 周" },
@@ -196,6 +207,135 @@ function strategyForDirection(direction) {
   if (direction === "add") return "sell_put";
   if (direction === "reduce") return "covered_call";
   return "wait";
+}
+
+function volatilityExpressionRoute(percentileValue) {
+  if (percentileValue == null || percentileValue === "") {
+    return {
+      state: "unavailable",
+      strategy: "wait",
+      label: "暂时无法选择",
+      reason: "一年 IV 历史样本不足，不把缺失数据当成中性信号。",
+    };
+  }
+  const percentile = Number(percentileValue);
+  if (!Number.isFinite(percentile) || percentile < 0 || percentile > 100) {
+    return {
+      state: "unavailable",
+      strategy: "wait",
+      label: "暂时无法选择",
+      reason: "一年 IV 历史样本不足，不把缺失数据当成中性信号。",
+    };
+  }
+  if (percentile >= 80) {
+    return {
+      state: "clear-high",
+      strategy: "sell_put",
+      label: "明显偏向 Sell Put",
+      reason: `IV 位于过去一年约 ${percentile.toFixed(1)}% 百分位，当前保险定价明显偏贵；仍需要 VRP 和波动率降温确认。`,
+    };
+  }
+  if (percentile > 60) {
+    return {
+      state: "slight-high",
+      strategy: "sell_put",
+      label: "略微偏向 Sell Put",
+      reason: `IV 位于过去一年约 ${percentile.toFixed(1)}% 百分位，卖方定价略占优，但还不是强信号。`,
+    };
+  }
+  if (percentile <= 20) {
+    return {
+      state: "clear-low",
+      strategy: "buy_call",
+      label: "明显偏向 Buy Call",
+      reason: `IV 位于过去一年约 ${percentile.toFixed(1)}% 百分位，上涨权利的波动率定价明显偏低；还要核对远期 Call 本身的 IV 和期限。`,
+    };
+  }
+  if (percentile < 40) {
+    return {
+      state: "slight-low",
+      strategy: "buy_call",
+      label: "略微偏向 Buy Call",
+      reason: `IV 位于过去一年约 ${percentile.toFixed(1)}% 百分位，买方定价略占优，但仍需要具体远期 Call 证据。`,
+    };
+  }
+  return {
+    state: "neutral",
+    strategy: "wait",
+    label: "IV 中性，不决定策略",
+    reason: `IV 位于过去一年约 ${percentile.toFixed(1)}% 百分位，波动率价格没有给出足够明显的买方或卖方优势。`,
+  };
+}
+
+function trustedOneYearIvPercentile(payload) {
+  const percentileRaw = payload?.percentiles?.days_365;
+  const samplesRaw = payload?.percentile_sample_counts?.days_365;
+  const coverageRaw = payload?.percentile_coverage_days?.days_365;
+  if (percentileRaw == null || samplesRaw == null || coverageRaw == null) return null;
+  const percentile = Number(percentileRaw);
+  const samples = Number(samplesRaw);
+  const coverage = Number(coverageRaw);
+  const latestAgeRaw = payload?.percentile_latest_age_days?.days_365
+    ?? payload?.percentile_latest_age_days;
+  const latestAge = latestAgeRaw == null ? null : Number(latestAgeRaw);
+  if (!Number.isFinite(percentile) || percentile < 0 || percentile > 100) return null;
+  if (!Number.isFinite(samples) || samples < 219) return null;
+  if (!Number.isFinite(coverage) || coverage < 292) return null;
+  if (latestAge != null && (!Number.isFinite(latestAge) || latestAge > 3)) return null;
+  return percentile;
+}
+
+function finiteNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function selectLongCallReference(payload, targetDays = 270, targetDelta = 0.7) {
+  const expiryRows = Array.isArray(payload?.expiries)
+    ? payload.expiries
+    : payload?.expiries && typeof payload.expiries === "object"
+      ? Object.values(payload.expiries)
+      : null;
+  if (!payload || payload.decision_blocked === true || !expiryRows) {
+    return { status: "unavailable", candidate: null, maxDte: null };
+  }
+  const calls = expiryRows.flatMap((expiry) => {
+    const expiryDays = finiteNumber(expiry?.days);
+    return Array.isArray(expiry?.calls)
+      ? expiry.calls.map((call) => ({ ...call, days: finiteNumber(call?.days) ?? expiryDays }))
+      : [];
+  }).map((call) => ({
+    ...call,
+    days: finiteNumber(call.days),
+    strike: finiteNumber(call.strike),
+    ask_usd: finiteNumber(call.ask_usd),
+    iv: finiteNumber(call.iv),
+    delta: finiteNumber(call.delta),
+    breakeven_usd: finiteNumber(call.breakeven_usd),
+    breakeven_move_pct: finiteNumber(call.breakeven_move_pct),
+  })).filter((call) => (
+    call.days != null && call.days > 0
+    && call.ask_usd != null && call.ask_usd > 0
+    && call.iv != null && call.iv > 0
+    && call.delta != null
+  ));
+  if (!calls.length) return { status: "unavailable", candidate: null, maxDte: null };
+  const maxDte = Math.max(...calls.map((call) => call.days));
+  const horizonPool = calls.some((call) => call.days >= 120)
+    ? calls.filter((call) => call.days >= 120)
+    : calls;
+  const candidate = [...horizonPool].sort((left, right) => (
+    Math.abs(left.days - targetDays) - Math.abs(right.days - targetDays)
+    || Math.abs(left.delta - targetDelta) - Math.abs(right.delta - targetDelta)
+    || left.ask_usd - right.ask_usd
+  ))[0];
+  return {
+    status: maxDte >= 180 ? "ready" : "short_horizon",
+    candidate,
+    maxDte,
+    spotPrice: finiteNumber(payload.spot_price),
+  };
 }
 
 function directionGoalLabel(direction) {
@@ -644,6 +784,10 @@ function escapeHtml(value) {
 
 function initBrowserPrototype() {
   const uiStates = { BTC: freshState(), ETH: freshState() };
+  const ivRoutes = {
+    BTC: { status: "loading", percentile: null, route: volatilityExpressionRoute(null), history: null, longCall: { status: "loading", candidate: null, maxDte: null } },
+    ETH: { status: "loading", percentile: null, route: volatilityExpressionRoute(null), history: null, longCall: { status: "loading", candidate: null, maxDte: null } },
+  };
   let assetKey = "BTC";
   let comparisonGoal = ASSETS.BTC.mandate.direction;
   const $ = (id) => document.getElementById(id);
@@ -666,7 +810,165 @@ function initBrowserPrototype() {
   }
 
   function strategyName(strategy) {
-    return strategy === "covered_call" ? "Covered Call" : strategy === "sell_put" ? "Sell Put" : "等待";
+    return strategy === "covered_call" ? "Covered Call" : strategy === "sell_put" ? "Sell Put" : strategy === "buy_call" ? "Buy Call" : "等待";
+  }
+
+  function routeFor(key = assetKey) {
+    return ivRoutes[key]?.route || volatilityExpressionRoute(null);
+  }
+
+  function expressionOpportunityFor(key, direction, fallback) {
+    if (direction !== "add") return fallback;
+    const routeState = ivRoutes[key];
+    if (!routeState || routeState.status !== "ready") {
+      return {
+        ...fallback,
+        strategy: "wait",
+        status: "blocked",
+        label: "IV 数据待定",
+        reason: "需要可信的一年 IV 历史，才能决定先看 Sell Put 还是 Buy Call。",
+      };
+    }
+    const route = routeState.route;
+    if (route.strategy === "sell_put") {
+      return { ...fallback, strategy: "sell_put", label: "高 IV · 看 Sell Put", reason: route.reason };
+    }
+    if (route.strategy === "buy_call") {
+      if (routeState.longCall?.status !== "ready") {
+        return {
+          ...fallback,
+          strategy: "wait",
+          status: "watch",
+          label: "低 IV · 期限不足",
+          reason: `${route.reason}当前链条还不足以验证长期 Call。`,
+        };
+      }
+      return { ...fallback, strategy: "buy_call", status: "watch", label: "低 IV · 看 Buy Call", reason: route.reason };
+    }
+    return { ...fallback, strategy: "wait", status: "wait", label: "IV 中位 · 观望", reason: route.reason };
+  }
+
+  function renderExpressionRoute() {
+    const routeState = ivRoutes[assetKey];
+    const route = routeFor();
+    const percentileCopy = routeState.status === "ready"
+      ? `可信一年 IV 百分位 ${routeState.percentile.toFixed(1)}%`
+      : routeState.status === "error"
+        ? "IV 历史加载失败"
+        : routeState.status === "unavailable"
+          ? "一年 IV 历史样本不足"
+          : "正在核验一年 IV 历史";
+    const routeHref = route.strategy === "sell_put"
+      ? `/options/?asset=${assetKey}`
+      : route.strategy === "buy_call" ? `/buy-call/?asset=${assetKey}` : "";
+    const routeLink = routeHref
+      ? `<a href="${routeHref}">进入 ${route.strategy === "sell_put" ? "Sell Put" : "Buy Call"} 合约复核 →</a>`
+      : "";
+    $("expressionRouteVerdict").innerHTML = `<span class="route-state ${route.state}">${assetKey} · ${escapeHtml(percentileCopy)}</span><h3>${escapeHtml(route.label)}</h3><p>${escapeHtml(route.reason)}</p>${routeLink}`;
+
+    document.querySelectorAll(".expression-zone").forEach((node) => {
+      node.classList.toggle("active", routeState.status === "ready" && node.classList.contains(route.state));
+    });
+    const marker = $("expressionRouteMarker");
+    if (routeState.status === "ready") {
+      marker.hidden = false;
+      marker.style.left = `${clamp(routeState.percentile, 0, 100)}%`;
+      marker.dataset.label = `${routeState.percentile.toFixed(1)}%`;
+    } else {
+      marker.hidden = true;
+    }
+
+    renderVolatilityClocks(routeState, route);
+
+    const gates = route.strategy === "sell_put"
+      ? [
+        ["长期意愿", `只有仍愿意增持 ${assetKey} 才继续`],
+        ["承接能力", "必须能承担完整 Strike 义务"],
+        ["卖出时点", "还要确认波动率扩张已稳定"],
+      ]
+      : route.strategy === "buy_call"
+        ? [
+          ["长期意愿", `只有明确看多 ${assetKey} 才继续`],
+          ["时间匹配", "到期日必须覆盖看多逻辑的兑现期"],
+          ["最大亏损", "全部权利金就是最大亏损，需先设预算"],
+        ]
+        : [
+          ["价格信号", "IV 没有进入明显的高位或低位"],
+          ["默认动作", "不为了交易而交易"],
+          ["备选表达", "继续持有现货，等 IV 进入更明确区间"],
+        ];
+    $("expressionRouteGates").innerHTML = gates.map(([label, note], index) => `<div class="expression-gate"><span>0${index + 1}</span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(note)}</small></div>`).join("");
+
+    const routeNote = $("questionnaireRouteNote");
+    if (route.strategy === "sell_put") routeNote.textContent = "短周期波动率让 Sell Put 优先级更高；你仍可以人工复核其他表达。";
+    else if (route.strategy === "buy_call") routeNote.textContent = "长期看多背景下 Buy Call 优先级更高；这不会锁死 Sell Put 问卷。";
+    else routeNote.textContent = "IV 当前不提供明显价格优势；仍可以手动研究，但系统不会把它标成优先路线。";
+  }
+
+  function pct(value, digits = 1) {
+    const number = finiteNumber(value);
+    return number == null ? "—" : `${number.toFixed(digits)}%`;
+  }
+
+  function signedPct(value, digits = 1) {
+    const number = finiteNumber(value);
+    return number == null ? "—" : `${number >= 0 ? "+" : ""}${number.toFixed(digits)}%`;
+  }
+
+  function renderVolatilityClocks(routeState, route) {
+    const history = routeState.history || {};
+    const dvol = finiteNumber(history.current_dvol_pct ?? history.current_iv_pct);
+    const rv = finiteNumber(history.current_rv_30d_pct);
+    const vrp = finiteNumber(history.current_vrp_pct) ?? (dvol != null && rv != null ? dvol - rv : null);
+    const change1d = finiteNumber(history.change_1d_pct);
+    const change7d = finiteNumber(history.change_7d_pct);
+    const cooling = change1d != null && change1d < 0 && (change7d == null || change7d <= 0);
+    let shortStatus = "等待可靠的短周期波动率数据";
+    let shortTone = "blocked";
+    let shortExplanation = "Sell Put 要同时看保险价格、近期实现波动和波动率是否开始降温。";
+    if (routeState.status === "ready" && dvol != null) {
+      shortTone = route.strategy === "sell_put" && vrp != null && vrp > 0 && cooling ? "good" : "";
+      if (route.strategy === "sell_put" && vrp != null && vrp > 0 && cooling) {
+        shortStatus = "保险较贵且开始降温 · 优先复核 Sell Put";
+      } else if (route.strategy === "sell_put" && vrp != null && vrp > 0) {
+        shortStatus = "保险偏贵，但降温未确认 · 等稳定";
+      } else if (vrp != null && vrp <= 0) {
+        shortStatus = "未见正的波动率溢价 · 不确认 Sell Put 优势";
+      } else {
+        shortTone = "low";
+        shortStatus = "短期保险不算贵 · Sell Put 不优先";
+      }
+      shortExplanation = `DVOL 是市场对未来约 30 天波动的定价；VRP 比较这个定价与过去 30 天真实波动。${cooling ? "IV 同时在降温，对卖方更友好。" : "IV 尚未形成一致降温，不把高 IV 直接等同于好时点。"}`;
+    }
+    $("shortPutClock").innerHTML = `<div class="clock-head"><div><span>SHORT CLOCK / 2–45 DAYS</span><h3>Sell Put · 卖短期保险</h3></div><b class="clock-status ${shortTone}">${escapeHtml(shortStatus)}</b></div><div class="clock-metrics"><div class="clock-metric"><span>DVOL / 市场 IV</span><strong>${pct(dvol)}</strong></div><div class="clock-metric"><span>30D RV / 真实波动</span><strong>${pct(rv)}</strong></div><div class="clock-metric"><span>VRP / 保险溢价</span><strong>${vrp == null ? "—" : `${vrp >= 0 ? "+" : ""}${vrp.toFixed(1)} pp`}</strong></div></div><p class="clock-explanation">${escapeHtml(shortExplanation)}</p><p class="clock-footnote">IV 变化：1D ${signedPct(change1d, 2)} · 7D ${signedPct(change7d, 2)}。还需要检查现货趋势、Put skew、流动性与完整承接能力。</p>`;
+
+    const longCall = routeState.longCall || { status: "loading", candidate: null, maxDte: null };
+    const call = longCall.candidate;
+    const callIv = finiteNumber(call?.iv);
+    const termSpread = callIv != null && dvol != null ? callIv - dvol : null;
+    let longStatus = "正在读取远期 Call 链条";
+    let longTone = "";
+    if (longCall.status === "unavailable") {
+      longStatus = "远期 Call 报价不可用";
+      longTone = "blocked";
+    } else if (longCall.status === "short_horizon") {
+      longStatus = `最长仅 ${Math.round(longCall.maxDte || 0)} DTE · 不足以验证长期看多`;
+      longTone = "blocked";
+    } else if (longCall.status === "ready" && route.strategy === "buy_call") {
+      longStatus = "低 IV 背景通过 · 继续复核这张 Call";
+      longTone = "low";
+    } else if (longCall.status === "ready") {
+      longStatus = "期限可用 · 当前 IV 背景不便宜";
+    }
+    const callTitle = call ? `${Math.round(call.days)}D · ${money(call.strike)} Call` : "—";
+    const callCost = call ? `${money(call.ask_usd)} / ${assetKey}` : "—";
+    const breakEven = call?.breakeven_usd != null
+      ? `${money(call.breakeven_usd)} (${signedPct(call.breakeven_move_pct)})`
+      : "—";
+    const longExplanation = call
+      ? `这是当前链条中最接近 9 个月、70 Delta 的参考 Call，不是自动推荐。它的 IV 为 ${pct(callIv)}，与 30D DVOL 的期限差为 ${termSpread == null ? "—" : `${termSpread >= 0 ? "+" : ""}${termSpread.toFixed(1)} pp`}。`
+      : "Buy Call 必须直接读取具体远期 Call，不能用 30D DVOL 代替。";
+    $("longCallClock").innerHTML = `<div class="clock-head"><div><span>LONG CLOCK / TARGET 6–12 MONTHS</span><h3>Buy Call · 买长期上涨权</h3></div><b class="clock-status ${longTone}">${escapeHtml(longStatus)}</b></div><div class="clock-metrics"><div class="clock-metric"><span>参考合约</span><strong>${escapeHtml(callTitle)}</strong></div><div class="clock-metric"><span>ASK / 最大初始风险</span><strong>${escapeHtml(callCost)}</strong></div><div class="clock-metric"><span>盈亏平衡价</span><strong>${escapeHtml(breakEven)}</strong></div></div><p class="clock-explanation">${escapeHtml(longExplanation)}</p><p class="clock-footnote">同期限、同 Delta 的 Call IV 历史基准尚未积累；所以目前只能说“市场 IV 背景低/高”，不能说这张 Call 已被证明便宜。</p>`;
   }
 
   function comparisonSummary(direction, ranked) {
@@ -678,7 +980,9 @@ function initBrowserPrototype() {
 
   function renderMarketScan() {
     const direction = comparisonDirection();
-    const ranked = rankOpportunities(direction);
+    const ranked = rankOpportunities(direction)
+      .map((item) => expressionOpportunityFor(item.assetKey, direction, item))
+      .sort((a, b) => (STATUS_PRIORITY[b.status] || 0) - (STATUS_PRIORITY[a.status] || 0));
     const byAsset = Object.fromEntries(ranked.map((item) => [item.assetKey, item]));
     $("opportunityTitle").textContent = `按“${directionGoalLabel(direction)}”目标比较 BTC 和 ETH`;
     $("marketScanSummary").textContent = comparisonSummary(direction, ranked);
@@ -696,7 +1000,12 @@ function initBrowserPrototype() {
       { value: "hold", label: "差不多", description: "只接受很小的仓位变化" },
       { value: "reduce", label: "少一点", description: "涨到合适价格愿意减仓" },
     ];
-    $("directionChoices").innerHTML = choices.map((choice) => choiceButton("direction", choice, state().direction === choice.value)).join("");
+    $("directionChoices").innerHTML = choices.map((choice) => choiceButton(
+      "direction",
+      choice,
+      state().direction === choice.value,
+      false,
+    )).join("");
   }
 
   function renderAcceptance() {
@@ -912,6 +1221,7 @@ function initBrowserPrototype() {
   function render() {
     document.querySelectorAll("[data-asset-label]").forEach((node) => { node.textContent = assetKey; });
     renderProfile();
+    renderExpressionRoute();
     renderMarketScan();
     renderDirection();
     renderAcceptance();
@@ -919,6 +1229,33 @@ function initBrowserPrototype() {
     renderQuestionStates();
     renderTerms();
     renderRecommendation();
+  }
+
+  async function loadIvRoutes() {
+    const apiOverride = window.MANGO_API_BASE;
+    await Promise.all(Object.keys(ivRoutes).map(async (key) => {
+      const fetchJson = async (url) => {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      };
+      const [historyResult, callResult] = await Promise.allSettled([
+        fetchJson(publicApiPath(`/api/iv-history?asset=${encodeURIComponent(key)}&days=365`, window.location, apiOverride)),
+        fetchJson(publicApiPath(`/api/buy-call?asset=${encodeURIComponent(key)}`, window.location, apiOverride)),
+      ]);
+      const history = historyResult.status === "fulfilled" ? historyResult.value : null;
+      const percentile = trustedOneYearIvPercentile(history);
+      ivRoutes[key] = {
+        status: historyResult.status === "rejected" ? "error" : percentile == null ? "unavailable" : "ready",
+        percentile,
+        route: volatilityExpressionRoute(percentile),
+        history,
+        longCall: callResult.status === "fulfilled"
+          ? selectLongCallReference(callResult.value)
+          : { status: "unavailable", candidate: null, maxDte: null },
+      };
+    }));
+    render();
   }
 
   document.addEventListener("click", (event) => {
@@ -977,6 +1314,7 @@ function initBrowserPrototype() {
   });
 
   render();
+  loadIvRoutes();
 }
 
 if (typeof document !== "undefined") {
@@ -988,6 +1326,7 @@ if (typeof module !== "undefined" && module.exports) {
     ASSETS,
     DEMO_POSITIONS,
     SIZE_PERCENT,
+    SUPABASE_API_BASE,
     TERMS,
     applyChoiceToState,
     acceptanceReferenceFor,
@@ -999,6 +1338,7 @@ if (typeof module !== "undefined" && module.exports) {
     effectiveSize,
     opportunityFor,
     portfolioFor,
+    publicApiPath,
     q2Config,
     rankOpportunities,
     recommendationFor,
@@ -1006,6 +1346,9 @@ if (typeof module !== "undefined" && module.exports) {
     roundDown,
     strategyForDirection,
     strategyFromAnswers,
+    selectLongCallReference,
+    trustedOneYearIvPercentile,
     tradeCapacity,
+    volatilityExpressionRoute,
   };
 }

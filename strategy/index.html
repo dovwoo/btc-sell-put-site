@@ -71,6 +71,50 @@
         </details>
       </section>
 
+      <section class="expression-router" aria-labelledby="expressionRouterTitle">
+        <header class="section-head expression-router-head">
+          <div>
+            <span class="section-index">00 / VOLATILITY CLOCKS</span>
+            <h2 id="expressionRouterTitle">长期看多，用两套 IV 时钟选表达方式</h2>
+          </div>
+          <p>短期 IV 决定卖保险是否划算；远期 Call 自己的 IV 决定上涨权利买得贵不贵。</p>
+        </header>
+
+        <div class="expression-route-main">
+          <div class="expression-route-verdict" id="expressionRouteVerdict" aria-live="polite"></div>
+          <div class="expression-route-scale" aria-label="IV 一年百分位的连续策略倾向">
+            <div class="expression-zone clear-low">
+              <strong>明显偏低</strong>
+              <small>Buy Call 倾向较强</small>
+            </div>
+            <div class="expression-zone slight-low">
+              <strong>略微偏低</strong>
+              <small>Buy Call 略占优</small>
+            </div>
+            <div class="expression-zone neutral">
+              <strong>中性</strong>
+              <small>IV 不决定策略</small>
+            </div>
+            <div class="expression-zone slight-high">
+              <strong>略微偏高</strong>
+              <small>Sell Put 略占优</small>
+            </div>
+            <div class="expression-zone clear-high">
+              <strong>明显偏高</strong>
+              <small>Sell Put 倾向较强</small>
+            </div>
+            <span class="expression-marker" id="expressionRouteMarker" hidden></span>
+          </div>
+        </div>
+
+        <div class="volatility-clocks">
+          <article class="volatility-clock short-clock" id="shortPutClock"></article>
+          <article class="volatility-clock long-clock" id="longCallClock"></article>
+        </div>
+        <div class="expression-gates" id="expressionRouteGates"></div>
+        <p class="data-note expression-note">倾向不是开仓许可。高 IV 仍可能在补偿真实暴跌风险；低 IV 也不能弥补方向、期限或盈亏平衡价错误。</p>
+      </section>
+
       <section class="opportunity" aria-labelledby="opportunityTitle">
         <header class="section-head">
           <div>
@@ -89,7 +133,7 @@
           <header class="questionnaire-head">
             <span class="section-index">YOUR DECISIONS / 03</span>
             <h2 id="questionnaireTitle">最多回答三件事</h2>
-            <p>不需要填写价格、期限、Strike 或 Greeks。</p>
+            <p id="questionnaireRouteNote">不需要填写价格、期限、Strike 或 Greeks。</p>
           </header>
 
           <div class="decision-rail" id="decisionRail">
@@ -143,6 +187,7 @@
     </footer>
   </div>
 
+  <script>window.MANGO_API_BASE = "https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";</script>
   <script src="strategy-selector-v4.js"></script>
   <script src="strategy-comparison-v1.js"></script>
 </body>
