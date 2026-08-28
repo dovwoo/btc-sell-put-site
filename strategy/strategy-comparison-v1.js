@@ -1,17 +1,47 @@
 "use strict";
 
 (() => {
-  const ASSETS = Object.freeze(["BTC", "ETH", "HYPE"]);
+  const DEFAULT_ASSETS = Object.freeze(["BTC", "ETH", "HYPE"]);
+  const MAX_ASSETS = 8;
+  const STORAGE_KEY = "mango.fixed-otm.assets.v1";
+  const OWNER_SESSION_KEY = "mango.owner.session.v1";
   const API_BASE = "https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";
   const $ = (id) => document.getElementById(id);
+  let assets = readAssets();
   let payloads = new Map();
-  let controller = null;
-  let requestVersion = 0;
+  const controllers = new Map();
+  const requestVersions = new Map();
 
   function number(value) {
     if (value === null || value === undefined || value === "") return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeTicker(value) {
+    const symbol = String(value || "").trim().toUpperCase();
+    return /^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol) ? symbol : "";
+  }
+
+  function readAssets(storage = window.localStorage) {
+    try {
+      const stored = JSON.parse(storage.getItem(STORAGE_KEY) || "[]");
+      const custom = Array.isArray(stored)
+        ? stored.map(normalizeTicker).filter((symbol) => symbol && !DEFAULT_ASSETS.includes(symbol))
+        : [];
+      return [...DEFAULT_ASSETS, ...new Set(custom)].slice(0, MAX_ASSETS);
+    } catch {
+      return [...DEFAULT_ASSETS];
+    }
+  }
+
+  function saveAssets(storage = window.localStorage) {
+    try {
+      storage.setItem(STORAGE_KEY, JSON.stringify(assets));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function average(values) {
@@ -39,7 +69,7 @@
 
   function rows(payload) {
     const result = [];
-    const expiries = payload?.expiries || payload?.exchanges?.Deribit?.expiries || {};
+    const expiries = payload?.expiries || payload?.exchanges?.Deribit?.expiries || payload?.exchanges?.Alpaca?.expiries || {};
     Object.entries(expiries).forEach(([expiry, group]) => {
       (group?.puts || []).forEach((row) => result.push({ ...row, expiry: row.expiry || expiry }));
     });
@@ -89,11 +119,12 @@
   }
 
   function aggregate(payload, input = settings()) {
-    const symbol = String(payload?.asset || payload?.symbol || "").toUpperCase();
+    const symbol = normalizeTicker(payload?.asset || payload?.symbol);
     const spot = number(payload?.spot_price);
-    if (!ASSETS.includes(symbol) || spot === null || spot <= 0) return { symbol, status: "error" };
-    if (payload?.decision_blocked || payload?.stale || number(payload?.quote_age_seconds) > 120) {
-      return { symbol, spot, status: "blocked" };
+    const isUsStock = payload?.asset_class === "us_equity";
+    if (!symbol || spot === null || spot <= 0) return { symbol, status: "error" };
+    if (payload?.stale || (!isUsStock && (payload?.decision_blocked || number(payload?.quote_age_seconds) > 120))) {
+      return { symbol, spot, isUsStock, status: "blocked" };
     }
     const eligible = rows(payload).map((row) => {
       const delta = number(row.delta);
@@ -125,7 +156,8 @@
     return {
       symbol,
       spot,
-      status: expiries.length ? "ready" : "empty",
+      isUsStock,
+      status: expiries.length ? (isUsStock ? "indicative" : "ready") : "empty",
       expiryCount: expiries.length,
       quoteCount: expiries.reduce((sum, row) => sum + row.quoteCount, 0),
       targetOtm: input.targetOtm,
@@ -147,11 +179,71 @@
     row.append(item);
   }
 
+  function ownerSession(storage = window.localStorage) {
+    const config = window.MANGO_OWNER_CONFIG || {};
+    try {
+      const session = JSON.parse(storage.getItem(OWNER_SESSION_KEY) || "null");
+      if (!config.anonKey || !session?.access_token || number(session.expires_at) * 1000 <= Date.now()) return null;
+      return { anonKey: config.anonKey, accessToken: session.access_token };
+    } catch {
+      return null;
+    }
+  }
+
+  function requestFor(symbol, signal) {
+    if (DEFAULT_ASSETS.includes(symbol)) {
+      return {
+        url: `${API_BASE}/api/options?asset=${encodeURIComponent(symbol)}`,
+        init: { cache: "no-store", signal },
+      };
+    }
+    const session = ownerSession();
+    if (!session) return null;
+    return {
+      url: `${API_BASE}/api/us-stocks/options?ticker=${encodeURIComponent(symbol)}`,
+      init: {
+        cache: "no-store",
+        signal,
+        headers: { apikey: session.anonKey, Authorization: `Bearer ${session.accessToken}` },
+      },
+    };
+  }
+
+  function renderAssetManager() {
+    const chips = $("compareAssetChips");
+    chips.replaceChildren();
+    assets.forEach((symbol) => {
+      const chip = document.createElement("span");
+      chip.className = "compare-asset-chip";
+      const name = document.createElement("b");
+      name.textContent = symbol;
+      chip.append(name);
+      if (DEFAULT_ASSETS.includes(symbol)) {
+        const lock = document.createElement("span");
+        lock.className = "compare-asset-lock";
+        lock.textContent = "默认";
+        chip.append(lock);
+      } else {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.dataset.removeAsset = symbol;
+        remove.setAttribute("aria-label", `从比较中移除 ${symbol}`);
+        remove.textContent = "×";
+        chip.append(remove);
+      }
+      chips.append(chip);
+    });
+    $("compareAssetCount").textContent = `${assets.length} / ${MAX_ASSETS}`;
+    const submit = $("compareAssetForm").querySelector('button[type="submit"]');
+    submit.disabled = assets.length >= MAX_ASSETS;
+  }
+
   function render() {
     const input = settings();
     const state = $("compareState");
     const wrap = $("compareTableWrap");
     const body = $("compareRows");
+    renderAssetManager();
     if (!settingsValid(input)) {
       state.hidden = false;
       state.className = "compare-state error";
@@ -159,12 +251,13 @@
       wrap.hidden = true;
       return;
     }
-    const summaries = ASSETS.map((symbol) => {
+    const summaries = assets.map((symbol) => {
       const payload = payloads.get(symbol);
+      if (payload?.authRequired) return { symbol, status: "auth" };
       return payload?.loadError ? { symbol, status: "error" } : payload ? aggregate(payload, input) : { symbol, status: "loading" };
     }).sort((a, b) => (b.annualYield ?? -1) - (a.annualYield ?? -1));
-    const ready = summaries.filter((summary) => summary.status === "ready").length;
-    $("compareCount").textContent = `${ready}/3 个资产可比`;
+    const ready = summaries.filter((summary) => ["ready", "indicative"].includes(summary.status)).length;
+    $("compareCount").textContent = `${ready}/${assets.length} 个资产可比`;
     body.replaceChildren();
     summaries.forEach((summary) => {
       const row = document.createElement("tr");
@@ -175,17 +268,25 @@
       spot.textContent = summary.spot ? `Spot $${summary.spot.toLocaleString("en-US", { maximumFractionDigits: summary.spot >= 100 ? 0 : 2 })}` : "—";
       assetCell.append(assetName, spot);
       row.append(assetCell);
-      cell(row, summary.status === "ready" ? `${summary.expiryCount} 个到期日 · ${summary.quoteCount} 个相邻报价` : "—");
+      cell(row, ["ready", "indicative"].includes(summary.status) ? `${summary.expiryCount} 个到期日 · ${summary.quoteCount} 个相邻报价` : "—");
       cell(row, percent(summary.targetOtm));
       cell(row, percent(summary.annualYield));
       cell(row, summary.absDelta === null || summary.absDelta === undefined ? "—" : summary.absDelta.toFixed(2));
       cell(row, percent(summary.iv));
-      const labels = { ready: "可比", blocked: "报价过期", empty: "目标 OTM 无相邻报价", error: "加载失败", loading: "加载中" };
+      const labels = { ready: "可比", indicative: "研究可比 · 非 OPRA", blocked: "报价过期", empty: "目标 OTM 无相邻报价", error: "加载失败", auth: "需登录", loading: "加载中" };
       cell(row, labels[summary.status] || "不可用", summary.status);
       const linkCell = document.createElement("td");
       const link = document.createElement("a");
-      link.href = `/options/?asset=${encodeURIComponent(summary.symbol)}`;
-      link.textContent = "查看该资产 Strike";
+      if (summary.status === "auth") {
+        link.href = "/owner/";
+        link.textContent = "登录后加载";
+      } else if (!DEFAULT_ASSETS.includes(summary.symbol)) {
+        link.href = `/us-options/?ticker=${encodeURIComponent(summary.symbol)}`;
+        link.textContent = "查看该美股 Strike";
+      } else {
+        link.href = `/options/?asset=${encodeURIComponent(summary.symbol)}`;
+        link.textContent = "查看该资产 Strike";
+      }
       linkCell.append(link);
       row.append(linkCell);
       body.append(row);
@@ -195,37 +296,107 @@
     wrap.hidden = false;
   }
 
-  async function load() {
-    const version = ++requestVersion;
-    if (controller) controller.abort();
-    controller = new AbortController();
-    const { signal } = controller;
+  async function load(symbols = assets, { reset = false } = {}) {
+    if (reset) {
+      controllers.forEach((controller) => controller.abort());
+      controllers.clear();
+      payloads = new Map();
+    }
+    symbols.forEach((symbol) => payloads.delete(symbol));
     $("compareState").hidden = false;
     $("compareState").className = "compare-state";
-    $("compareState").textContent = "正在加载三个资产的期权链…";
-    $("compareTableWrap").hidden = true;
-    const results = await Promise.all(ASSETS.map(async (symbol) => {
+    $("compareState").textContent = `正在加载 ${symbols.length} 个资产的期权链…`;
+    render();
+    const results = await Promise.all(symbols.map(async (symbol) => {
+      controllers.get(symbol)?.abort();
+      const controller = new AbortController();
+      const { signal } = controller;
+      const version = (requestVersions.get(symbol) || 0) + 1;
+      controllers.set(symbol, controller);
+      requestVersions.set(symbol, version);
+      const request = requestFor(symbol, signal);
+      if (!request) return [symbol, { asset: symbol, authRequired: true }, version, signal];
       try {
-        const response = await fetch(`${API_BASE}/api/options?asset=${encodeURIComponent(symbol)}`, { cache: "no-store", signal });
+        const response = await fetch(request.url, request.init);
         const payload = await response.json();
+        if ([401, 403].includes(response.status)) {
+          return [symbol, { asset: symbol, authRequired: true }, version, signal];
+        }
         if (!response.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
-        return [symbol, payload];
+        return [symbol, payload, version, signal];
       } catch (error) {
         if (error?.name === "AbortError") return null;
-        return [symbol, { asset: symbol, loadError: true }];
+        return [symbol, { asset: symbol, loadError: true }, version, signal];
       }
     }));
-    if (signal.aborted || version !== requestVersion) return;
-    payloads = new Map(results.filter(Boolean));
+    results.filter(Boolean).forEach(([symbol, payload, version, signal]) => {
+      if (signal?.aborted || (version && requestVersions.get(symbol) !== version)) return;
+      payloads.set(symbol, payload);
+    });
     render();
   }
 
+  function feedback(message, kind = "") {
+    const node = $("compareAssetFeedback");
+    node.textContent = message;
+    node.className = kind;
+  }
+
+  $("compareAssetForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = $("compareTickerInput");
+    const symbol = normalizeTicker(input.value);
+    if (!symbol) {
+      feedback("Ticker 格式不对：请输入 1–10 位英文字母或常见 Ticker 符号。", "error");
+      return;
+    }
+    if (assets.includes(symbol)) {
+      feedback(`${symbol} 已经在比较中。`, "error");
+      return;
+    }
+    if (assets.length >= MAX_ASSETS) {
+      feedback(`最多同时比较 ${MAX_ASSETS} 个资产。`, "error");
+      return;
+    }
+    assets.push(symbol);
+    saveAssets();
+    input.value = "";
+    feedback(`已添加 ${symbol}，正在加载期权链。`, "success");
+    renderAssetManager();
+    load([symbol]);
+  });
+
+  $("compareAssetChips")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-asset]");
+    if (!button) return;
+    const symbol = normalizeTicker(button.dataset.removeAsset);
+    if (!symbol || DEFAULT_ASSETS.includes(symbol)) return;
+    controllers.get(symbol)?.abort();
+    controllers.delete(symbol);
+    assets = assets.filter((asset) => asset !== symbol);
+    payloads.delete(symbol);
+    saveAssets();
+    feedback(`已从比较中移除 ${symbol}。`, "success");
+    render();
+  });
+
   $("compareApply")?.addEventListener("click", render);
-  $("compareReload")?.addEventListener("click", load);
+  $("compareReload")?.addEventListener("click", () => load(assets, { reset: true }));
   ["compareMinDays", "compareMaxDays", "compareTargetOtm"].forEach((id) => {
     $(id)?.addEventListener("keydown", (event) => {
       if (event.key === "Enter") render();
     });
   });
-  load();
+
+  window.MANGO_FIXED_OTM_TESTING = Object.freeze({
+    DEFAULT_ASSETS,
+    MAX_ASSETS,
+    STORAGE_KEY,
+    normalizeTicker,
+    settingsValid,
+    aggregate,
+  });
+
+  renderAssetManager();
+  load(assets, { reset: true });
 })();
