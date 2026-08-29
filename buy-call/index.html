@@ -2392,14 +2392,6 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
   const coreComplete=positionReady&&marketProxyReady&&direction;
   const percentileValue=timingValue(percentile,1,"%");
   const vrpValue=timingValue(vrp,1," pp",true);
-  const fngValue=timingNumber(metrics.fng);
-  const fngMoveValue=timingNumber(metrics.fng_drop_3d);
-  const fng=fngValue!==null
-    ?String(Math.round(fngValue))
-    :null;
-  const fngMove=fngMoveValue!==null
-    ?timingValue(fngMoveValue,0,"",true)
-    :null;
   const stale=action?.action_code==="stale";
   const insufficientHistory=action?.action_code==="insufficient_history";
   const blocked=decisionBlocked||stale||action?.blocked;
@@ -2558,21 +2550,12 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
       {
         title:t("timingReadings"),model:t("timingReadingsModel"),
         evidence:readings,kind:"act-readings"
-      },
-      {
-        title:t("sellPutJudgement"),model:t("sellPutJudgementModel"),
-        evidence:steps,kind:"act-steps"
       }
     ],
-    model:t("sellPutJudgementModel"),
+    model:t("timingReadingsModel"),
     readings,
     evidence:steps,
-    conclusion,
-    rule:t("sellPutQualitativeRule"),
-    boundary:t("sellPutQualitativeBoundary"),
-    auxiliary:fng&&fngMove
-      ?fillCopy(t("fearAux"),{value:fng,change:fngMove})
-      :""
+    conclusion
   };
 }
 
