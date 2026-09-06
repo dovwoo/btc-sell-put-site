@@ -5,7 +5,9 @@
   const MAX_ASSETS = 8;
   const STORAGE_KEY = "mango.fixed-otm.assets.v1";
   const OWNER_SESSION_KEY = "mango.owner.session.v1";
-  const API_BASE = "https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";
+  const API_BASE = String(window.MANGO_API_BASE || "https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api").replace(/\/$/, "");
+  const BASE_PATH = window.MANGO_BASE_PATH || "/";
+  const receivedTimes = new Map();
   const $ = (id) => document.getElementById(id);
   let assets = readAssets();
   let payloads = new Map();
@@ -252,7 +254,11 @@
       return;
     }
     const summaries = assets.map((symbol) => {
-      const payload = payloads.get(symbol);
+      let payload = payloads.get(symbol);
+      if (payload && DEFAULT_ASSETS.includes(symbol) && window.DecisionRules && receivedTimes.has(symbol)
+        && !window.DecisionRules.quoteFresh(payload, receivedTimes.get(symbol))) {
+        payload = { ...payload, decision_blocked: true };
+      }
       if (payload?.authRequired) return { symbol, status: "auth" };
       return payload?.loadError ? { symbol, status: "error" } : payload ? aggregate(payload, input) : { symbol, status: "loading" };
     }).sort((a, b) => (b.annualYield ?? -1) - (a.annualYield ?? -1));
@@ -278,13 +284,13 @@
       const linkCell = document.createElement("td");
       const link = document.createElement("a");
       if (summary.status === "auth") {
-        link.href = "/owner/";
+        link.href = `${BASE_PATH}owner/`;
         link.textContent = "登录后加载";
       } else if (!DEFAULT_ASSETS.includes(summary.symbol)) {
-        link.href = `/us-options/?ticker=${encodeURIComponent(summary.symbol)}`;
+        link.href = `${BASE_PATH}us-options/?ticker=${encodeURIComponent(summary.symbol)}`;
         link.textContent = "查看该美股 Strike";
       } else {
-        link.href = `/options/?asset=${encodeURIComponent(summary.symbol)}`;
+        link.href = `${BASE_PATH}options/?asset=${encodeURIComponent(summary.symbol)}`;
         link.textContent = "查看该资产 Strike";
       }
       linkCell.append(link);
@@ -294,6 +300,16 @@
     state.hidden = true;
     state.className = "compare-state";
     wrap.hidden = false;
+  }
+
+  function commitPayload(symbol, payload, receivedAt) {
+    const at = number(receivedAt);
+    const currentAt = receivedTimes.get(symbol);
+    if (at !== null && currentAt !== undefined && at < currentAt) return false;
+    payloads.set(symbol, payload);
+    if (at === null) receivedTimes.delete(symbol);
+    else receivedTimes.set(symbol, at);
+    return true;
   }
 
   async function load(symbols = assets, { reset = false } = {}) {
@@ -317,21 +333,25 @@
       const request = requestFor(symbol, signal);
       if (!request) return [symbol, { asset: symbol, authRequired: true }, version, signal];
       try {
+        if (DEFAULT_ASSETS.includes(symbol) && window.MangoMarketSource?.getChain) {
+          const shared = await window.MangoMarketSource.getChain(symbol, { refresh: reset });
+          return [symbol, shared.payload, version, signal, shared.receivedAt];
+        }
         const response = await fetch(request.url, request.init);
         const payload = await response.json();
         if ([401, 403].includes(response.status)) {
           return [symbol, { asset: symbol, authRequired: true }, version, signal];
         }
         if (!response.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
-        return [symbol, payload, version, signal];
+        return [symbol, payload, version, signal, Date.now()];
       } catch (error) {
         if (error?.name === "AbortError") return null;
         return [symbol, { asset: symbol, loadError: true }, version, signal];
       }
     }));
-    results.filter(Boolean).forEach(([symbol, payload, version, signal]) => {
+    results.filter(Boolean).forEach(([symbol, payload, version, signal, receivedAt]) => {
       if (signal?.aborted || (version && requestVersions.get(symbol) !== version)) return;
-      payloads.set(symbol, payload);
+      commitPayload(symbol, payload, receivedAt);
     });
     render();
   }
@@ -341,6 +361,16 @@
     node.textContent = message;
     node.className = kind;
   }
+
+  window.addEventListener("mango:chain", (event) => {
+    const { asset, payload, receivedAt } = event.detail || {};
+    if (!DEFAULT_ASSETS.includes(asset) || !assets.includes(asset) || payload?.asset !== asset) return;
+    if (!commitPayload(asset, payload, receivedAt)) return;
+    // A shared refresh supersedes pending batches, including older failures.
+    requestVersions.set(asset, (requestVersions.get(asset) || 0) + 1);
+    render();
+  });
+  setInterval(() => render(), 5000);
 
   $("compareAssetForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -398,5 +428,5 @@
   });
 
   renderAssetManager();
-  load(assets, { reset: true });
+  load(assets);
 })();

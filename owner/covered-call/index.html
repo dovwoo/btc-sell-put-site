@@ -96,7 +96,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner .act-model{font-family:var(--mono);font-size:.57rem;color:var(--faint);line-height:1.45;text-align:right}
 .action-banner .act-evidence{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line2)}
 .action-banner .act-evidence.act-readings{grid-template-columns:repeat(5,minmax(0,1fr))}
-.action-banner .act-evidence.act-steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+.action-banner .act-evidence.act-steps{grid-template-columns:repeat(4,minmax(0,1fr))}
 .action-banner .act-evidence-item{min-width:0;padding:10px 11px;border-right:1px solid var(--line2)}
 .action-banner .act-evidence-item:last-child{border-right:0}
 .action-banner .act-evidence-item span,.action-banner .act-evidence-item small{display:block;font-family:var(--mono)}
@@ -120,7 +120,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .action-banner .act-verdict.sell .act-verdict-label strong{color:var(--green)}
 .action-banner .act-verdict.no .act-verdict-label strong{color:var(--red)}
 .action-banner .act-verdict-reason{align-self:end;color:var(--text2);font-size:.61rem;line-height:1.5}
-.action-banner .act-verdict-gates{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding-top:8px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:.54rem;color:var(--muted)}
+.action-banner .act-verdict-gates{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding-top:8px;border-top:1px solid var(--line2);font-family:var(--mono);font-size:.54rem;color:var(--muted)}
 .action-banner .act-verdict-gate{display:block;min-width:0;padding-right:12px}
 .action-banner .act-verdict-gate+.act-verdict-gate{padding-left:12px;border-left:1px solid var(--line)}
 .action-banner .act-verdict-gate-head{display:flex;align-items:baseline;gap:7px}
@@ -821,6 +821,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .owner-stress-controls{grid-template-columns:1fr;gap:8px;padding:11px 11px 3px}
 }
 </style>
+<script src="/static/decision_rules.69f760b4b7d0.js"></script>
 <!-- OWNER_ONLY_START -->
 <script>
 if(/\/(?:owner|us-options|us-rankings|us-candidates)(?:\/|$)/.test(window.location.pathname)){
@@ -1101,38 +1102,44 @@ const STRINGS={
     quoteExpired:"报价已过期",quoteExpiredReason:"报价超过 120 秒，只能查看，不能据此决策。",
     dataUnavailable:"数据不可用",dataUnavailableReason:"最新期权链加载失败，旧报价已清空，不能据此决策。",
     timingReadings:"波动率溢价怎么读",timingReadingsModel:"先看高不高 → 再看贵不贵 → 最后看是否开始回落",timingReadingsUnavailable:"暂无可比波动率读数",
-    sellPutJudgement:"SELL PUT 定性判断",sellPutJudgementModel:"波动率位置 → 市场级价差 → 卖出时点",
-    volPositionStep:"01 · 波动率处在什么位置？",premiumStep:"02 · 市场有没有多付波动率？",entryTimingStep:"03 · 卖出时点是否开始改善？",
+    sellPutJudgement:"SELL PUT 定性判断",sellPutJudgementModel:"市场多付多少 → 变贵的部分是否回落 → 具体合约是否划算 → 扣成本后是否值得",
+    riskPricingStep:"01 · 现在卖 Put，市场给的额外补偿够多吗？",
+    premiumRealizationStep:"02 · 因波动率而变贵的期权价格，开始回落了吗？",
+    specificPutStep:"03 · 你选中的这张 Put，报价真的划算吗？",
+    netCompensationStep:"04 · 扣掉成本并承担下跌风险后，还值得吗？",
     qualitativeUnavailable:"暂时无法判断",qualitativeIncomplete:"证据不完整，暂不下完整结论",
-    volPositionEvidence:"当前 DVOL {dvol}，过去一年百分位 {percentile}。{meaning}",
-    volPositionHighMeaning:"也就是过去一年约 {percentile} 的观测低于现在。波动率处在相对高位，可能有较大的回落空间，但不等于适合卖 Put。",
-    volPositionMiddleMeaning:"也就是过去一年约 {percentile} 的观测低于现在。波动率处在常态区间，回落空间没有高位时清楚。",
-    volPositionLowMeaning:"也就是过去一年约 {percentile} 的观测低于现在。波动率处在相对低位，继续压缩的空间可能有限。",
-    premiumEvidence:"DVOL {dvol} − 30D RV {rv} = {vrp}。这是市场未来约 30 天的波动定价与过去 30 天实际波动的差，不等于某张 Put 的收益。",
-    positivePremium:"市场定价高于近期实际波动",nonPositivePremium:"没有看到正的市场级价差",
-    entryTimingImproving:"卖出时点开始改善",entryTimingWarming:"卖出时点仍需等待",entryTimingUnconfirmed:"卖出时点尚未确认",
-    entryTimingEvidence:"DVOL 4h {change4h}，1d {change1d}。{meaning}",
-    entryTimingCoolingMeaning:"两个周期都在回落，波动率扩张暂时放缓，对卖方路径相对友好；这不代表标的已经止跌。",
-    entryTimingWarmingMeaning:"两个周期都在上升。现在卖出后，隐含波动率仍可能继续升高，期权可能变得更贵。",
-    entryTimingMixedMeaning:"两个周期方向不同，还不能确认波动率正在持续回落。",
-    sellPutQualitativeRule:"三步按顺序判断，不打分，也不能互相抵消；任一步缺少关键数据，都不算完成判断。",
-    sellPutQualitativeBoundary:"这里判断市场环境是否值得进入具体合约筛选；某张 Put 是否值得卖，仍需另看 Strike、到期日、可成交 Bid、深度和成本。",
-    finalConclusion:"最终结论 · 波动率条件",suitableToOpen:"适合开仓",waitAndWatch:"观望",waitForEvidence:"观望 · 证据不足",notSuitableToOpen:"不适合开仓",
-    suitableToOpenReason:"波动率处在相对高位，市场存在正的波动率价差，且 4h 与 1d DVOL 同时回落。波动率环境已通过，可以继续复核具体合约。",
+    riskPricingRich:"市场为波动风险多付了很多",riskPricingPartial:"市场多付了一点，但还不算多",riskPricingCheap:"市场没有多付波动风险的钱",
+    riskPricingEvidence:"当前 DVOL {dvol}，过去一年 {percentile} 分位；DVOL − 30D RV = {vrp}。{meaning}",
+    riskPricingRichMeaning:"波动率处在相对高位，且市场给出的未来波动定价高于近期实际波动。这里只说明市场级保险偏贵。",
+    riskPricingMiddleMeaning:"市场存在正价差，但波动率仍在常态区间，进一步压缩的空间没有高位时清楚。",
+    riskPricingLowMeaning:"市场存在正价差，但波动率处在相对低位，不能只因为 VRP 为正就认定保险卖得贵。",
+    riskPricingCheapMeaning:"DVOL 没有高于 30D RV，当前没有看到正的市场级波动率溢价。",
+    premiumRealizationStarted:"变贵的部分开始回落 · 仅部分证据",premiumRealizationWarming:"还没回落，反而继续变贵",premiumRealizationMixed:"还看不清是否回落",
+    premiumRealizationEvidence:"DVOL 4h {change4h}，1d {change1d}。{meaning}",
+    premiumRealizationCoolingMeaning:"4 小时和 1 天的 DVOL 都在下降，说明期权价格里由高波动率推上去的那部分钱开始缩水，这对卖方有利；但还缺少现货止跌、实际波动变化与事件信息，所以只能算部分证据。",
+    premiumRealizationWarmingMeaning:"4 小时和 1 天的 DVOL 都在上升，说明期权价格里由波动率推高的部分还在变贵。现在卖出 Put 后，它的价格仍可能继续上涨，提前买回会更贵。",
+    premiumRealizationMixedMeaning:"4 小时和 1 天的 DVOL 一涨一跌，暂时看不清期权价格里由波动率推高的部分是否已经开始缩水。",
+    specificPutPending:"还没选定具体 Put",specificPutPendingNote:"先选到期日与 Strike，再看这张 Put 自己的 IV、相对其他 Put 贵不贵、可成交 Bid、买卖价差和盘口深度；整个市场的波动率偏贵，不代表你选的这一张 Put 报价也划算。",
+    netCompensationPending:"还没算完扣成本后的回报",netCompensationPendingNote:"选定合约后，再扣手续费、滑点和 8% 资金机会成本，并检查最坏情况下需要用多少资金接货、压力损失与 CVaR；还要确认这个 Strike 真的是你愿意买入 BTC 的价格。",
+    sellPutQualitativeRule:"四步按顺序判断，不打分，也不能互相抵消。前两步只判断市场环境，第三、四步必须落到具体合约与完整资本。",
+    sellPutQualitativeBoundary:"只有四步都有证据，才可以形成开仓结论；当前页面顶部最多给出“进入具体合约筛选”，不把市场级 VRP 冒充某张 Put 的确定收益。",
+    finalConclusion:"最终结论 · SELL PUT 路径",screenSpecificPut:"进入具体合约筛选",waitAndWatch:"观望",waitForEvidence:"观望 · 证据不足",notSuitableToOpen:"不适合开仓",
+    screenSpecificPutReason:"市场风险定价偏贵且 IV 开始回落，可以继续挑选具体 Put；合约价格与扣成本后的补偿尚未通过，当前不是开仓许可。",
     waitAndWatchReason:"市场存在正的波动率价差，但波动率位置或卖出时点尚未同时通过，继续等待更完整的环境。",
     waitForEvidenceReason:"关键波动率证据不足或报价已经过期，当前只能观望，不能据此开仓。",
     notSuitableToOpenReason:"DVOL 没有高于 30D RV，当前没有看到正的市场级波动率价差。",
-    verdictPositionGate:"波动率位置",verdictPremiumGate:"市场级价差",verdictTimingGate:"卖出时点",
+    verdictRiskPricingGate:"市场多付多少",verdictRealizationGate:"变贵部分是否回落",verdictContractGate:"具体报价是否划算",verdictNetGate:"扣成本后是否值得",
     gatePassed:"通过",gateWaiting:"等待",gateFailed:"未通过",gateUnavailable:"不可判断",
-    verdictPositionPassedDetail:"DVOL {dvol}，过去一年 {percentile} 分位，达到 75% 以上的相对高位。",
-    verdictPositionWaitingDetail:"DVOL {dvol}，过去一年 {percentile} 分位，尚未达到 75% 的相对高位。",
-    verdictPremiumPassedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}，市场给出的波动定价高于近期实际波动。",
-    verdictPremiumFailedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}，当前没有正的市场级价差。",
-    verdictTimingPassedDetail:"DVOL 4h {change4h}、1d {change1d}，两个周期都在回落。",
-    verdictTimingRisingDetail:"DVOL 4h {change4h}、1d {change1d}，两个周期都在上升。",
-    verdictTimingMixedDetail:"DVOL 4h {change4h}、1d {change1d}，方向不一致，尚未确认持续回落。",
+    verdictRiskPassedDetail:"DVOL {dvol}，过去一年 {percentile} 分位；DVOL − 30D RV = {vrp}，市场级保险定价相对偏贵。",
+    verdictRiskWaitingDetail:"DVOL {dvol}，过去一年 {percentile} 分位；虽然 VRP 为 {vrp}，但波动率位置尚不足以确认明显偏贵。",
+    verdictRiskFailedDetail:"DVOL − 30D RV = {vrp}，当前没有看到正的市场级波动率溢价。",
+    verdictRealizationPassedDetail:"DVOL 4h {change4h}、1d {change1d}，两个周期都在回落；这只是 IV 压缩开始出现的部分证据。",
+    verdictRealizationRisingDetail:"DVOL 4h {change4h}、1d {change1d}，两个周期都在上升，高溢价仍可能继续扩大。",
+    verdictRealizationMixedDetail:"DVOL 4h {change4h}、1d {change1d}，方向不一致，尚未确认持续回落。",
+    verdictContractPendingDetail:"尚未选定到期日与 Strike，不能判断具体 Put 的 IV、skew、Bid、Spread 和深度是否足够好。",
+    verdictNetPendingDetail:"尚未将手续费、滑点、8% 资金机会成本、完整 Strike 承诺和尾部损失纳入同一张合约。",
     verdictGateUnavailableDetail:"关键数据缺失或报价已失效，不能判断这一项。",
-    verdictScope:"三项同时通过才进入具体合约复核；这里不是下单许可。",
+    verdictScope:"前两步通过只代表可以筛选合约；第三、四步也通过后，才可以形成开仓结论。",
     timingLogic:"定性判断",timingDvol:"当前 DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL 过去一年位置",timingRv:"30D RV（30天实现波动率）",timingDvolMove:"DVOL 短期变化",
     sellPutModel:"多付多少 → 补偿什么 → 能否兑现 → 扣成本后是否值得",
@@ -1293,38 +1300,44 @@ const STRINGS={
     quoteExpired:"Quote expired",quoteExpiredReason:"Quote is older than 120 seconds; view only, do not act on it.",
     dataUnavailable:"Data unavailable",dataUnavailableReason:"The latest option chain failed to load. Old quotes were cleared and must not be used for a decision.",
     timingReadings:"How to read volatility premium",timingReadingsModel:"Is it high? → Is it rich? → Has it started to fall?",timingReadingsUnavailable:"No comparable volatility readings",
-    sellPutJudgement:"SELL PUT QUALITATIVE CHECK",sellPutJudgementModel:"Volatility position → Market-level spread → Entry timing",
-    volPositionStep:"01 · Where is volatility now?",premiumStep:"02 · Is the market paying extra for volatility?",entryTimingStep:"03 · Is the entry timing improving?",
+    sellPutJudgement:"SELL PUT QUALITATIVE CHECK",sellPutJudgementModel:"Extra pay → Volatility markup falling? → Contract value → Worth it after costs?",
+    riskPricingStep:"01 · Is the market paying enough extra to sell this risk?",
+    premiumRealizationStep:"02 · Is the part made expensive by volatility starting to fall?",
+    specificPutStep:"03 · Is the quote on this Put actually attractive?",
+    netCompensationStep:"04 · Is it still worth it after costs and downside risk?",
     qualitativeUnavailable:"Not enough evidence",qualitativeIncomplete:"Evidence is incomplete; no full conclusion",
-    volPositionEvidence:"Current DVOL is {dvol}, at the {percentile} percentile of the past year. {meaning}",
-    volPositionHighMeaning:"About {percentile} of the past year's observations were lower. Volatility is relatively high and may have more room to fall, but this alone does not make a Put attractive.",
-    volPositionMiddleMeaning:"About {percentile} of the past year's observations were lower. Volatility is in its normal range, so compression potential is less clear than at a high reading.",
-    volPositionLowMeaning:"About {percentile} of the past year's observations were lower. Volatility is relatively low, so further compression may be limited.",
-    premiumEvidence:"DVOL {dvol} − 30D RV {rv} = {vrp}. This compares the market's roughly 30-day volatility price with the past 30 days of realized volatility; it is not the return on one Put.",
-    positivePremium:"Market pricing is above recent realized volatility",nonPositivePremium:"No positive market-level spread",
-    entryTimingImproving:"Entry timing is improving",entryTimingWarming:"Entry timing still calls for patience",entryTimingUnconfirmed:"Entry timing is unconfirmed",
-    entryTimingEvidence:"DVOL 4h {change4h}, 1d {change1d}. {meaning}",
-    entryTimingCoolingMeaning:"Both horizons are falling, so volatility expansion is easing and the path is becoming friendlier for a seller; this does not mean the underlying has stopped falling.",
-    entryTimingWarmingMeaning:"Both horizons are rising. Implied volatility may keep rising after entry and make the option more expensive.",
-    entryTimingMixedMeaning:"The two horizons disagree, so a sustained decline in volatility is not confirmed.",
-    sellPutQualitativeRule:"The three gates are read in order. There is no score and failed evidence cannot be offset; missing a key input leaves the check incomplete.",
-    sellPutQualitativeBoundary:"This judges whether the market environment merits contract screening. Whether one Put is worth selling still depends on strike, expiry, executable Bid, depth, and costs.",
-    finalConclusion:"FINAL VERDICT · VOLATILITY CONDITIONS",suitableToOpen:"Suitable to open",waitAndWatch:"Wait",waitForEvidence:"Wait · insufficient evidence",notSuitableToOpen:"Not suitable to open",
-    suitableToOpenReason:"Volatility is relatively high, the market shows a positive volatility spread, and both 4h and 1d DVOL are falling. The volatility environment passes; review the specific contract next.",
-    waitAndWatchReason:"The market shows a positive volatility spread, but volatility position or entry timing has not passed at the same time. Wait for a more complete setup.",
+    riskPricingRich:"The market is paying a large volatility-risk premium",riskPricingPartial:"The market is paying some extra, but not much",riskPricingCheap:"The market is not paying extra for volatility risk",
+    riskPricingEvidence:"Current DVOL is {dvol}, at the {percentile} percentile of the past year; DVOL − 30D RV = {vrp}. {meaning}",
+    riskPricingRichMeaning:"Volatility is relatively high and the market's forward volatility price is above recent realized volatility. This only says market-level insurance is relatively expensive.",
+    riskPricingMiddleMeaning:"The spread is positive, but volatility remains in its normal range, so compression potential is less clear than at a high reading.",
+    riskPricingLowMeaning:"The spread is positive, but volatility is relatively low. A positive VRP alone does not prove that insurance is expensive.",
+    riskPricingCheapMeaning:"DVOL is not above 30D RV, so there is no positive market-level volatility premium at present.",
+    premiumRealizationStarted:"The expensive part is starting to fall · partial evidence",premiumRealizationWarming:"It is not falling and is getting more expensive",premiumRealizationMixed:"It is still unclear whether it is falling",
+    premiumRealizationEvidence:"DVOL 4h {change4h}, 1d {change1d}. {meaning}",
+    premiumRealizationCoolingMeaning:"DVOL is falling over both 4 hours and 1 day, so the part of the option price pushed up by high volatility is starting to shrink. That helps the seller, but spot stabilization, realized-volatility acceleration, and event data are still missing, so this is only partial evidence.",
+    premiumRealizationWarmingMeaning:"DVOL is rising over both 4 hours and 1 day, so the part of the option price pushed up by volatility is still getting more expensive. After selling the Put, its price may keep rising and cost more to buy back early.",
+    premiumRealizationMixedMeaning:"The 4-hour and 1-day DVOL moves disagree, so it is unclear whether the part of the option price pushed up by volatility has started to shrink.",
+    specificPutPending:"No specific Put selected yet",specificPutPendingNote:"Choose an expiry and strike, then compare the Put's own IV, relative richness versus other Puts, executable Bid, spread, and depth. Market-level volatility can be expensive while the selected Put is not attractive.",
+    netCompensationPending:"Net return after costs is not finished",netCompensationPendingNote:"After selecting a contract, deduct fees, slippage, and the 8% capital opportunity cost. Then check full assignment capital, stress loss, and CVaR, and confirm the strike is a BTC price you are willing to accept.",
+    sellPutQualitativeRule:"Read the four gates in order. There is no blended score and failed evidence cannot be offset. The first two gates judge only the market environment; gates three and four must use a specific contract and full capital.",
+    sellPutQualitativeBoundary:"An opening conclusion requires evidence for all four gates. The top of this page can say only 'screen specific contracts'; it never presents market-level VRP as a guaranteed return on one Put.",
+    finalConclusion:"FINAL VERDICT · SELL PUT PATH",screenSpecificPut:"Screen specific Put contracts",waitAndWatch:"Wait",waitForEvidence:"Wait · insufficient evidence",notSuitableToOpen:"Not suitable to open",
+    screenSpecificPutReason:"Market risk pricing is relatively rich and IV has started to fall, so specific Puts may be screened next. Contract value and compensation after costs have not passed, so this is not permission to open a position.",
+    waitAndWatchReason:"The market shows a positive volatility spread, but volatility position or seller timing has not passed at the same time. Wait for a more complete setup.",
     waitForEvidenceReason:"Key volatility evidence is missing or the quote has expired. Wait; do not open a position from this evidence.",
     notSuitableToOpenReason:"DVOL is not above 30D RV, so there is no positive market-level volatility spread at present.",
-    verdictPositionGate:"Volatility position",verdictPremiumGate:"Market-level spread",verdictTimingGate:"Entry timing",
+    verdictRiskPricingGate:"How much extra is offered",verdictRealizationGate:"Is the expensive part falling",verdictContractGate:"Is the contract quote attractive",verdictNetGate:"Is it worth it after costs",
     gatePassed:"Pass",gateWaiting:"Wait",gateFailed:"Fail",gateUnavailable:"Unavailable",
-    verdictPositionPassedDetail:"DVOL is {dvol}, at the {percentile} percentile of the past year—above the 75% relative-high threshold.",
-    verdictPositionWaitingDetail:"DVOL is {dvol}, at the {percentile} percentile of the past year—still below the 75% relative-high threshold.",
-    verdictPremiumPassedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}; market volatility pricing is above recent realized volatility.",
-    verdictPremiumFailedDetail:"DVOL {dvol} − 30D RV {rv} = {vrp}; there is no positive market-level spread at present.",
-    verdictTimingPassedDetail:"DVOL is {change4h} over 4h and {change1d} over 1d; both horizons are falling.",
-    verdictTimingRisingDetail:"DVOL is {change4h} over 4h and {change1d} over 1d; both horizons are rising.",
-    verdictTimingMixedDetail:"DVOL is {change4h} over 4h and {change1d} over 1d; the horizons disagree, so a sustained decline is unconfirmed.",
+    verdictRiskPassedDetail:"DVOL is {dvol}, at the {percentile} percentile of the past year; DVOL − 30D RV = {vrp}. Market-level insurance is relatively expensive.",
+    verdictRiskWaitingDetail:"DVOL is {dvol}, at the {percentile} percentile of the past year. Although VRP is {vrp}, volatility is not high enough to confirm a clearly rich price.",
+    verdictRiskFailedDetail:"DVOL − 30D RV = {vrp}; there is no positive market-level volatility premium at present.",
+    verdictRealizationPassedDetail:"DVOL is {change4h} over 4h and {change1d} over 1d. Both horizons are falling; this is only partial evidence that IV compression has begun.",
+    verdictRealizationRisingDetail:"DVOL is {change4h} over 4h and {change1d} over 1d. Both horizons are rising, so a rich premium may keep expanding.",
+    verdictRealizationMixedDetail:"DVOL is {change4h} over 4h and {change1d} over 1d. The horizons disagree, so a sustained decline is unconfirmed.",
+    verdictContractPendingDetail:"No expiry and strike have been selected, so the specific Put's IV, skew, executable Bid, spread, and depth cannot be judged.",
+    verdictNetPendingDetail:"Fees, slippage, the 8% capital opportunity cost, full strike commitment, and tail loss have not yet been evaluated on one contract.",
     verdictGateUnavailableDetail:"A key input is missing or the quote is invalid, so this gate cannot be judged.",
-    verdictScope:"All three gates must pass before contract review; this is not permission to trade.",
+    verdictScope:"Passing the first two gates only permits contract screening. An opening conclusion requires gates three and four to pass as well.",
     timingLogic:"Qualitative check",timingDvol:"Current DVOL",timingVrp:"VRP = DVOL − 30D RV",
     timingIvRank:"DVOL one-year position",timingRv:"30D RV (realized volatility)",timingDvolMove:"Short-term DVOL move",
     sellPutModel:"Extra pay → Risk source → Harvestability → Net value",
@@ -2312,7 +2325,6 @@ function sellPutFinalConclusion({
   dvol=null,rv=null,percentile=null,change4h=null,change1d=null
 }={}){
   const dvolValue=timingValue(dvol,1,"%");
-  const rvValue=timingValue(rv,1,"%");
   const percentileValue=timingValue(percentile,1,"%");
   const vrpValue=timingValue(vrp,1," pp",true);
   const change4hValue=timingValue(change4h,2,"%",true);
@@ -2323,65 +2335,69 @@ function sellPutFinalConclusion({
   });
   const gates=blocked
     ?[
-      unavailableGate(t("verdictPositionGate")),
-      unavailableGate(t("verdictPremiumGate")),
-      unavailableGate(t("verdictTimingGate"))
+      unavailableGate(t("verdictRiskPricingGate")),
+      unavailableGate(t("verdictRealizationGate")),
+      unavailableGate(t("verdictContractGate")),
+      unavailableGate(t("verdictNetGate"))
     ]
     :[
-      position
+      position&&vrp!==null
         ?{
-          label:t("verdictPositionGate"),
-          status:t(position.code==="high"?"gatePassed":"gateWaiting"),
-          tone:position.code==="high"?"good":"warn",
-          note:fillCopy(t(position.code==="high"
-            ?"verdictPositionPassedDetail"
-            :"verdictPositionWaitingDetail"),{
-            dvol:dvolValue,percentile:percentileValue
+          label:t("verdictRiskPricingGate"),
+          status:t(vrp<=0
+            ?"gateFailed"
+            :position.code==="high"
+              ?"gatePassed"
+              :"gateWaiting"),
+          tone:vrp<=0?"bad":position.code==="high"?"good":"warn",
+          note:fillCopy(t(vrp<=0
+            ?"verdictRiskFailedDetail"
+            :position.code==="high"
+              ?"verdictRiskPassedDetail"
+              :"verdictRiskWaitingDetail"),{
+            dvol:dvolValue,percentile:percentileValue,vrp:vrpValue
           })
         }
-        :unavailableGate(t("verdictPositionGate")),
-      vrp!==null
-        ?{
-          label:t("verdictPremiumGate"),
-          status:t(vrp>0?"gatePassed":"gateFailed"),
-          tone:vrp>0?"good":"bad",
-          note:fillCopy(t(vrp>0
-            ?"verdictPremiumPassedDetail"
-            :"verdictPremiumFailedDetail"),{
-            dvol:dvolValue,rv:rvValue,vrp:vrpValue
-          })
-        }
-        :unavailableGate(t("verdictPremiumGate")),
+        :unavailableGate(t("verdictRiskPricingGate")),
       direction
         ?{
-          label:t("verdictTimingGate"),
+          label:t("verdictRealizationGate"),
           status:t(direction.tone==="good"?"gatePassed":"gateWaiting"),
           tone:direction.tone==="good"?"good":"warn",
           note:fillCopy(t(direction.tone==="good"
-            ?"verdictTimingPassedDetail"
+            ?"verdictRealizationPassedDetail"
             :direction.tone==="bad"
-              ?"verdictTimingRisingDetail"
-              :"verdictTimingMixedDetail"),{
+              ?"verdictRealizationRisingDetail"
+              :"verdictRealizationMixedDetail"),{
             change4h:change4hValue,change1d:change1dValue
           })
         }
-        :unavailableGate(t("verdictTimingGate"))
+        :unavailableGate(t("verdictRealizationGate")),
+      {
+        label:t("verdictContractGate"),status:t("gateWaiting"),tone:"warn",
+        note:t("verdictContractPendingDetail")
+      },
+      {
+        label:t("verdictNetGate"),status:t("gateWaiting"),tone:"warn",
+        note:t("verdictNetPendingDetail")
+      }
     ];
-  if(blocked||!coreComplete){
+  const classification=DecisionRules.classifySellPut({blocked,coreComplete,position,vrp,direction});
+  if(classification==="unknown"){
     return {
       state:"wait",label:t("waitForEvidence"),reason:t("waitForEvidenceReason"),
       gates,note:t("verdictScope")
     };
   }
-  if(vrp<=0){
+  if(classification==="no"){
     return {
       state:"no",label:t("notSuitableToOpen"),reason:t("notSuitableToOpenReason"),
       gates,note:t("verdictScope")
     };
   }
-  if(position.code==="high"&&direction.tone==="good"){
+  if(classification==="screen"){
     return {
-      state:"sell",label:t("suitableToOpen"),reason:t("suitableToOpenReason"),
+      state:"sell",label:t("screenSpecificPut"),reason:t("screenSpecificPutReason"),
       gates,note:t("verdictScope")
     };
   }
@@ -2409,14 +2425,6 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
   const coreComplete=positionReady&&marketProxyReady&&direction;
   const percentileValue=timingValue(percentile,1,"%");
   const vrpValue=timingValue(vrp,1," pp",true);
-  const fngValue=timingNumber(metrics.fng);
-  const fngMoveValue=timingNumber(metrics.fng_drop_3d);
-  const fng=fngValue!==null
-    ?String(Math.round(fngValue))
-    :null;
-  const fngMove=fngMoveValue!==null
-    ?timingValue(fngMoveValue,0,"",true)
-    :null;
   const stale=action?.action_code==="stale";
   const insufficientHistory=action?.action_code==="insufficient_history";
   const blocked=decisionBlocked||stale||action?.blocked;
@@ -2494,56 +2502,69 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
   });
   let steps;
   if(blocked){
-    steps=[t("volPositionStep"),t("premiumStep"),t("entryTimingStep")]
+    steps=[
+      t("riskPricingStep"),t("premiumRealizationStep"),
+      t("specificPutStep"),t("netCompensationStep")
+    ]
       .map(label=>unavailableStep(label,blockedReason));
   }else{
-    const positionMeaning=position
-      ?fillCopy(t({
-        high:"volPositionHighMeaning",
-        middle:"volPositionMiddleMeaning",
-        low:"volPositionLowMeaning"
-      }[position.code]),{percentile:percentileValue})
-      :"";
-    const timingMeaning=direction
+    const riskMeaning=vrp!==null&&vrp<=0
+      ?t("riskPricingCheapMeaning")
+      :position
+        ?t({
+          high:"riskPricingRichMeaning",
+          middle:"riskPricingMiddleMeaning",
+          low:"riskPricingLowMeaning"
+        }[position.code])
+        :"";
+    const realizationMeaning=direction
       ?t(direction.tone==="good"
-        ?"entryTimingCoolingMeaning"
+        ?"premiumRealizationCoolingMeaning"
         :direction.tone==="bad"
-          ?"entryTimingWarmingMeaning"
-          :"entryTimingMixedMeaning")
+          ?"premiumRealizationWarmingMeaning"
+          :"premiumRealizationMixedMeaning")
       :"";
     steps=[
-      positionReady
+      positionReady&&marketProxyReady
         ?{
-          label:t("volPositionStep"),value:position.label,tone:position.tone,
-          note:fillCopy(t("volPositionEvidence"),{
-            dvol:timingValue(dvol,1,"%"),percentile:percentileValue,meaning:positionMeaning
+          label:t("riskPricingStep"),
+          value:t(vrp<=0
+            ?"riskPricingCheap"
+            :position.code==="high"
+              ?"riskPricingRich"
+              :"riskPricingPartial"),
+          tone:vrp<=0?"bad":position.code==="high"?"good":"warn",
+          note:fillCopy(t("riskPricingEvidence"),{
+            dvol:timingValue(dvol,1,"%"),percentile:percentileValue,
+            vrp:vrpValue,meaning:riskMeaning
           })
         }
-        :unavailableStep(t("volPositionStep"),t("volPositionUnavailable")),
-      marketProxyReady
-        ?{
-          label:t("premiumStep"),
-          value:t(vrp>0?"positivePremium":"nonPositivePremium"),
-          tone:vrp>0?"good":"bad",
-          note:fillCopy(t("premiumEvidence"),{
-            dvol:timingValue(dvol,1,"%"),rv:timingValue(rv,1,"%"),vrp:vrpValue
-          })
-        }
-        :unavailableStep(t("premiumStep"),t("premiumProxyMissing")),
+        :unavailableStep(
+          t("riskPricingStep"),
+          positionReady?t("premiumProxyMissing"):t("volPositionUnavailable")
+        ),
       direction
         ?{
-          label:t("entryTimingStep"),
+          label:t("premiumRealizationStep"),
           value:t(direction.tone==="good"
-            ?"entryTimingImproving"
+            ?"premiumRealizationStarted"
             :direction.tone==="bad"
-              ?"entryTimingWarming"
-              :"entryTimingUnconfirmed"),
+              ?"premiumRealizationWarming"
+              :"premiumRealizationMixed"),
           tone:direction.tone,
-          note:fillCopy(t("entryTimingEvidence"),{
-            ...moveValues,meaning:timingMeaning
+          note:fillCopy(t("premiumRealizationEvidence"),{
+            ...moveValues,meaning:realizationMeaning
           })
         }
-        :unavailableStep(t("entryTimingStep"),t("premiumHarvestMissingNote"))
+        :unavailableStep(t("premiumRealizationStep"),t("premiumHarvestMissingNote")),
+      {
+        label:t("specificPutStep"),value:t("specificPutPending"),tone:"warn",
+        note:t("specificPutPendingNote")
+      },
+      {
+        label:t("netCompensationStep"),value:t("netCompensationPending"),tone:"warn",
+        note:t("netCompensationPendingNote")
+      }
     ];
   }
   const conclusion=sellPutFinalConclusion({
@@ -2562,21 +2583,12 @@ function sellPutLogic(action,{decisionBlocked=false}={}){
       {
         title:t("timingReadings"),model:t("timingReadingsModel"),
         evidence:readings,kind:"act-readings"
-      },
-      {
-        title:t("sellPutJudgement"),model:t("sellPutJudgementModel"),
-        evidence:steps,kind:"act-steps"
       }
     ],
-    model:t("sellPutJudgementModel"),
+    model:t("timingReadingsModel"),
     readings,
     evidence:steps,
-    conclusion,
-    rule:t("sellPutQualitativeRule"),
-    boundary:t("sellPutQualitativeBoundary"),
-    auxiliary:fng&&fngMove
-      ?fillCopy(t("fearAux"),{value:fng,change:fngMove})
-      :""
+    conclusion
   };
 }
 
@@ -4492,20 +4504,7 @@ function percentileTone(value){
 }
 
 function trustedIvPercentile(ivHistory,key,windowDays){
-  const rawValue=ivHistory?.percentiles?.[key];
-  if(rawValue===null||rawValue===undefined||rawValue==="")return null;
-  const value=Number(rawValue);
-  if(!Number.isFinite(value))return null;
-  const sampleCount=Number(ivHistory?.percentile_sample_counts?.[key]);
-  const coverageDays=Number(ivHistory?.percentile_coverage_days?.[key]);
-  const hasConfidenceFields=
-    Number.isFinite(sampleCount)&&Number.isFinite(coverageDays);
-  if(hasConfidenceFields){
-    const minimumSamples=Math.max(20,Math.ceil(windowDays*.60));
-    if(sampleCount<minimumSamples||coverageDays<windowDays*.80)return null;
-    return value;
-  }
-  return null;
+  return DecisionRules.trustedPercentile(ivHistory,key,windowDays);
 }
 
 function ivAccumulatingCopy(ivHistory){
@@ -4824,6 +4823,6 @@ if(!IS_OWNER_ROUTE)startDashboard();
 </script>
 <script src="/static/owner_strategy.b4bf6d61b307.js"></script>
 <script src="/static/decision_journal.3ff075310a19.js"></script>
-<script src="/static/owner_app.d31517140ec9.js"></script>
+<script src="/static/owner_app.2f9321393266.js"></script>
 </body>
 </html>

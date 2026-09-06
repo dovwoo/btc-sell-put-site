@@ -30,6 +30,8 @@
   const AUTH_RETRY_BASE_MS=15000;
   const AUTH_RETRY_MAX_MS=300000;
   const DRAFT_KEY="mango.owner.position-draft.v1";
+  const STRATEGY_DRAFT_KEY="mango.strategy.draft.v1";
+  const STRATEGY_DRAFT_MAX_AGE_MS=15*60*1000;
   const CLOSED_DRAFT_KEY="mango.owner.closed-position-draft.v1";
   const ACCOUNT_DRAFT_KEY="mango.owner.account-draft.v1";
   const PROJECT_URL="https://yvpgdnbcjgxpjqenhvuo.supabase.co";
@@ -79,6 +81,7 @@
   let noticeKind="";
   let noticeTimer=null;
   let closeFeeAuto=false;
+  let closeDialogMode="manual";
   let optionRankData=null;
   let optionRankLoading=false;
   let optionRankError="";
@@ -88,6 +91,7 @@
   let openContextValue=null;
   let openContextKey="";
   let openContextVersion=0;
+  let activeStrategyDraft=null;
   const reviewFilters={month:"all",asset:"all",rule:"all"};
 
   const $=id=>document.getElementById(id);
@@ -1130,9 +1134,13 @@
     const {position:positionValue,decision,metrics}=row;
     const openSnapshot=snapshotForPosition(positionValue.id);
     const venue=Journal.VENUE_LABELS[openSnapshot?.venue]||"Deribit";
+    const expired=Strategy.isExpired(positionValue);
     const editAction=openSnapshot
       ?'<button type="button" class="owner-quiet" disabled title="开仓快照已锁定；如录入有误，请删除后重新录入">快照已锁定</button>'
       :`<button type="button" class="owner-quiet" data-owner-edit="${esc(positionValue.id)}"${privateReady?"":" disabled"}>编辑持仓</button>`;
+    const closeAction=expired
+      ?`<button type="button" class="owner-primary owner-close-action" data-owner-settle="${esc(positionValue.id)}"${privateReady?"":" disabled"}>确认到期结算</button>`
+      :`<button type="button" class="owner-primary owner-close-action" data-owner-close="${esc(positionValue.id)}"${privateReady?"":" disabled"}>平仓</button>`;
     const unavailable=quoteUnavailableReason(positionValue,metrics);
     const spread=metrics.spread_pct===null?"—":pct(metrics.spread_pct);
     const holdingAprUsable=metrics.quote_usable&&metrics.remaining_apr!==null;
@@ -1165,7 +1173,7 @@
         <div><span>现价距 Strike</span><strong>${signedPct(metrics.strike_distance_pct)}</strong></div>
       </div>
       ${unavailable?`<p class="owner-quote-warning">${esc(unavailable)}：未实现 P&amp;L、捕获率和基于报价的平仓结论已禁用；用户录入的持仓仍保留。</p>`:""}
-      <div class="owner-secondary-actions"><button type="button" class="owner-primary owner-close-action" data-owner-close="${esc(positionValue.id)}"${privateReady?"":" disabled"}>平仓</button>${editAction}<button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
+      <div class="owner-secondary-actions">${closeAction}${editAction}<button type="button" class="owner-quiet bad" data-owner-delete="${esc(positionValue.id)}"${privateReady?"":" disabled"}>删除持仓</button></div>
       <details class="owner-research-card" open><summary><span>高级研究 / CVaR / 压力测试</span><span>可调压力区间</span></summary>${researchCard(positionValue)}</details>
     </div>`;
   }
@@ -1270,6 +1278,9 @@
     page.querySelectorAll("[data-owner-close]").forEach(button=>button.addEventListener("click",()=>{
       openClosedRecordDialog(null,positions.find(row=>row.id===button.dataset.ownerClose));
     }));
+    page.querySelectorAll("[data-owner-settle]").forEach(button=>button.addEventListener("click",()=>{
+      openClosedRecordDialog(null,positions.find(row=>row.id===button.dataset.ownerSettle),{settlement:true});
+    }));
     page.querySelectorAll("[data-owner-delete]").forEach(button=>button.addEventListener("click",()=>deletePosition(button.dataset.ownerDelete)));
     $("ownerClosedAdd")?.addEventListener("click",()=>openClosedRecordDialog());
     page.querySelectorAll("[data-owner-closed-edit]").forEach(button=>button.addEventListener("click",()=>{
@@ -1329,24 +1340,158 @@
     $("ownerPositionNote").textContent=`${Journal.VENUE_LABELS[venue]} · ${asset} Sell Put · 资本占用按行权价 × 名义数量`;
   }
 
+  function normalizeStrategyDraft(raw,requestId,ownerId,nowMs=Date.now()){
+    const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if(!raw||raw.version!==1||!uuid.test(String(requestId||""))||raw.id!==requestId){
+      throw new Error("策略草稿与链接不匹配，请返回策略页重新复核。");
+    }
+    if(!ownerId||raw.ownerId!==ownerId){
+      throw new Error("策略草稿属于另一个登录账户，请使用原账户继续。");
+    }
+    const created=Date.parse(String(raw.createdAt||""));
+    if(!Number.isFinite(created)||nowMs-created>STRATEGY_DRAFT_MAX_AGE_MS||created>nowMs+5000){
+      throw new Error("策略草稿已超过 15 分钟，请返回策略页刷新后重新复核。");
+    }
+    const number=(value,{positive=false,nullable=false}={})=>{
+      if(nullable&&(value===null||value===undefined))return null;
+      if(typeof value!=="number"||!Number.isFinite(value)||(positive&&value<=0)){
+        throw new Error("策略草稿中的合约或快照数字无效，请重新复核。");
+      }
+      return value;
+    };
+    const strike=number(raw.strike,{positive:true});
+    const notional=number(raw.notional_btc,{positive:true});
+    const expiry=String(raw.expiry||"");
+    const expiryMs=Date.parse(`${expiry}T08:00:00Z`);
+    const instrument=String(raw.instrument||"");
+    const parts=instrument.match(/^BTC_USDC-(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})-(\d+(?:\.\d+)?)-P$/);
+    const months=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    const instrumentExpiry=parts?`20${parts[3]}-${String(months.indexOf(parts[2])+1).padStart(2,"0")}-${parts[1].padStart(2,"0")}`:"";
+    if(raw.asset!=="BTC"||raw.kind!=="sell_put"||raw.venue!=="deribit"||
+      notional<ASSET_DEFAULTS.BTC.min||!Number.isFinite(strike*notional)||
+      !/^\d{4}-\d{2}-\d{2}$/.test(expiry)||!Number.isFinite(expiryMs)||
+      new Date(expiryMs).toISOString().slice(0,10)!==expiry||expiryMs<=nowMs||
+      !parts||instrumentExpiry!==expiry||Number(parts[4])!==strike){
+      throw new Error("策略草稿的 BTC USDC Put 合约、数量或到期日无效，请重新复核。");
+    }
+    const snapshot=(value,fields,positiveFields=[])=>{
+      if(!value||typeof value!=="object"||Array.isArray(value)){
+        throw new Error("策略草稿缺少复核快照，请重新复核。");
+      }
+      const asOf=Date.parse(String(value.asOf||""));
+      if(!Number.isFinite(asOf)||asOf>created+5000||created-asOf>STRATEGY_DRAFT_MAX_AGE_MS){
+        throw new Error("策略草稿的快照时间无效，请重新复核。");
+      }
+      const result={asOf:new Date(asOf).toISOString()};
+      for(const field of fields){
+        result[field]=number(value[field],{nullable:!positiveFields.includes(field),positive:positiveFields.includes(field)});
+      }
+      return result;
+    };
+    const marketSnapshot=snapshot(raw.marketSnapshot,["spot","dvol","rv","vrp","percentile","change4h","change1d"],["spot"]);
+    const quoteSnapshot=snapshot(raw.quoteSnapshot,["bid","ask","netPremiumUsd","feesUsd","slippageUsd","capitalUsd"],["bid","ask","capitalUsd"]);
+    if(quoteSnapshot.ask<quoteSnapshot.bid||
+      ["netPremiumUsd","feesUsd","slippageUsd"].some(key=>quoteSnapshot[key]===null||quoteSnapshot[key]<0)||
+      Math.abs(quoteSnapshot.capitalUsd-strike*notional)>Math.max(.01,strike*notional*1e-6)||
+      typeof raw.reason_text!=="string"||raw.reason_text.length>1000){
+      throw new Error("策略草稿的报价、资本占用或复核理由无效，请重新复核。");
+    }
+    const formValues={};
+    const allowedFormFields=["asset","venue","strike","expiry","notional_btc","open_premium_per_btc","open_date","open_time","reason_text"];
+    if(raw.formValues&&typeof raw.formValues==="object"&&!Array.isArray(raw.formValues)){
+      for(const key of allowedFormFields){
+        if(typeof raw.formValues[key]==="string"&&raw.formValues[key].length<=1000){
+          formValues[key]=raw.formValues[key];
+        }
+      }
+      if(formValues.asset&&!OWNER_ASSETS.includes(formValues.asset))delete formValues.asset;
+      if(formValues.venue&&!Object.hasOwn(Journal.VENUE_LABELS,formValues.venue))delete formValues.venue;
+    }
+    return {
+      version:1,id:requestId,createdAt:new Date(created).toISOString(),ownerId,
+      asset:"BTC",kind:"sell_put",venue:"deribit",instrument,strike,expiry,
+      notional_btc:notional,reason_text:raw.reason_text,marketSnapshot,quoteSnapshot,formValues,
+    };
+  }
+
+  function strategyDraftPrefill(draft){
+    const market=draft.marketSnapshot;
+    const quote=draft.quoteSnapshot;
+    const summary=[
+      "策略复核快照（仅为当时观察，不是成交记录）：",
+      `${draft.instrument} · ${quote.asOf}`,
+      `参考现价 ${money(market.spot,2)}；DVOL ${pct(market.dvol)}；RV ${pct(market.rv)}；VRP ${market.vrp===null?"—":`${market.vrp.toFixed(1)} pp`}`,
+      `当时报价 Bid ${money(quote.bid,2)} / Ask ${money(quote.ask,2)}；计划 ${draft.notional_btc} BTC；K×Q ${money(quote.capitalUsd,2)}`,
+      `估算净权利金 ${money(quote.netPremiumUsd,2)}（费用 ${money(quote.feesUsd,2)}、滑点 ${money(quote.slippageUsd,2)}）。实际成交请另填。`,
+    ].join("\n");
+    const reason=draft.reason_text.slice(0,Math.max(0,998-summary.length));
+    return {
+      asset:draft.asset,venue:draft.venue,strike:draft.strike,expiry:draft.expiry,
+      notional_btc:draft.notional_btc,open_premium_per_btc:"",open_time:"",
+      reason_text:`${reason}\n\n${summary}`,...draft.formValues,
+    };
+  }
+
+  function persistPositionDraft(){
+    if(activeStrategyDraft){
+      activeStrategyDraft={...activeStrategyDraft,formValues:positionDraft()};
+      try{sessionStorage.setItem(STRATEGY_DRAFT_KEY,JSON.stringify(activeStrategyDraft))}
+      catch(_){setNotice("浏览器暂不能保存策略录仓草稿，请保持本页打开。","warn")}
+      return;
+    }
+    localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
+  }
+
+  function completeStrategyDraft(){
+    if(!activeStrategyDraft)return;
+    try{
+      const stored=JSON.parse(sessionStorage.getItem(STRATEGY_DRAFT_KEY)||"null");
+      if(stored?.id===activeStrategyDraft.id)sessionStorage.removeItem(STRATEGY_DRAFT_KEY);
+    }catch(_){}
+    const url=new URL(window.location.href);
+    if(url.searchParams.get("strategy-draft")===activeStrategyDraft.id){
+      url.searchParams.delete("strategy-draft");
+      window.history.replaceState(window.history.state,"",`${url.pathname}${url.search}${url.hash}`);
+    }
+    activeStrategyDraft=null;
+  }
+
+  function openStrategyDraft(){
+    if(!positionsRoute||!privateReady||!session?.user?.id||$("ownerPositionDialog")?.open)return;
+    const requestId=new URLSearchParams(window.location.search).get("strategy-draft");
+    if(!requestId)return;
+    try{
+      const raw=JSON.parse(sessionStorage.getItem(STRATEGY_DRAFT_KEY)||"null");
+      const draft=normalizeStrategyDraft(raw,requestId,session.user.id);
+      openPositionDialog(null,strategyDraftPrefill(draft),{strategyDraft:draft});
+      setNotice("已带入策略复核草稿。请按实际成交记录确认数量、权利金和时间，再保存持仓。","warn");
+    }catch(error){
+      setNotice(error.message||"策略草稿无法恢复，请返回策略页重新复核。","warn");
+    }
+  }
+
   function bindPositionDialog(){
     $("ownerDialogClose").addEventListener("click",closePositionDialog);
     $("ownerDialogCancel").addEventListener("click",closePositionDialog);
+    $("ownerPositionDialog").addEventListener("cancel",event=>{
+      event.preventDefault();
+      closePositionDialog();
+    });
     $("ownerPositionAsset").addEventListener("change",()=>{
       updatePositionAssetUi({resetNotional:true});
-      localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
+      persistPositionDraft();
       scheduleOpenContext();
     });
     $("ownerPositionVenue").addEventListener("change",()=>{
       updatePositionAssetUi();
-      localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
+      persistPositionDraft();
     });
     $("ownerPositionForm").addEventListener("submit",event=>{
       event.preventDefault();
       savePosition();
     });
     $("ownerPositionForm").addEventListener("input",()=>{
-      localStorage.setItem(DRAFT_KEY,JSON.stringify(positionDraft()));
+      persistPositionDraft();
     });
     $("ownerPositionOpenDate").addEventListener("change",scheduleOpenContext);
     $("ownerPositionOpenTime").addEventListener("change",scheduleOpenContext);
@@ -1453,7 +1598,8 @@
     }),350);
   }
 
-  function openPositionDialog(existing=null,prefill=null){
+  function openPositionDialog(existing=null,prefill=null,{strategyDraft=null}={}){
+    activeStrategyDraft=strategyDraft;
     if(existing&&snapshotForPosition(existing.id)){
       setNotice("这笔持仓已有不可变开仓快照；如录入有误，请删除后重新录入。","warn");
       return;
@@ -1462,7 +1608,7 @@
     const row=existing||prefill||draft||{};
     const asset=Strategy.normalizeAsset(row.asset||currentMarketAsset());
     const existingSnapshot=existing?snapshotForPosition(existing.id):null;
-    $("ownerDialogTitle").textContent=existing?"编辑 Sell Put 持仓":"新增 Sell Put 持仓";
+    $("ownerDialogTitle").textContent=existing?"编辑 Sell Put 持仓":strategyDraft?"确认成交后录入持仓":"新增 Sell Put 持仓";
     $("ownerDialogSave").textContent=existing?"保存修改":"添加持仓";
     $("ownerPositionId").value=existing?.id||"";
     $("ownerPositionAsset").value=asset;
@@ -1482,15 +1628,17 @@
     $("ownerOpenContext").hidden=Boolean(existing);
     openContextValue=null;
     openContextKey="";
+    renderOpenContext();
     updatePositionAssetUi();
     $("ownerDialogError").textContent="";
     const dialog=$("ownerPositionDialog");
     if(dialog.showModal)dialog.showModal();
     else dialog.setAttribute("open","");
-    if(!existing)scheduleOpenContext();
+    if(!existing&&$("ownerPositionOpenTime").value)scheduleOpenContext();
   }
 
   function closePositionDialog(){
+    completeStrategyDraft();
     clearTimeout(openContextTimer);
     openContextController?.abort();
     const dialog=$("ownerPositionDialog");
@@ -1502,6 +1650,10 @@
     const button=$("ownerDialogSave");
     const errorNode=$("ownerDialogError");
     try{
+      if(!privateReady||!session?.user?.id)throw new Error("请等待私有持仓加载完成后再保存。");
+      if(activeStrategyDraft&&activeStrategyDraft.ownerId!==session.user.id){
+        throw new Error("策略草稿属于另一个登录账户，不能保存到当前账户。");
+      }
       const draft=positionDraft();
       const normalized=Strategy.normalizePosition(draft);
       const body={
@@ -1537,10 +1689,14 @@
         });
       }
       if(!rows?.length)throw new Error("持仓没有保存成功");
-      localStorage.removeItem(DRAFT_KEY);
+      if(!activeStrategyDraft)localStorage.removeItem(DRAFT_KEY);
       closePositionDialog();
+      positionFilter="all";
       await loadPrivateData();
-      setNotice(id?"持仓已更新。":"持仓已加入。","ok");
+      expandedPositionIds.clear();
+      if(rows[0]?.id)expandedPositionIds.add(rows[0].id);
+      renderPositions();
+      setNotice(id?"持仓已更新。":"持仓已加入，可在本页继续检查行情与风险；确认平仓后可进入复盘。","ok");
     }catch(error){
       errorNode.textContent=error.message;
     }finally{
@@ -1682,7 +1838,9 @@
     ])$(id).readOnly=linked;
   }
 
-  function openClosedRecordDialog(existing=null,sourcePosition=null){
+  function openClosedRecordDialog(existing=null,sourcePosition=null,{settlement=false}={}){
+    const settlementMode=Boolean(sourcePosition&&settlement);
+    closeDialogMode=existing?"edit":settlementMode?"settlement":sourcePosition?"close":"manual";
     const draft=existing||sourcePosition?null:readStoredJson(CLOSED_DRAFT_KEY);
     const linked=sourcePosition?{
       asset:sourcePosition.asset,
@@ -1694,22 +1852,25 @@
     }:null;
     const row=existing||linked||draft||{};
     const asset=Strategy.normalizeAsset(row.asset||currentMarketAsset());
-    $("ownerClosedTitle").textContent=existing?"编辑平仓记录":sourcePosition?"确认平仓":"录入平仓记录";
-    $("ownerClosedSubtitle").textContent=sourcePosition
-      ?"填写实际平仓结果；保存后，该仓位会移入已平仓记录。"
+    $("ownerClosedTitle").textContent=existing?"编辑平仓记录":settlementMode?"确认到期结算":sourcePosition?"确认平仓":"录入平仓记录";
+    $("ownerClosedSubtitle").textContent=settlementMode
+      ?"若该 Put 到期归零，结算成本保持 0；若发生现金结算，请改为交易所实际成本与手续费。"
+      :sourcePosition?"填写实际平仓结果；保存后，该仓位会移入已平仓记录。"
       :"只记录已确认的实现结果，不读取交易所数据。";
-    $("ownerClosedSave").textContent=existing?"保存修改":sourcePosition?"确认平仓":"添加记录";
+    $("ownerClosedSave").textContent=existing?"保存修改":settlementMode?"确认到期结算":sourcePosition?"确认平仓":"添加记录";
     $("ownerClosedId").value=existing?.id||"";
     $("ownerClosedAsset").value=asset;
     $("ownerClosedStrike").value=inputValue(row.strike);
     $("ownerClosedExpiry").value=row.expiry||"";
     $("ownerClosedNotional").value=inputValue(row.notional??ASSET_DEFAULTS[asset].notional);
     $("ownerClosedOpenDate").value=row.open_date||today();
-    $("ownerClosedCloseDate").value=row.close_date||today();
+    $("ownerClosedCloseDate").value=settlementMode?sourcePosition.expiry:row.close_date||today();
     $("ownerClosedPremium").value=inputValue(row.open_premium_per_unit);
-    $("ownerClosedCost").value=inputValue(row.close_cost_per_unit);
+    $("ownerClosedCost").value=settlementMode?"0":inputValue(row.close_cost_per_unit);
     $("ownerClosedFees").value=inputValue(row.fees_usd??0);
-    $("ownerClosedNotes").value=row.notes||"";
+    $("ownerClosedNotes").value=settlementMode
+      ?"到期自动结算；结算成本与手续费已按交易所实际结果核对。"
+      :row.notes||"";
     setClosedSourceMode(sourcePosition);
     const snapshot=sourcePosition?snapshotForPosition(sourcePosition.id):null;
     const snapshotNode=$("ownerClosedSnapshot");
@@ -1717,8 +1878,10 @@
     if(sourcePosition){
       snapshotNode.innerHTML=`<div><span class="owner-kicker">OPEN SNAPSHOT</span><strong>开仓时看到的证据</strong></div>${snapshotReviewHtml(snapshot)}`;
     }else snapshotNode.innerHTML="";
-    closeFeeAuto=Boolean(sourcePosition);
-    $("ownerClosedFeeNote").textContent=sourcePosition?"等待平仓成本以估算":"请输入实际手续费";
+    closeFeeAuto=Boolean(sourcePosition)&&!settlementMode;
+    $("ownerClosedFeeNote").textContent=settlementMode
+      ?"到期归零默认 0；若交易所收取结算费，请按实际账单修改"
+      :sourcePosition?"等待平仓成本以估算":"请输入实际手续费";
     applyCloseFeeEstimate();
     updateClosedAssetUi();
     updateClosedRecordPreview();
@@ -1740,6 +1903,7 @@
     const editing=Boolean($("ownerClosedId").value);
     const sourcePositionId=$("ownerClosedPositionId").value;
     const closingPosition=Boolean(sourcePositionId);
+    const settlementMode=closeDialogMode==="settlement";
     try{
       const normalized=Strategy.normalizeClosedPosition(closedRecordDraft());
       const recordBody={
@@ -1778,12 +1942,12 @@
       if(closingPosition)expandedPositionIds.delete(sourcePositionId);
       closeClosedRecordDialog();
       await loadPrivateData();
-      setNotice(editing?"平仓记录已更新。":closingPosition?"持仓已平仓并移入记录。":"平仓记录已加入。","ok");
+      setNotice(editing?"平仓记录已更新。":settlementMode?"到期结算已确认并移入记录。":closingPosition?"持仓已平仓并移入记录。":"平仓记录已加入。","ok");
     }catch(error){
       errorNode.textContent=error.message;
     }finally{
       button.disabled=false;
-      button.textContent=editing?"保存修改":closingPosition?"确认平仓":"添加记录";
+      button.textContent=editing?"保存修改":settlementMode?"确认到期结算":closingPosition?"确认平仓":"添加记录";
     }
   }
 
@@ -1856,6 +2020,7 @@
     renderOwnerReview();
     renderEntry();
     window.MangoDashboard?.rerender?.();
+    openStrategyDraft();
   }
 
   function researchUrl(asset){

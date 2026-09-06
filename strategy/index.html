@@ -4,31 +4,71 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>期权策略向导 · V4.1 原型</title>
-  <link rel="stylesheet" href="strategy-selector-v4.css">
-  <link rel="stylesheet" href="strategy-comparison-v1.css">
+  <title>期权决策台 · BTC Sell Put</title>
+  <link rel="stylesheet" href="./strategy-desk.css?v=9fe344cf03ce">
+  <link rel="stylesheet" href="./strategy-comparison-v1.css?v=f4fcb688d6cf">
+  <script>window.MANGO_OWNER_CONFIG=Object.freeze({"url":"https://yvpgdnbcjgxpjqenhvuo.supabase.co","anonKey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2cGdkbmJjamd4cGpxZW5odnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MDI1NDksImV4cCI6MjEwMTA3ODU0OX0.-UVuCzfqiDFRZQA2J-5ju-jmW-gCFysoijkKhnRbmCA"});</script>
+<script>window.MANGO_BASE_PATH="/";window.MANGO_API_BASE="https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";</script>
+  <script defer src="/static/decision_rules.69f760b4b7d0.js"></script>
+  <script defer src="./strategy-desk.js?v=c17f6823a678"></script>
+  <script defer src="./strategy-comparison-v1.js?v=81445dd39ca8"></script>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark">DECISION DESK / V4.1</span>
-        <span class="brand-title">期权策略向导</span>
-      </div>
-      <div class="topbar-right">
-        <nav class="prototype-nav" aria-label="网站导航">
-          <a href="/options/">行情</a>
-          <a href="/owner/">持仓</a>
-          <a href="/strategy/" class="active" aria-current="page">策略</a>
-        </nav>
-        <span class="prototype-status">合成演示 · 不会下单</span>
-      </div>
-    </header>
-
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="/strategy/">DECISION DESK <span>期权决策台</span></a>
+    <nav aria-label="网站导航"><a href="/options/">行情</a><a href="/owner/">持仓</a><a href="/strategy/" aria-current="page">策略</a></nav>
+  </header>
+  <main>
+    <section class="intro">
+      <div><span class="eyebrow">BTC / SELL PUT</span><h1>今天，需要再看一笔吗？</h1><p>真实行情 → 合约复核 → 确认录仓 → 持续检查</p></div>
+      <button id="refreshDesk" type="button">刷新行情与持仓</button>
+    </section>
+    <section class="verdict wait" aria-labelledby="verdictTitle" aria-live="polite">
+      <div><span class="eyebrow" id="marketAsOf">正在读取真实数据</span><h2 id="verdictTitle">等待 · 正在核验</h2><p id="verdictReason">加载期间不会保留旧结论。</p></div>
+      <div class="spot"><span>BTC SPOT</span><strong id="spotPrice">—</strong><small id="contractFamily">核验合约与结算方式</small></div>
+    </section>
+    <div id="marketReadings" class="readings"></div>
+    <p class="data-note" id="recheckCondition">数据缺失时先刷新；没有候选也可以结束本次检查。</p>
+    <section class="account-strip" aria-labelledby="accountTitle">
+      <div><h2 id="accountTitle">我的资金与待处理事项</h2><p id="accountStatus" aria-live="polite">正在检查 Owner 登录状态…</p></div>
+      <div id="accountFigures"></div>
+      <a href="/owner/" id="ownerLink">打开持仓与账户设置 →</a>
+    </section>
+    <div class="workbench">
+      <section class="selection" aria-labelledby="selectionTitle">
+        <header class="section-head"><span class="section-index">01 / FIND A CONTRACT</span><h2 id="selectionTitle">按你的条件筛选</h2><p>先限定愿意承担的价格和期限，再看真实合约。</p></header>
+        <form id="candidateForm">
+          <label for="maxStrike">最高接受的行权价 · USD<input id="maxStrike" type="number" min="1" step="any" placeholder="填写你愿意承担的价格" required></label>
+          <div class="field-pair"><label for="minDays">最短天数<input id="minDays" type="number" min="1" step="1" value="7" required></label><label for="maxDays">最长天数<input id="maxDays" type="number" min="1" step="1" value="45" required></label></div>
+          <button type="submit">筛选真实 Put</button>
+        </form>
+        <p id="candidateStatus" class="data-note" aria-live="polite">填写接受价格后，按距离该价格最近的合约排列。</p>
+        <div id="candidateList"></div>
+        <a href="/options/?asset=BTC" class="quiet-link">查看完整 BTC 期权链 →</a>
+      </section>
+      <section class="review" aria-labelledby="reviewTitle">
+        <header class="section-head"><span class="section-index">02 / REVIEW THE CONSEQUENCES</span><h2 id="reviewTitle">选择一张合约，核对这笔账</h2><p id="selectedContract">左侧选择后，查询该合约的真实 Bid / Ask 和顶档数量。</p></header>
+        <div id="depthStatus" class="data-note" aria-live="polite"></div>
+        <button id="refreshDepth" type="button" hidden>更新所选合约盘口</button>
+        <fieldset id="reviewInputs" disabled><legend>本笔计划</legend>
+          <div class="field-pair"><label for="quantity">计划数量 · BTC<input id="quantity" type="number" min="0.01" step="0.01" placeholder="按资金容量自行填写"></label><label for="feesUsd">本笔费用预算 · USD<input id="feesUsd" type="number" min="0" step="any" placeholder="含开仓及预计结算费用"></label></div>
+          <div class="field-pair"><label for="slippageUsd">滑点预算 · USD<input id="slippageUsd" type="number" min="0" step="any" placeholder="可填 0，需自行确认"></label><label for="opportunityApy">资金机会成本 · 年化 %<input id="opportunityApy" type="number" min="0" max="100" step="any" value="8"></label></div>
+          <p class="data-note">费用和滑点按整笔金额填写；8% 沿用现有比较基准，可修改。只计算到期未赔付的条件收入。</p>
+        </fieldset>
+        <div id="reviewNumbers" class="review-numbers"></div>
+        <div id="reviewBlockers" aria-live="polite"></div>
+        <label class="acknowledge"><input id="riskAccepted" type="checkbox" disabled><span>已检查事件风险，并理解 USDC 现金结算的亏损后果；若希望增加 BTC，需另行买入现货。</span></label>
+        <button id="handoffOwner" class="primary" type="button" disabled>带入录仓确认</button>
+        <p id="handoffStatus" class="data-note" role="status">这里只预填合约；实际成交价格与时间由你填写，确认保存后才会加入持仓。</p>
+      </section>
+    </div>
+    <section class="follow-through"><span class="section-index">03 / KEEP THE CONTEXT</span><h2>录仓后，继续检查同一笔</h2><p>已有持仓继续显示风险与到期事项。确认平仓或结算后，进入原有复盘记录。</p><div><a href="/owner/">持仓与待处理 →</a><a href="/owner/review/">已平仓复盘 →</a></div></section>
+    <details class="vol-context"><summary>查看其他策略的波动率背景</summary><div id="longCallContext">正在加载 BTC 远期 Call…</div><p class="data-note">市场 IV 的历史位置只提供背景。具体 Call 必须核对自身期限、IV、Ask 和最大权利金损失。</p><div><a href="/buy-call/?asset=BTC">Buy Call 合约 →</a><a href="/covered-call/?asset=BTC">Covered Call 行情 →</a></div></details>
     <section class="market-compare" id="marketComparison" aria-labelledby="marketComparisonTitle">
       <header class="compare-head">
         <div>
-          <span class="section-index">00 / FIXED OTM SCAN</span>
+          <span class="section-index">04 / EXPLORE</span>
           <h2 id="marketComparisonTitle">同一 OTM 下比较多个资产</h2>
           <p>默认比较 BTC、ETH、HYPE；也可添加美股 Ticker，再进入行情页选择具体 Strike。</p>
         </div>
@@ -72,146 +112,11 @@
           <tbody id="compareRows"></tbody>
         </table>
       </div>
-      <p class="compare-note">每个到期日只在目标 OTM 两侧的相邻真实 Strike 间做线性插值，不向报价范围外推；随后对到期日等权。美股使用 Alpaca Basic Indicative 派生报价（非 OPRA），仅供研究比较；所有结果都不是可成交报价。</p>
+      <p class="compare-note">同 OTM 不代表同风险，排序不构成推荐。每个到期日只在目标 OTM 两侧的相邻真实 Strike 间做线性插值，不向报价范围外推；随后对到期日等权。美股使用 Alpaca Basic Indicative 派生报价（非 OPRA），仅供研究比较；所有结果都不是可成交报价。</p>
     </section>
 
-    <main>
-      <section class="intro" aria-labelledby="pageTitle">
-        <div>
-          <span class="eyebrow">先明确目标，再判断下一小笔</span>
-          <h1 id="pageTitle">今天下一小笔该做什么？</h1>
-          <p>系统读取长期目标、行情和持仓；你最多回答三个选择题。</p>
-        </div>
-        <details class="profile-summary">
-          <summary>长期目标设置</summary>
-          <div id="profileDetails"></div>
-        </details>
-      </section>
-
-      <section class="expression-router" aria-labelledby="expressionRouterTitle">
-        <header class="section-head expression-router-head">
-          <div>
-            <span class="section-index">00 / VOLATILITY CLOCKS</span>
-            <h2 id="expressionRouterTitle">长期看多，用两套 IV 时钟选表达方式</h2>
-          </div>
-          <p>短期 IV 决定卖保险是否划算；远期 Call 自己的 IV 决定上涨权利买得贵不贵。</p>
-        </header>
-
-        <div class="expression-route-main">
-          <div class="expression-route-verdict" id="expressionRouteVerdict" aria-live="polite"></div>
-          <div class="expression-route-scale" aria-label="IV 一年百分位的连续策略倾向">
-            <div class="expression-zone clear-low">
-              <strong>明显偏低</strong>
-              <small>Buy Call 倾向较强</small>
-            </div>
-            <div class="expression-zone slight-low">
-              <strong>略微偏低</strong>
-              <small>Buy Call 略占优</small>
-            </div>
-            <div class="expression-zone neutral">
-              <strong>中性</strong>
-              <small>IV 不决定策略</small>
-            </div>
-            <div class="expression-zone slight-high">
-              <strong>略微偏高</strong>
-              <small>Sell Put 略占优</small>
-            </div>
-            <div class="expression-zone clear-high">
-              <strong>明显偏高</strong>
-              <small>Sell Put 倾向较强</small>
-            </div>
-            <span class="expression-marker" id="expressionRouteMarker" hidden></span>
-          </div>
-        </div>
-
-        <div class="volatility-clocks">
-          <article class="volatility-clock short-clock" id="shortPutClock"></article>
-          <article class="volatility-clock long-clock" id="longCallClock"></article>
-        </div>
-        <div class="expression-gates" id="expressionRouteGates"></div>
-        <p class="data-note expression-note">倾向不是开仓许可。高 IV 仍可能在补偿真实暴跌风险；低 IV 也不能弥补方向、期限或盈亏平衡价错误。</p>
-      </section>
-
-      <section class="opportunity" aria-labelledby="opportunityTitle">
-        <header class="section-head">
-          <div>
-            <span class="section-index">00 / MARKET SCAN</span>
-            <h2 id="opportunityTitle">先比较 BTC 和 ETH</h2>
-          </div>
-          <p id="marketScanSummary">系统正在比较两个资产…</p>
-        </header>
-
-        <div class="asset-comparison" id="assetComparison" role="tablist" aria-label="选择要研究的资产"></div>
-        <p class="data-note">原型使用合成行情与演示持仓，重点验证决策流程，不构成交易建议。</p>
-      </section>
-
-      <section class="decision-workspace">
-        <div class="questionnaire" aria-labelledby="questionnaireTitle">
-          <header class="questionnaire-head">
-            <span class="section-index">YOUR DECISIONS / 03</span>
-            <h2 id="questionnaireTitle">最多回答三件事</h2>
-            <p id="questionnaireRouteNote">不需要填写价格、期限、Strike 或 Greeks。</p>
-          </header>
-
-          <div class="decision-rail" id="decisionRail">
-            <section class="question active" data-step="1" aria-labelledby="questionOneTitle">
-              <div class="question-number">01</div>
-              <div class="question-content">
-                <p class="question-kicker">仓位方向</p>
-                <h3 id="questionOneTitle">你想把 <span data-asset-label>BTC</span> 仓位往哪边调？</h3>
-                <div class="choice-grid" id="directionChoices"></div>
-              </div>
-            </section>
-
-            <section class="question" data-step="2" aria-labelledby="questionTwoTitle">
-              <div class="question-number">02</div>
-              <div class="question-content">
-                <p class="question-kicker">真实意愿</p>
-                <h3 id="questionTwoTitle">到系统建议的价格，你真的愿意成交吗？</h3>
-                <div class="choice-grid" id="acceptanceChoices"></div>
-              </div>
-            </section>
-
-            <section class="question" data-step="3" aria-labelledby="questionThreeTitle">
-              <div class="question-number">03</div>
-              <div class="question-content">
-                <p class="question-kicker">本次分批</p>
-                <h3 id="questionThreeTitle">这次动用多少机动仓位？</h3>
-                <div class="choice-grid size-grid" id="sizeChoices"></div>
-                <p class="step-note" id="sizeStepNote" aria-live="polite"></p>
-              </div>
-            </section>
-          </div>
-
-          <details class="term-control">
-            <summary>
-              <span>系统建议期限</span>
-              <strong id="termSummary">约 45 天</strong>
-            </summary>
-            <div class="term-options" id="termChoices" aria-label="调整期限"></div>
-          </details>
-        </div>
-
-        <aside class="recommendation" aria-labelledby="recommendationTitle" aria-live="polite">
-          <div id="recommendationContent"></div>
-        </aside>
-      </section>
-    </main>
-
-    <footer class="page-footer">
-      <span>RESEARCH PROTOTYPE</span>
-      <p>系统只做筛选和解释；没有任何按钮会发送订单。</p>
-    </footer>
-  </div>
-
-  <script>
-    window.MANGO_API_BASE = "https://yvpgdnbcjgxpjqenhvuo.supabase.co/functions/v1/options-api";
-    window.MANGO_OWNER_CONFIG = Object.freeze({
-      url: "https://yvpgdnbcjgxpjqenhvuo.supabase.co",
-      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2cGdkbmJjamd4cGpxZW5odnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MDI1NDksImV4cCI6MjEwMTA3ODU0OX0.-UVuCzfqiDFRZQA2J-5ju-jmW-gCFysoijkKhnRbmCA",
-    });
-  </script>
-  <script src="strategy-selector-v4.js"></script>
-  <script src="strategy-comparison-v1.js"></script>
+  </main>
+  <footer>研究与复核工具 · 所有结论附带条件 · 持仓操作需要明确确认</footer>
+</div>
 </body>
 </html>

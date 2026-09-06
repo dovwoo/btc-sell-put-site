@@ -821,6 +821,7 @@ button.quote-depth[aria-disabled="true"]{cursor:wait;opacity:.65}
   .owner-stress-controls{grid-template-columns:1fr;gap:8px;padding:11px 11px 3px}
 }
 </style>
+<script src="/static/decision_rules.69f760b4b7d0.js"></script>
 <script id="productionMarketScope">
   window.MANGO_MARKET_SCOPE="crypto-only";
 </script>
@@ -2350,19 +2351,20 @@ function sellPutFinalConclusion({
         note:t("verdictNetPendingDetail")
       }
     ];
-  if(blocked||!coreComplete){
+  const classification=DecisionRules.classifySellPut({blocked,coreComplete,position,vrp,direction});
+  if(classification==="unknown"){
     return {
       state:"wait",label:t("waitForEvidence"),reason:t("waitForEvidenceReason"),
       gates,note:t("verdictScope")
     };
   }
-  if(vrp<=0){
+  if(classification==="no"){
     return {
       state:"no",label:t("notSuitableToOpen"),reason:t("notSuitableToOpenReason"),
       gates,note:t("verdictScope")
     };
   }
-  if(position.code==="high"&&direction.tone==="good"){
+  if(classification==="screen"){
     return {
       state:"sell",label:t("screenSpecificPut"),reason:t("screenSpecificPutReason"),
       gates,note:t("verdictScope")
@@ -4471,20 +4473,7 @@ function percentileTone(value){
 }
 
 function trustedIvPercentile(ivHistory,key,windowDays){
-  const rawValue=ivHistory?.percentiles?.[key];
-  if(rawValue===null||rawValue===undefined||rawValue==="")return null;
-  const value=Number(rawValue);
-  if(!Number.isFinite(value))return null;
-  const sampleCount=Number(ivHistory?.percentile_sample_counts?.[key]);
-  const coverageDays=Number(ivHistory?.percentile_coverage_days?.[key]);
-  const hasConfidenceFields=
-    Number.isFinite(sampleCount)&&Number.isFinite(coverageDays);
-  if(hasConfidenceFields){
-    const minimumSamples=Math.max(20,Math.ceil(windowDays*.60));
-    if(sampleCount<minimumSamples||coverageDays<windowDays*.80)return null;
-    return value;
-  }
-  return null;
+  return DecisionRules.trustedPercentile(ivHistory,key,windowDays);
 }
 
 function ivAccumulatingCopy(ivHistory){
